@@ -681,6 +681,75 @@ tr:hover td { background: rgba(255,255,255,.02); }
 .inv-actions    { display: flex; gap: 5px; flex-wrap: wrap; }
 .hlbox          { background: rgba(124,111,247,.08); border: 1px solid rgba(124,111,247,.22); border-radius: var(--radius-sm); padding: var(--space-sm) var(--space-md); }
 
+/* Invoice policies */
+.inv-policies-section {
+  margin-top: 16px;
+  border-top: 2px dashed #e0dcff;
+  padding-top: 14px;
+}
+.inv-policy-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #555;
+  line-height: 1.6;
+}
+.inv-policy-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+/* QR Code section in invoice */
+.inv-qr-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 2px dashed #e0dcff;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.inv-qr-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.inv-qr-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #7c6ff7;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  max-width: 80px;
+}
+.inv-qr-sublabel {
+  font-size: 9px;
+  color: #888;
+  text-align: center;
+  max-width: 90px;
+  word-break: break-all;
+}
+
+/* Social links in settings */
+.social-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.social-item .social-icon { font-size: 18px; flex-shrink: 0; }
+.social-item .social-url  { flex:1; color: var(--text2); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.social-item .social-del  { background:none; border:none; cursor:pointer; color:var(--text3); font-size:14px; padding:2px 4px; border-radius:4px; flex-shrink:0; }
+.social-item .social-del:hover { color: var(--accent4); }
+
+/* Task chip in invoice modal */
+#inv-tasks-list > div:hover { filter: brightness(1.08); }
+
 /* Invoice print */
 .invoice-print  { background: #fff; color: #1a1a2e; border-radius: var(--radius); padding: 30px; font-family: var(--font); }
 .inv-tbl        { width: 100%; border-collapse: collapse; margin: 18px 0; }
@@ -930,6 +999,67 @@ tr:hover td { background: rgba(255,255,255,.02); }
   #modal-profile .modal { width:100%!important; }
 }
 </style>
+<!-- QR Code library — qrcodejs via CDN (reliable, proven) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+/* ── QR wrapper: canvas-based (qrcodejs), falls back gracefully ── */
+var _qrCache = {};
+
+function _makeQRCanvas(text, size) {
+  if (!text || !text.trim()) return null;
+  try {
+    var tmp = document.createElement('div');
+    tmp.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:'+size+'px;height:'+size+'px;';
+    document.body.appendChild(tmp);
+    new QRCode(tmp, {
+      text: text, width: size, height: size,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    var canvas = tmp.querySelector('canvas');
+    var dataURL = canvas ? canvas.toDataURL('image/png') : null;
+    document.body.removeChild(tmp);
+    return dataURL;
+  } catch(e) { return null; }
+}
+
+/* Live preview — renders directly into container div */
+function liveQR(inputId, previewId, size) {
+  var text = (document.getElementById(inputId) ? document.getElementById(inputId).value : '').trim();
+  var el = document.getElementById(previewId);
+  if (!el) return;
+  el.innerHTML = '';
+  if (!text) {
+    el.innerHTML = '<div style="width:'+size+'px;height:'+size+'px;display:flex;align-items:center;justify-content:center;background:#f5f3ff;border-radius:8px;font-size:11px;color:#7c6ff7;text-align:center;padding:6px">أدخل رابطاً</div>';
+    return;
+  }
+  try {
+    el.style.cssText = 'width:'+size+'px;height:'+size+'px;border-radius:8px;overflow:hidden;';
+    new QRCode(el, {
+      text: text, width: size, height: size,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    /* hide img fallback if canvas exists */
+    setTimeout(function(){
+      var img = el.querySelector('img');
+      if (img && el.querySelector('canvas')) img.style.display='none';
+    }, 80);
+  } catch(e) {
+    el.innerHTML = '<div style="width:'+size+'px;height:'+size+'px;background:#fff0f0;display:flex;align-items:center;justify-content:center;font-size:10px;color:red;">خطأ</div>';
+  }
+}
+
+/* Returns PNG data-URL for embedding in preview/PDF HTML */
+function getQRDataURL(text, size) {
+  if (!text || !text.trim()) return null;
+  var key = text + '_' + size;
+  if (_qrCache[key]) return _qrCache[key];
+  var url = _makeQRCanvas(text, size || 120);
+  if (url) _qrCache[key] = url;
+  return url;
+}
+</script>
 </head>
 <body>
 
@@ -971,6 +1101,11 @@ tr:hover td { background: rgba(255,255,255,.02); }
       <button class="auth-btn" onclick="doLogin()">تسجيل الدخول</button>
 
       <div class="auth-divider">أو</div>
+      <button class="auth-btn" onclick="triggerAuthBackupImport()" style="background:var(--surface2);border:1.5px solid var(--border);color:var(--text2);box-shadow:none;margin-top:0">
+        📂 استعادة من نسخة احتياطية
+      </button>
+      <input type="file" id="auth-backup-input" accept=".json" style="display:none" onchange="doAuthBackupImport(this)">
+
       <div style="text-align:center;font-size:12px;color:var(--text2)">
         ما عندكش حساب؟
         <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="switchAuthTab(&#39;register&#39;)">أنشئ حساب جديد</span>
@@ -1015,7 +1150,11 @@ tr:hover td { background: rgba(255,255,255,.02); }
       <button class="auth-btn" onclick="doRegister()">إنشاء الحساب</button>
 
       <div class="auth-divider">أو</div>
-      <div style="text-align:center;font-size:12px;color:var(--text2)">
+      <button class="auth-btn" onclick="triggerAuthBackupImport()" style="background:var(--surface2);border:1.5px solid var(--border);color:var(--text2);box-shadow:none;margin-top:0">
+        📂 عندي نسخة احتياطية — استعادة البيانات
+      </button>
+
+      <div style="text-align:center;font-size:12px;color:var(--text2);margin-top:8px">
         عندك حساب بالفعل؟
         <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="switchAuthTab(&#39;login&#39;)">سجّل الدخول</span>
       </div>
@@ -1056,6 +1195,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
   <div class="nav-item" onclick="showPage(&#39;learning&#39;,this)"><span class="nav-icon">◆</span>التعلم والأهداف</div>
   <div class="nav-section-label">الإعدادات</div>
   <div class="nav-item" onclick="showPage(&#39;settings&#39;,this)"><span class="nav-icon">⚙</span>إعدادات الاستوديو</div>
+  <div class="nav-item" onclick="openBackupModal()" style="color:var(--accent3)"><span class="nav-icon">💾</span>نسخ احتياطي<span id="backup-reminder-dot" style="display:none;width:8px;height:8px;background:var(--accent4);border-radius:50%;margin-right:auto;flex-shrink:0"></span></div>
   <!-- User badge -->
   <div class="sidebar-user" id="sidebar-user" onclick="openProfileModal()" style="cursor:pointer" title="الملف الشخصي">
     <div class="user-avatar" id="user-avatar-icon">م</div>
@@ -1077,6 +1217,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
   </button>
   <div class="header-page-title" id="header-page-title">لوحة التحكم</div>
   <div class="header-actions">
+    <button class="btn btn-ghost btn-sm" onclick="openBackupModal()" title="نسخ احتياطي" id="header-backup-btn" style="display:inline-flex">💾</button>
     <button class="btn btn-primary btn-sm" id="header-cta" onclick="openTaskModal()" style="display: inline-flex;">+ مهمة جديدة</button>
   </div>
 </header>
@@ -1330,6 +1471,25 @@ tr:hover td { background: rgba(255,255,255,.02); }
       <div class="form-group"><label class="form-label">البريد الإلكتروني</label><input class="form-input" id="set-email" placeholder="studio@email.com"></div>
       <div class="form-group"><label class="form-label">الموقع / العنوان</label><input class="form-input" id="set-address" placeholder="المدينة، الدولة"></div>
       <div class="form-group"><label class="form-label">شروط الدفع الافتراضية</label><textarea class="form-textarea" id="set-terms" placeholder="مثال: الدفع خلال 7 أيام — الملكية تنتقل بعد السداد الكامل"></textarea></div>
+      <div class="form-group">
+        <label class="form-label">سياسات الفاتورة الافتراضية</label>
+        <div id="policies-list" style="margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px;margin-bottom:4px">
+          <select class="form-select" id="policy-icon-sel" style="width:56px;flex-shrink:0">
+            <option value="💳">💳</option>
+            <option value="✏">✏</option>
+            <option value="📦">📦</option>
+            <option value="⏰">⏰</option>
+            <option value="🔒">🔒</option>
+            <option value="📋">📋</option>
+            <option value="⚠">⚠</option>
+            <option value="✅">✅</option>
+          </select>
+          <input class="form-input" id="policy-text-input" placeholder="مثال: الدفع خلال 7 أيام من تاريخ الفاتورة">
+          <button class="btn btn-ghost btn-sm" onclick="addPolicy()" style="flex-shrink:0">+ إضافة</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">السياسات تظهر أسفل الفاتورة عند الطباعة أو التصدير كـ PDF</div>
+      </div>
       <button class="btn btn-primary" onclick="saveSettings()">💾 حفظ الإعدادات</button>
     </div>
     <div class="card">
@@ -1340,6 +1500,28 @@ tr:hover td { background: rgba(255,255,255,.02); }
         <button class="btn btn-ghost" onclick="document.getElementById(&#39;logo-input&#39;).click()">📁 رفع لوجو</button>
         <button class="btn btn-danger btn-sm" onclick="removeLogo()">حذف</button>
       </div>
+
+      <div class="divider"></div>
+      <div class="section-title">🌐 منصات التواصل الاجتماعي</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">تظهر كـ QR كودات أسفل الفاتورة — العميل يمسحها للتواصل</div>
+      <div id="socials-list" style="margin-bottom:10px"></div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <select class="form-select" id="social-platform-sel" style="width:130px;flex-shrink:0" onchange="updateSocialPlaceholder()">
+          <option value="instagram" data-icon="📸">انستقرام</option>
+          <option value="facebook"  data-icon="📘">فيسبوك</option>
+          <option value="behance"   data-icon="🎨">بيهانس</option>
+          <option value="linkedin"  data-icon="💼">لينكدإن</option>
+          <option value="tiktok"    data-icon="🎵">تيك توك</option>
+          <option value="youtube"   data-icon="▶">يوتيوب</option>
+          <option value="twitter"   data-icon="🐦">تويتر/X</option>
+          <option value="website"   data-icon="🌐">موقع ويب</option>
+          <option value="whatsapp"  data-icon="💬">واتساب</option>
+          <option value="other"     data-icon="🔗">أخرى</option>
+        </select>
+        <input class="form-input" id="social-url-input" placeholder="الرابط أو الرقم" style="flex:1;min-width:120px">
+        <button class="btn btn-ghost btn-sm" onclick="addSocial()" style="flex-shrink:0">+ إضافة</button>
+      </div>
+
       <div class="divider"></div>
       <div class="section-title">خطر</div>
       <button class="btn btn-danger" onclick="clearAll()">🗑 مسح جميع البيانات</button>
@@ -1428,7 +1610,20 @@ tr:hover td { background: rgba(255,255,255,.02); }
     </div>
     <div class="form-group" id="deposit-row" style="display:none"><label class="form-label">قيمة العربون المدفوع (ج)</label><input class="form-input" type="number" id="t-deposit" placeholder="0"></div>
     <div class="form-group"><label class="form-label">ملاحظات</label><textarea class="form-textarea" id="t-notes" placeholder="تفاصيل إضافية..."></textarea></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
+
+    <!-- ── إصدار فاتورة اختياري ── -->
+    <div id="task-inv-opt" style="background:rgba(124,111,247,.07);border:1.5px dashed rgba(124,111,247,.28);border-radius:10px;padding:11px 14px;margin-bottom:2px">
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none;margin:0">
+        <input type="checkbox" id="t-issue-inv" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0" onchange="toggleTaskInvHint()">
+        <span style="font-size:13px;font-weight:700;color:var(--accent)">◻ إصدار فاتورة لهذه المهمة</span>
+        <span style="font-size:11px;color:var(--text3);font-weight:400">— اختياري</span>
+      </label>
+      <div id="t-inv-hint" style="display:none;margin-top:7px;margin-right:25px;font-size:11px;color:var(--text3);line-height:1.7">
+        ✅ بعد حفظ المهمة ستُفتح نافذة الفاتورة تلقائياً — المهمة ستكون بنداً جاهزاً فيها
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
       <button class="btn btn-ghost" onclick="closeM(&#39;modal-task&#39;)">إلغاء</button>
       <button class="btn btn-primary" onclick="saveTask()">💾 حفظ</button>
     </div>
@@ -1500,8 +1695,17 @@ tr:hover td { background: rgba(255,255,255,.02); }
     <div class="modal-header"><div class="modal-title" id="inv-modal-ttl">◻ إنشاء فاتورة جديدة</div><button class="close-btn" onclick="closeM(&#39;modal-invoice&#39;)">✕</button></div>
     <input type="hidden" id="inv-eid">
     <div class="form-row">
-      <div class="form-group"><label class="form-label">العميل *</label><select class="form-select" id="inv-client"><option value="">— اختر عميل —</option></select></div>
+      <div class="form-group"><label class="form-label">العميل *</label><select class="form-select" id="inv-client" onchange="onInvClientChange(this.value)"><option value="">— اختر عميل —</option></select></div>
       <div class="form-group"><label class="form-label">رقم الفاتورة</label><input class="form-input" id="inv-num" placeholder="INV-001"></div>
+    </div>
+
+    <!-- ── مهام العميل المتاحة ── -->
+    <div id="inv-tasks-panel" style="display:none;margin-bottom:14px;border:1px solid rgba(124,111,247,.25);border-radius:10px;overflow:hidden">
+      <div style="background:rgba(124,111,247,.1);padding:9px 14px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;font-weight:700;color:var(--accent)">📋 مهام هذا العميل</span>
+        <span style="font-size:11px;color:var(--text3)">— اضغط على مهمة لإضافتها كبند في الفاتورة</span>
+      </div>
+      <div id="inv-tasks-list" style="padding:10px;display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto"></div>
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">تاريخ الفاتورة</label><input class="form-input" type="date" id="inv-date"></div>
@@ -1522,6 +1726,32 @@ tr:hover td { background: rgba(255,255,255,.02); }
       </div>
     </div>
     <div class="form-group"><label class="form-label">ملاحظات وشروط الدفع</label><textarea class="form-textarea" id="inv-notes" placeholder="مثال: الدفع خلال 7 أيام — الملكية تنتقل بعد السداد الكامل"></textarea></div>
+
+    <!-- ── Project Link QR ── -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">🔗 رابط المشروع / استلام الشغل</div>
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <div style="flex:1">
+          <input class="form-input" id="inv-project-url" placeholder="https://drive.google.com/... أو أي رابط للاستلام" oninput="liveQR('inv-project-url','inv-project-qr-prev',90)">
+          <div style="font-size:11px;color:var(--text3);margin-top:5px">يظهر كـ QR كود في الفاتورة — العميل يمسحه ويراجع الشغل مباشرة</div>
+        </div>
+        <div id="inv-project-qr-prev" style="width:90px;height:90px;flex-shrink:0;border-radius:8px;overflow:hidden;border:1px solid var(--border)"></div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">سياسات الفاتورة <span style="font-size:11px;color:var(--text3)">(تُحمَّل تلقائياً من الإعدادات — يمكن تعديلها)</span></label>
+      <div id="inv-policies-list" style="margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px">
+        <select class="form-select" id="inv-policy-icon" style="width:56px;flex-shrink:0">
+          <option value="💳">💳</option><option value="✏">✏</option><option value="📦">📦</option>
+          <option value="⏰">⏰</option><option value="🔒">🔒</option><option value="📋">📋</option>
+          <option value="⚠">⚠</option><option value="✅">✅</option>
+        </select>
+        <input class="form-input" id="inv-policy-text" placeholder="إضافة سياسة للفاتورة">
+        <button class="btn btn-ghost btn-sm" onclick="addInvPolicy()" style="flex-shrink:0">+ إضافة</button>
+      </div>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeM(&#39;modal-invoice&#39;)">إلغاء</button>
       <button class="btn btn-primary" onclick="saveInvoice()">💾 حفظ الفاتورة</button>
@@ -1659,9 +1889,13 @@ function loadSettings(){
   const lp=document.getElementById('logo-preview');
   if(lp)lp.innerHTML=s.logo?`<img src="${s.logo}" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px">`:'<span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span>';
   const nd=document.getElementById('studio-name-disp');if(nd)nd.textContent=s.name||'المصمم';
+  // Render policies list
+  renderPoliciesList('policies-list', s.policies||[], 'removePolicy');
+  // Render social links
+  renderSocialsList();
 }
 function saveSettings(){
-  S.settings={name:v('set-name'),phone:v('set-phone'),email:v('set-email'),address:v('set-address'),terms:v('set-terms'),logo:S.settings?.logo||''};
+  S.settings={name:v('set-name'),phone:v('set-phone'),email:v('set-email'),address:v('set-address'),terms:v('set-terms'),logo:S.settings?.logo||'',policies:S.settings?.policies||[],socials:S.settings?.socials||[]};
   lsSave();alert('✅ تم حفظ الإعدادات');
 }
 function v(id){const e=document.getElementById(id);return e?e.value:'';}
@@ -1678,6 +1912,11 @@ function openTaskModal(id){
   fillDD('t-client');
   document.getElementById('task-modal-ttl').textContent=id?'✦ تعديل المهمة':'✦ مهمة / مشروع جديد';
   document.getElementById('task-eid').value=id||'';
+  // reset invoice checkbox
+  const invCb=document.getElementById('t-issue-inv');
+  if(invCb){invCb.checked=false;}
+  const invHint=document.getElementById('t-inv-hint');
+  if(invHint)invHint.style.display='none';
   if(id){
     const t=S.tasks.find(t=>t.id===id);if(!t)return;
     document.getElementById('t-title').value=t.title;
@@ -1703,15 +1942,51 @@ function openTaskModal(id){
   }
   openM('modal-task');
 }
+function toggleTaskInvHint(){
+  const cb=document.getElementById('t-issue-inv');
+  const hint=document.getElementById('t-inv-hint');
+  if(hint)hint.style.display=cb&&cb.checked?'block':'none';
+}
 function saveTask(){
   const title=v('t-title').trim(),client=v('t-client');
   if(!title)return alert('أدخل اسم المهمة');
   if(!client)return alert('⚠ يجب اختيار عميل\n\nلو مش موجود، استخدم زر + بجانب القائمة لإضافة عميل جديد');
   const eid=v('task-eid');
+  const issueInv=document.getElementById('t-issue-inv')?.checked;
   const d={title,client,priority:v('t-priority'),status:v('t-status'),value:+v('t-value')||0,orderDate:v('t-order'),deadline:v('t-deadline'),pay:v('t-pay'),deposit:+v('t-deposit')||0,notes:v('t-notes'),done:false};
   if(eid){const i=S.tasks.findIndex(t=>t.id==eid);if(i>-1){d.id=+eid;d.done=S.tasks[i].done;S.tasks[i]=d;}}
   else{d.id=Date.now();S.tasks.push(d);}
   lsSave();closeM('modal-task');renderAll();
+  // إصدار فاتورة تلقائي
+  if(issueInv && !eid){
+    // فتح مودال الفاتورة مع تعبئة بيانات المهمة
+    setTimeout(()=>openInvoiceFromTask(d), 150);
+  }
+}
+/* فتح فاتورة جديدة مبنية على مهمة */
+function openInvoiceFromTask(task){
+  fillDD('inv-client');
+  document.getElementById('inv-modal-ttl').textContent='◻ فاتورة — '+task.title;
+  document.getElementById('inv-eid').value='';
+  document.getElementById('inv-client').value=task.client;
+  document.getElementById('inv-num').value='INV-'+(S.invoices.length+1).toString().padStart(3,'0');
+  document.getElementById('inv-date').value=today();
+  const dd=new Date();dd.setDate(dd.getDate()+7);
+  document.getElementById('inv-due').value=dd.toISOString().split('T')[0];
+  document.getElementById('inv-notes').value=S.settings?.terms||'';
+  document.getElementById('inv-deposit').value=task.deposit||0;
+  // بيانات المهمة كبند وحيد
+  invItems=[{desc:task.title+(task.notes?' — '+task.notes.slice(0,60):''),qty:1,price:task.value||0}];
+  invPolicies=(S.settings?.policies||[]).map(p=>({...p}));
+  const puEl=document.getElementById('inv-project-url');if(puEl)puEl.value='';
+  setTimeout(()=>{
+    renderInvForm();
+    const dep=document.getElementById('inv-deposit');if(dep)dep.oninput=calcTotal;
+    renderPoliciesList('inv-policies-list',invPolicies,'removeInvPolicy');
+    liveQR('inv-project-url','inv-project-qr-prev',90);
+    onInvClientChange(task.client); // عرض مهام العميل
+  },100);
+  openM('modal-invoice');
 }
 function delTask(id){confirmDel('هل تريد حذف هذه المهمة نهائياً؟',()=>{S.tasks=S.tasks.filter(t=>t.id!==id);lsSave();renderAll();});}
 
@@ -2003,10 +2278,138 @@ function renderFinance(){
 // ============================================================
 // INVOICES
 // ============================================================
+/* ── عرض مهام العميل في مودال الفاتورة ── */
+function onInvClientChange(clientName){
+  const name = clientName || document.getElementById('inv-client')?.value || '';
+  const panel = document.getElementById('inv-tasks-panel');
+  const list  = document.getElementById('inv-tasks-list');
+  if(!panel||!list) return;
+  if(!name){ panel.style.display='none'; return; }
+
+  // كل تاسكات العميل — مش بس الجاري، كمان المكتملة والمدفوعة
+  const tasks = S.tasks.filter(t => t.client === name);
+  if(!tasks.length){ panel.style.display='none'; return; }
+
+  // معرفة أي مهام عندها فواتير بالفعل
+  const invoicedTaskIds = new Set(
+    S.invoices.flatMap(inv => inv.items.map(it => it._taskId).filter(Boolean))
+  );
+
+  const statusLabel = {new:'جديد', progress:'جاري', review:'مراجعة', done:'مكتمل'};
+  const statusColor = {new:'var(--text3)', progress:'var(--accent2)', review:'var(--accent)', done:'var(--accent3)'};
+
+  list.innerHTML = tasks.map(t => {
+    const already      = invItems.some(it => it._taskId === t.id);
+    const hasInvoice   = invoicedTaskIds.has(t.id);
+    const isPaidFull   = t.pay === 'full' || t.done;
+    const isPaidDeposit= t.pay === 'deposit';
+    const isUnpaid     = !isPaidFull && !isPaidDeposit;
+
+    // بطاقة الدفع
+    let payBadge = '';
+    if(isPaidFull)
+      payBadge = `<span style="background:rgba(79,209,165,.15);color:var(--accent3);padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700">✅ مدفوع</span>`;
+    else if(isPaidDeposit)
+      payBadge = `<span style="background:rgba(247,201,72,.15);color:var(--accent2);padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700">💛 عربون ${t.deposit?t.deposit.toLocaleString()+' ج':''}</span>`;
+    else
+      payBadge = `<span style="background:rgba(255,99,99,.12);color:#ff6b6b;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700">❌ غير مدفوع</span>`;
+
+    // بطاقة الفاتورة
+    const invBadge = hasInvoice
+      ? `<span style="background:rgba(124,111,247,.15);color:var(--accent);padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700">◻ عليها فاتورة</span>`
+      : '';
+
+    // لون الكارد
+    const cardBg     = already ? 'rgba(124,111,247,.16)' : isPaidFull ? 'rgba(79,209,165,.05)' : 'var(--surface2)';
+    const cardBorder = already ? 'var(--accent)' : isPaidFull ? 'rgba(79,209,165,.3)' : 'var(--border)';
+    const icon       = already ? '✅' : hasInvoice ? '🔁' : '➕';
+
+    return `<div id="task-chip-${t.id}" onclick="toggleTaskAsItem(${t.id})"
+      style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;
+             background:${cardBg};border:1.5px solid ${cardBorder};transition:all .18s">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.title}</div>
+        <div style="font-size:11px;margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <span style="color:${statusColor[t.status]||'var(--text3)'}">● ${statusLabel[t.status]||t.status}</span>
+          ${t.deadline ? `<span style="color:var(--text3)">📅 ${t.deadline}</span>` : ''}
+          ${t.value    ? `<span style="color:var(--accent3);font-weight:700">${t.value.toLocaleString()} ج</span>` : ''}
+          ${payBadge}
+          ${invBadge}
+        </div>
+        ${isPaidFull && t.value ? `<div style="font-size:10px;color:var(--accent3);margin-top:4px">↪ سيُضاف ${t.value.toLocaleString()} ج كمدفوع مسبقاً في الفاتورة</div>` : ''}
+        ${isPaidDeposit && t.deposit ? `<div style="font-size:10px;color:var(--accent2);margin-top:4px">↪ سيُضاف العربون ${t.deposit.toLocaleString()} ج كمدفوع مسبقاً في الفاتورة</div>` : ''}
+      </div>
+      <div style="font-size:18px;flex-shrink:0">${icon}</div>
+    </div>`;
+  }).join('');
+
+  panel.style.display = 'block';
+}
+
+/* إضافة / إزالة مهمة كبند — مع منطق الدفع المسبق */
+function toggleTaskAsItem(taskId){
+  const t = S.tasks.find(x => x.id === taskId);
+  if(!t) return;
+
+  const idx = invItems.findIndex(it => it._taskId === taskId);
+
+  if(idx > -1){
+    // إزالة البند
+    invItems.splice(idx, 1);
+    // إعادة حساب العربون — اطرح ما أضفناه
+    _recalcDepositFromItems();
+  } else {
+    // إضافة البند
+    const isPaidFull    = t.pay === 'full' || t.done;
+    const isPaidDeposit = t.pay === 'deposit';
+
+    invItems.push({
+      _taskId: taskId,
+      desc:  t.title + (t.notes ? ' — ' + t.notes.slice(0, 60) : ''),
+      qty:   1,
+      price: t.value || 0
+    });
+
+    // تحديث خانة "مدفوع مسبقاً"
+    const depEl = document.getElementById('inv-deposit');
+    if(depEl){
+      const currentDep = +(depEl.value) || 0;
+      if(isPaidFull && t.value){
+        depEl.value = currentDep + t.value;
+      } else if(isPaidDeposit && t.deposit){
+        depEl.value = currentDep + t.deposit;
+      }
+    }
+  }
+
+  renderInvForm();
+  calcTotal();
+  const client = document.getElementById('inv-client')?.value || '';
+  onInvClientChange(client);
+}
+
+/* إعادة حساب خانة العربون بناءً على البنود المتبقية */
+function _recalcDepositFromItems(){
+  let dep = 0;
+  invItems.forEach(it => {
+    if(!it._taskId) return;
+    const t = S.tasks.find(x => x.id === it._taskId);
+    if(!t) return;
+    if((t.pay==='full'||t.done) && t.value)   dep += t.value;
+    else if(t.pay==='deposit' && t.deposit)    dep += t.deposit;
+  });
+  const depEl = document.getElementById('inv-deposit');
+  if(depEl) depEl.value = dep || 0;
+  calcTotal();
+}
+
 function openInvoiceModal(id){
   fillDD('inv-client');
   document.getElementById('inv-modal-ttl').textContent=id?'◻ تعديل الفاتورة':'◻ إنشاء فاتورة جديدة';
   document.getElementById('inv-eid').value=id||'';
+  // إخفاء لوحة المهام أول ما نفتح
+  const panel=document.getElementById('inv-tasks-panel');
+  if(panel)panel.style.display='none';
   if(id){
     const inv=S.invoices.find(i=>i.id===id);if(!inv)return;
     document.getElementById('inv-client').value=inv.client;
@@ -2016,6 +2419,11 @@ function openInvoiceModal(id){
     document.getElementById('inv-notes').value=inv.notes||'';
     document.getElementById('inv-deposit').value=inv.deposit||0;
     invItems=inv.items.map(i=>({...i}));
+    invPolicies=(inv.policies||[]).map(p=>({...p}));
+    const puEl=document.getElementById('inv-project-url');
+    if(puEl)puEl.value=inv.projectUrl||'';
+    // عرض مهام العميل
+    setTimeout(()=>onInvClientChange(inv.client),120);
   } else {
     document.getElementById('inv-client').value='';
     document.getElementById('inv-num').value='INV-'+(S.invoices.length+1).toString().padStart(3,'0');
@@ -2024,9 +2432,14 @@ function openInvoiceModal(id){
     document.getElementById('inv-due').value=d.toISOString().split('T')[0];
     document.getElementById('inv-notes').value=S.settings?.terms||'';
     invItems=[{desc:'',qty:1,price:0}];
+    invPolicies=(S.settings?.policies||[]).map(p=>({...p}));
   }
-  // listen deposit change
-  setTimeout(()=>{const dep=document.getElementById('inv-deposit');if(dep){dep.oninput=calcTotal;}},100);
+  setTimeout(()=>{
+    const dep=document.getElementById('inv-deposit');if(dep){dep.oninput=calcTotal;}
+    renderPoliciesList('inv-policies-list',invPolicies,'removeInvPolicy');
+    const projEl=document.getElementById('inv-project-url');
+    if(projEl)liveQR('inv-project-url','inv-project-qr-prev',90);
+  },100);
   renderInvForm();openM('modal-invoice');
 }
 function addInvItem(){invItems.push({desc:'',qty:1,price:0});renderInvForm();}
@@ -2053,7 +2466,7 @@ function saveInvoice(){
   if(!invItems.some(i=>i.desc.trim()))return alert('أضف بنداً واحداً على الأقل');
   const total=invItems.reduce((s,i)=>s+i.qty*i.price,0);
   const eid=v('inv-eid');
-  const d={client,num:v('inv-num'),date:v('inv-date'),due:v('inv-due'),notes:v('inv-notes'),items:invItems.map(i=>({...i})),total,deposit:+(v('inv-deposit')||0),from:S.settings?.name||'الاستوديو',status:'pending'};
+  const d={client,num:v('inv-num'),date:v('inv-date'),due:v('inv-due'),notes:v('inv-notes'),items:invItems.map(i=>({...i})),total,deposit:+(v('inv-deposit')||0),from:S.settings?.name||'الاستوديو',status:'pending',policies:invPolicies.map(p=>({...p})),projectUrl:(document.getElementById('inv-project-url')?.value||'').trim()};
   if(eid){const i=S.invoices.findIndex(x=>x.id==eid);if(i>-1){d.id=+eid;d.status=S.invoices[i].status;S.invoices[i]=d;}}
   else{d.id=Date.now();S.invoices.push(d);}
   lsSave();closeM('modal-invoice');renderAll();previewInv(d.id);
@@ -2116,6 +2529,8 @@ function previewInv(id){
         </tfoot>
       </table>
       ${inv.notes?`<div style="margin-top:14px;padding:10px 14px;background:#f9f9ff;border-radius:8px;font-size:11px;color:#666;line-height:1.8">${inv.notes}</div>`:''}
+      ${inv.policies&&inv.policies.length?buildPoliciesHTML(inv.policies):''}
+      ${buildQRSectionHTML(inv, false)}
     </div>`;
 }
 
@@ -2210,6 +2625,15 @@ function exportPDF(id){
         <div style="font-size:11px;font-weight:700;color:#7c6ff7;margin-bottom:5px">ملاحظات وشروط الدفع</div>
         <div style="font-size:12px;color:#555;line-height:1.8">${inv.notes}</div>
       </div>`:''}
+      <!-- POLICIES -->
+      ${inv.policies&&inv.policies.length?`<div style="margin:0 28px 28px;padding:16px 18px;background:#f5f3ff;border-radius:8px;border:1px solid #e0dcff">
+        <div style="font-size:11px;font-weight:700;color:#7c6ff7;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">📋 السياسات والشروط</div>
+        ${inv.policies.map(p=>`<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:7px;font-size:12px;color:#555;line-height:1.6">
+          <span style="font-size:14px;flex-shrink:0">${p.icon}</span><span>${p.text}</span>
+        </div>`).join('')}
+      </div>`:''}
+      <!-- QR CODES -->
+      ${buildQRSectionHTML(inv, true)}
       <!-- FOOTER -->
       <div style="background:#f5f3ff;padding:14px 28px;display:flex;justify-content:space-between;align-items:center;position:absolute;bottom:0;width:100%">
         <div style="font-size:11px;color:#9090b0">شكراً لتعاملكم معنا 🙏</div>
@@ -2894,6 +3318,502 @@ function confirmDeleteAccount(){
 }
 
 // ============================================================
+// BACKUP SYSTEM
+// ============================================================
+const BACKUP_SETTINGS_KEY = 'studioOS_backup_settings';
+const BACKUP_LAST_KEY     = 'studioOS_backup_last';
+let backupReminderTimer   = null;
+
+function getBackupSettings(){
+  try{ return JSON.parse(localStorage.getItem(BACKUP_SETTINGS_KEY)||'{}'); }catch(e){ return {}; }
+}
+function saveBackupSettingsData(obj){
+  localStorage.setItem(BACKUP_SETTINGS_KEY, JSON.stringify(obj));
+}
+
+/* ── Open Modal ── */
+function openBackupModal(){
+  const bs = getBackupSettings();
+  // Populate path
+  const pathInput = document.getElementById('backup-path-input');
+  const pathDisp  = document.getElementById('backup-path-display');
+  if(pathInput){ pathInput.value = bs.path || ''; }
+  if(pathDisp){
+    if(bs.path){ pathDisp.textContent = '📁 ' + bs.path; pathDisp.style.display='block'; }
+    else { pathDisp.style.display='none'; }
+  }
+  // Populate checkboxes
+  const cb3h    = document.getElementById('remind-3h');
+  const cbClose = document.getElementById('remind-close');
+  if(cb3h)    cb3h.checked    = !!bs.remind3h;
+  if(cbClose) cbClose.checked = !!bs.remindClose;
+  // Show last backup time
+  updateBackupLastDisplay();
+  // Next reminder
+  updateNextReminderDisplay();
+  openM('modal-backup');
+}
+
+/* ── Save path ── */
+function saveBackupPath(){
+  const val = (document.getElementById('backup-path-input')?.value||'').trim();
+  const bs  = getBackupSettings();
+  bs.path   = val;
+  saveBackupSettingsData(bs);
+  const pathDisp = document.getElementById('backup-path-display');
+  if(pathDisp){
+    if(val){ pathDisp.textContent = '📁 ' + val; pathDisp.style.display='block'; }
+    else   { pathDisp.style.display='none'; }
+  }
+  showMiniNotif('✅ تم حفظ مسار النسخ الاحتياطي');
+}
+
+/* ── Save reminder checkboxes ── */
+function saveBackupSettings(){
+  const bs  = getBackupSettings();
+  const cb3h    = document.getElementById('remind-3h');
+  const cbClose = document.getElementById('remind-close');
+  bs.remind3h    = cb3h    ? cb3h.checked    : bs.remind3h;
+  bs.remindClose = cbClose ? cbClose.checked : bs.remindClose;
+  saveBackupSettingsData(bs);
+  initBackupTimers();
+  updateNextReminderDisplay();
+}
+
+/* ── Do backup ── */
+function doBackupNow(){
+  const user    = getSession();
+  const bs      = getBackupSettings();
+  const dataStr = localStorage.getItem(userKey()) || '{}';
+  // Also include all registered users (encrypted hashes, safe to backup)
+  const allUsers = getUsers();
+  const backup  = {
+    exportedAt : new Date().toISOString(),
+    version    : 'studioOS_v3',
+    userId     : user ? user.id : 'guest',
+    userName   : user ? user.name : 'guest',
+    data       : JSON.parse(dataStr),
+    backupPath : bs.path || '',
+    // Full auth backup
+    authUsers  : allUsers,
+    currentUser: user ? { id: user.id, name: user.name, phone: user.phone, studio: user.studio } : null
+  };
+  const blob     = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+  const url      = URL.createObjectURL(blob);
+  const a        = document.createElement('a');
+  const dateStr  = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const name     = (user?.name||'studio').replace(/\s+/g,'_');
+  a.href         = url;
+  a.download     = `StudioOS_Backup_${name}_${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  // Save last backup time
+  const now = new Date().toISOString();
+  localStorage.setItem(BACKUP_LAST_KEY, now);
+  updateBackupLastDisplay();
+  updateNextReminderDisplay();
+  // Reset 3h timer
+  if(getBackupSettings().remind3h) initBackupTimers();
+  // Show path reminder if set
+  const path = bs.path;
+  if(path){
+    showMiniNotif(`💾 تم التنزيل! انقل الملف إلى: ${path}`);
+  } else {
+    showMiniNotif('✅ تم تنزيل النسخة الاحتياطية بنجاح!');
+  }
+}
+
+/* ── Import backup ── */
+function doImportBackup(){
+  document.getElementById('backup-file-input')?.click();
+}
+function readBackupFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const obj = JSON.parse(e.target.result);
+      if(!obj.data || !obj.version) { alert('⚠ الملف غير صالح أو تالف'); return; }
+      const confirmed = confirm(`هل تريد استعادة البيانات من نسخة:\n📅 ${obj.exportedAt ? new Date(obj.exportedAt).toLocaleString('ar-EG') : 'غير معروف'}\n👤 ${obj.userName||'غير معروف'}\n\n⚠ سيتم استبدال بياناتك الحالية!\n${obj.authUsers?'✅ تشمل النسخة بيانات الحسابات':''}` );
+      if(!confirmed) return;
+      // Restore app data
+      const session = getSession();
+      const key = session ? 'studioOS_data_'+session.id : userKey();
+      localStorage.setItem(key, JSON.stringify(obj.data));
+      // Restore users if available
+      if(obj.authUsers && Array.isArray(obj.authUsers) && obj.authUsers.length>0){
+        const existingUsers = getUsers();
+        // Merge: add users from backup that don't exist locally
+        let merged = [...existingUsers];
+        obj.authUsers.forEach(bu=>{
+          if(!merged.find(u=>u.id===bu.id || u.phone===bu.phone)){
+            merged.push(bu);
+          }
+        });
+        saveUsers(merged);
+      }
+      lsLoad();
+      renderAll();
+      closeM('modal-backup');
+      alert('✅ تمت استعادة البيانات بنجاح!' + (obj.authUsers?' (تم استعادة الحسابات أيضاً)':''));
+    }catch(err){
+      alert('⚠ حدث خطأ في قراءة الملف');
+    }
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+
+/* ── Update last backup display ── */
+function updateBackupLastDisplay(){
+  const last   = localStorage.getItem(BACKUP_LAST_KEY);
+  const el     = document.getElementById('backup-last-time');
+  if(!el) return;
+  if(last){
+    const d = new Date(last);
+    el.textContent = 'آخر نسخة: ' + d.toLocaleString('ar-EG');
+    el.style.color = 'var(--accent3)';
+  } else {
+    el.textContent = 'لم يتم إنشاء نسخة بعد';
+    el.style.color = 'var(--accent4)';
+  }
+}
+
+/* ── Next reminder display ── */
+function updateNextReminderDisplay(){
+  const el  = document.getElementById('backup-next-reminder');
+  if(!el) return;
+  const bs  = getBackupSettings();
+  const last = localStorage.getItem(BACKUP_LAST_KEY);
+  if(bs.remind3h && last){
+    const nextTime = new Date(new Date(last).getTime() + 3*60*60*1000);
+    el.textContent = '⏰ التذكير القادم: ' + nextTime.toLocaleTimeString('ar-EG', {hour:'2-digit',minute:'2-digit'});
+    el.style.display='block';
+  } else if(bs.remind3h && !last){
+    el.textContent = '⏰ التذكير سيبدأ بعد أول نسخة احتياطية';
+    el.style.display='block';
+  } else {
+    el.style.display='none';
+  }
+}
+
+/* ── Toast notification ── */
+function showBackupToast(msg){
+  const toast = document.getElementById('backup-toast');
+  const msgEl = document.getElementById('backup-toast-msg');
+  if(!toast) return;
+  if(msgEl) msgEl.textContent = msg || 'مرت 3 ساعات — لا تنسَ النسخ الاحتياطي!';
+  toast.style.display='block';
+  // pulse the backup dot
+  const dot = document.getElementById('backup-reminder-dot');
+  if(dot) dot.style.display='inline-block';
+}
+function dismissBackupToast(){
+  const toast = document.getElementById('backup-toast');
+  if(toast) toast.style.display='none';
+}
+
+/* ── Mini notification ── */
+function showMiniNotif(msg){
+  let n = document.getElementById('mini-notif');
+  if(!n){
+    n = document.createElement('div');
+    n.id='mini-notif';
+    n.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--accent3);border-radius:10px;padding:10px 20px;font-size:13px;color:var(--text);z-index:6000;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center';
+    document.body.appendChild(n);
+  }
+  n.textContent=msg;
+  n.style.opacity='1';
+  clearTimeout(n._t);
+  n._t=setTimeout(()=>{n.style.opacity='0';},3500);
+}
+
+/* ── Init timers ── */
+function initBackupTimers(){
+  // Clear existing
+  if(backupReminderTimer){ clearInterval(backupReminderTimer); backupReminderTimer=null; }
+  const bs = getBackupSettings();
+  if(bs.remind3h){
+    const INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hours
+    // Check every minute if 3h has passed
+    backupReminderTimer = setInterval(()=>{
+      const last = localStorage.getItem(BACKUP_LAST_KEY);
+      const now  = Date.now();
+      if(!last || (now - new Date(last).getTime()) >= INTERVAL_MS){
+        const alreadyShown = document.getElementById('backup-toast')?.style.display === 'block';
+        if(!alreadyShown) showBackupToast('مرت 3 ساعات — لا تنسَ النسخ الاحتياطي!');
+      }
+    }, 60 * 1000); // check every minute
+    // Also check immediately on load
+    setTimeout(()=>{
+      const last = localStorage.getItem(BACKUP_LAST_KEY);
+      const now  = Date.now();
+      if(!last || (now - new Date(last).getTime()) >= INTERVAL_MS){
+        showBackupToast('لم تقم بنسخ احتياطي منذ فترة — احفظ بياناتك الآن!');
+      }
+    }, 5000);
+  }
+  // beforeunload reminder
+  window.onbeforeunload = null;
+  if(bs.remindClose){
+    window.onbeforeunload = function(e){
+      const last = localStorage.getItem(BACKUP_LAST_KEY);
+      const now  = Date.now();
+      const noBackupRecently = !last || (now - new Date(last).getTime()) > 30*60*1000; // 30min
+      if(noBackupRecently){
+        const msg = 'هل تريد عمل نسخة احتياطية قبل الخروج؟';
+        e.returnValue = msg;
+        return msg;
+      }
+    };
+  }
+}
+
+// ============================================================
+// INVOICE POLICIES
+// ============================================================
+// invPolicies = array of {icon, text} for current invoice modal
+let invPolicies = [];
+
+function renderPoliciesList(containerId, arr, removeFunc){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  if(!arr.length){ el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">لا سياسات مضافة</div>'; return; }
+  el.innerHTML = arr.map((p,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface2);border-radius:8px;margin-bottom:5px;font-size:13px">
+      <span>${p.icon}</span>
+      <span style="flex:1;color:var(--text2)">${p.text}</span>
+      <button onclick="${removeFunc}(${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 4px;border-radius:4px" title="حذف">✕</button>
+    </div>`).join('');
+}
+
+function addPolicy(){
+  const icon = document.getElementById('policy-icon-sel')?.value || '📋';
+  const text = (document.getElementById('policy-text-input')?.value||'').trim();
+  if(!text) return;
+  if(!S.settings.policies) S.settings.policies = [];
+  S.settings.policies.push({icon, text});
+  document.getElementById('policy-text-input').value = '';
+  renderPoliciesList('policies-list', S.settings.policies, 'removePolicy');
+}
+function removePolicy(i){
+  if(!S.settings.policies) return;
+  S.settings.policies.splice(i,1);
+  renderPoliciesList('policies-list', S.settings.policies, 'removePolicy');
+}
+
+function addInvPolicy(){
+  const icon = document.getElementById('inv-policy-icon')?.value || '📋';
+  const text = (document.getElementById('inv-policy-text')?.value||'').trim();
+  if(!text) return;
+  invPolicies.push({icon, text});
+  document.getElementById('inv-policy-text').value = '';
+  renderPoliciesList('inv-policies-list', invPolicies, 'removeInvPolicy');
+}
+function removeInvPolicy(i){
+  invPolicies.splice(i,1);
+  renderPoliciesList('inv-policies-list', invPolicies, 'removeInvPolicy');
+}
+
+function loadInvPoliciesFromSettings(){
+  invPolicies = (S.settings.policies || []).map(p=>({...p}));
+  renderPoliciesList('inv-policies-list', invPolicies, 'removeInvPolicy');
+}
+
+function buildPoliciesHTML(policies){
+  if(!policies || !policies.length) return '';
+  return `<div class="inv-policies-section">
+    <div style="font-size:11px;font-weight:700;color:#7c6ff7;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">📋 السياسات والشروط</div>
+    ${policies.map(p=>`<div class="inv-policy-item"><span class="inv-policy-icon">${p.icon}</span><span>${p.text}</span></div>`).join('')}
+  </div>`;
+}
+
+// ============================================================
+// QR CODE & SOCIAL LINKS
+// ============================================================
+const SOCIAL_META = {
+  instagram: { icon:'📸', label:'انستقرام', color:'#E1306C' },
+  facebook:  { icon:'📘', label:'فيسبوك',   color:'#1877F2' },
+  behance:   { icon:'🎨', label:'بيهانس',   color:'#1769FF' },
+  linkedin:  { icon:'💼', label:'لينكدإن',   color:'#0077B5' },
+  tiktok:    { icon:'🎵', label:'تيك توك',  color:'#010101' },
+  youtube:   { icon:'▶',  label:'يوتيوب',   color:'#FF0000' },
+  twitter:   { icon:'🐦', label:'تويتر/X',  color:'#1DA1F2' },
+  website:   { icon:'🌐', label:'موقع ويب', color:'#7c6ff7' },
+  whatsapp:  { icon:'💬', label:'واتساب',   color:'#25D366' },
+  other:     { icon:'🔗', label:'رابط',      color:'#888888' }
+};
+
+/* Live QR preview while typing — delegated to the wrapper defined in <head> */
+// liveQR() is already defined above in the QR wrapper script block
+
+/* Social links in settings */
+function updateSocialPlaceholder(){
+  const sel = document.getElementById('social-platform-sel');
+  const inp = document.getElementById('social-url-input');
+  if(!inp||!sel) return;
+  const placeholders = {
+    instagram:'https://instagram.com/yourhandle',
+    facebook:'https://facebook.com/yourpage',
+    behance:'https://behance.net/yourname',
+    linkedin:'https://linkedin.com/in/yourname',
+    tiktok:'https://tiktok.com/@yourhandle',
+    youtube:'https://youtube.com/@yourchannel',
+    twitter:'https://twitter.com/yourhandle',
+    website:'https://yourwebsite.com',
+    whatsapp:'https://wa.me/201XXXXXXXXX',
+    other:'الرابط'
+  };
+  inp.placeholder = placeholders[sel.value]||'الرابط';
+}
+
+function addSocial(){
+  const sel = document.getElementById('social-platform-sel');
+  const url = (document.getElementById('social-url-input')?.value||'').trim();
+  if(!url) return alert('أدخل الرابط');
+  if(!S.settings.socials) S.settings.socials = [];
+  // avoid duplicate platform
+  const platform = sel.value;
+  const existing = S.settings.socials.findIndex(s=>s.platform===platform);
+  if(existing>-1) S.settings.socials[existing].url = url;
+  else S.settings.socials.push({ platform, url });
+  document.getElementById('social-url-input').value = '';
+  lsSave();
+  renderSocialsList();
+}
+
+function removeSocial(i){
+  if(!S.settings.socials) return;
+  S.settings.socials.splice(i,1);
+  lsSave();
+  renderSocialsList();
+}
+
+function renderSocialsList(){
+  const el = document.getElementById('socials-list');
+  if(!el) return;
+  const socials = S.settings.socials||[];
+  if(!socials.length){ el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">لا منصات مضافة بعد</div>'; return; }
+  el.innerHTML = socials.map((s,i)=>{
+    const meta = SOCIAL_META[s.platform]||SOCIAL_META.other;
+    return `<div class="social-item">
+      <span class="social-icon">${meta.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-weight:700;color:${meta.color}">${meta.label}</div>
+        <div class="social-url">${s.url}</div>
+      </div>
+      <button class="social-del" onclick="removeSocial(${i})" title="حذف">✕</button>
+    </div>`;
+  }).join('');
+}
+
+/* Build QR section HTML for invoice preview/PDF */
+function buildQRSectionHTML(inv, forPDF){
+  const projectUrl = inv.projectUrl||'';
+  const socials = S.settings.socials||[];
+  if(!projectUrl && !socials.length) return '';
+
+  const sz = forPDF ? 90 : 72;
+  const bgStyle = forPDF
+    ? 'margin:0 28px 20px;padding:16px 18px;background:#f5f3ff;border-radius:8px;border:1px solid #e0dcff'
+    : 'margin-top:16px;padding-top:14px;border-top:2px dashed #e0dcff';
+
+  let blocks = '';
+
+  if(projectUrl){
+    const du = getQRDataURL(projectUrl, sz);
+    if(du) blocks += `
+      <div class="inv-qr-block" style="text-align:center">
+        <img src="${du}" width="${sz}" height="${sz}" style="border-radius:6px;border:1px solid #e0e0f0;display:block">
+        <div style="font-size:10px;font-weight:700;color:#7c6ff7;margin-top:5px;text-transform:uppercase;letter-spacing:.5px">🔗 استلام المشروع</div>
+        <div style="font-size:9px;color:#888;max-width:${sz+10}px;word-break:break-all;margin-top:2px">${projectUrl.length>38?projectUrl.slice(0,38)+'…':projectUrl}</div>
+      </div>`;
+  }
+
+  if(socials.length){
+    socials.forEach(s=>{
+      const meta = SOCIAL_META[s.platform]||SOCIAL_META.other;
+      const du = getQRDataURL(s.url, sz);
+      if(du) blocks += `
+        <div class="inv-qr-block" style="text-align:center">
+          <img src="${du}" width="${sz}" height="${sz}" style="border-radius:6px;border:1px solid #e0e0f0;display:block">
+          <div style="font-size:10px;font-weight:700;color:${meta.color};margin-top:5px">${meta.icon} ${meta.label}</div>
+        </div>`;
+    });
+  }
+
+  if(!blocks) return '';
+
+  return `<div style="${bgStyle}">
+    <div style="font-size:11px;font-weight:700;color:#7c6ff7;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">امسح الكيورار كود   </div>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">${blocks}</div>
+  </div>`;
+}
+
+/* Auth SCREEN BACKUP IMPORT */
+
+// ============================================================
+// AUTH SCREEN BACKUP IMPORT
+// ============================================================
+function triggerAuthBackupImport(){
+  document.getElementById('auth-backup-input')?.click();
+}
+
+function doAuthBackupImport(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const obj = JSON.parse(e.target.result);
+      if(!obj.version){ alert('⚠ الملف غير صالح أو تالف'); return; }
+      const confirmed = confirm(
+        `📂 استعادة نسخة احتياطية\n\n` +
+        `📅 التاريخ: ${obj.exportedAt ? new Date(obj.exportedAt).toLocaleString('ar-EG') : 'غير معروف'}\n` +
+        `👤 المستخدم: ${obj.userName||'غير معروف'}\n` +
+        `${obj.authUsers?'👥 الحسابات: '+obj.authUsers.length+' حساب':''}\n\n` +
+        `⚠ سيتم استيراد البيانات والحسابات — تأكيد؟`
+      );
+      if(!confirmed){ input.value=''; return; }
+
+      // Restore users
+      if(obj.authUsers && Array.isArray(obj.authUsers) && obj.authUsers.length>0){
+        const existingUsers = getUsers();
+        let merged = [...existingUsers];
+        obj.authUsers.forEach(bu=>{
+          if(!merged.find(u=>u.id===bu.id || u.phone===bu.phone)){
+            merged.push(bu);
+          }
+        });
+        saveUsers(merged);
+      }
+
+      // Restore app data
+      if(obj.data && obj.userId){
+        const dataKey = 'studioOS_data_'+obj.userId;
+        localStorage.setItem(dataKey, JSON.stringify(obj.data));
+      }
+
+      input.value='';
+      alert('✅ تمت استعادة البيانات بنجاح!\n\nيمكنك الآن تسجيل الدخول بحسابك المعتاد.');
+      // Auto-fill phone if available
+      if(obj.currentUser?.phone){
+        const phoneInput = document.getElementById('login-phone');
+        if(phoneInput) phoneInput.value = obj.currentUser.phone;
+        switchAuthTab('login');
+      }
+    }catch(err){
+      console.error(err);
+      alert('⚠ حدث خطأ في قراءة الملف. تأكد أنه ملف نسخ احتياطي صحيح.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ============================================================
 // INIT
 // ============================================================
 initAuth();
@@ -2903,7 +3823,84 @@ updateHeader('dashboard');
 window.addEventListener('resize',()=>{
   if(window.innerWidth>1024) closeSidebar();
 });
+// Init backup system after auth
+setTimeout(()=>{ initBackupTimers(); }, 1500);
 </script>
+
+<!-- ═══ BACKUP MODAL ═══ -->
+<div class="modal-overlay" id="modal-backup">
+  <div class="modal" style="width:520px">
+    <div class="modal-header">
+      <div class="modal-title">💾 النسخ الاحتياطي المحلي</div>
+      <button class="close-btn" onclick="closeM('modal-backup')">✕</button>
+    </div>
+    <div style="padding:4px 0 16px">
+
+      <!-- Backup Path Setting -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">📁 مجلد الحفظ المفضل</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="form-input" id="backup-path-input" placeholder="مثال: C:\Users\Mahmoud\Desktop\StudioBackups" style="flex:1;font-size:12px;font-family:var(--mono)">
+          <button class="btn btn-ghost btn-sm" onclick="saveBackupPath()" style="flex-shrink:0">حفظ المسار</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:7px;line-height:1.7">
+          ⚠ المتصفح لا يسمح بتحديد مجلد تلقائياً لأسباب أمنية، لكن سيتم حفظ هذا المسار كتذكير لك عند تنزيل الملف — انقل الملف يدوياً لهذا المجلد بعد التنزيل.
+        </div>
+        <div id="backup-path-display" style="margin-top:8px;font-size:12px;color:var(--accent3);font-family:var(--mono);display:none"></div>
+      </div>
+
+      <!-- Backup Status -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:700;color:var(--text)">📊 آخر نسخة احتياطية</div>
+          <div id="backup-last-time" style="font-size:12px;color:var(--text3)">لم يتم إنشاء نسخة بعد</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="doBackupNow()" style="flex:1;justify-content:center">
+            ⬇ تنزيل نسخة احتياطية الآن
+          </button>
+          <button class="btn btn-ghost" onclick="doImportBackup()" style="flex:1;justify-content:center">
+            ⬆ استعادة من نسخة احتياطية
+          </button>
+        </div>
+        <input type="file" id="backup-file-input" accept=".json" style="display:none" onchange="readBackupFile(this)">
+      </div>
+
+      <!-- Reminder Settings -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">⏰ إعدادات التذكير</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <input type="checkbox" id="remind-3h" onchange="saveBackupSettings()" style="accent-color:var(--accent);width:16px;height:16px">
+            <span style="font-size:13px;color:var(--text2)">تذكيرني بالنسخ الاحتياطي كل 3 ساعات</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <input type="checkbox" id="remind-close" onchange="saveBackupSettings()" style="accent-color:var(--accent);width:16px;height:16px">
+            <span style="font-size:13px;color:var(--text2)">سألني عند إغلاق أو تحديث الصفحة</span>
+          </label>
+        </div>
+        <div id="backup-next-reminder" style="font-size:11px;color:var(--accent3);margin-top:10px;display:none"></div>
+      </div>
+
+      <!-- Backup info -->
+      <div style="margin-top:12px;font-size:11px;color:var(--text3);line-height:1.8;text-align:center">
+        ✅ النسخة الاحتياطية تحفظ كل البيانات: المشاريع، العملاء، الفواتير، المالية، الأهداف، الإعدادات
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BACKUP REMINDER TOAST ═══ -->
+<div id="backup-toast" style="display:none;position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:5000;background:var(--surface);border:1.5px solid var(--accent3);border-radius:14px;padding:14px 20px;box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:300px;max-width:420px;text-align:center;animation:toastIn .3s ease both">
+  <div style="font-size:22px;margin-bottom:6px">💾</div>
+  <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">تذكير: حان وقت النسخ الاحتياطي!</div>
+  <div style="font-size:12px;color:var(--text3);margin-bottom:12px" id="backup-toast-msg">مرت 3 ساعات على آخر نسخة احتياطية</div>
+  <div style="display:flex;gap:8px;justify-content:center">
+    <button class="btn btn-primary btn-sm" onclick="doBackupNow();dismissBackupToast()">💾 نسخ الآن</button>
+    <button class="btn btn-ghost btn-sm" onclick="dismissBackupToast()">تذكيرني لاحقاً</button>
+  </div>
+</div>
+<style>@keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(20px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }</style>
 
 <!-- ═══ PROFILE MODAL ═══ -->
 <div class="modal-overlay" id="modal-profile">
