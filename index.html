@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8">
+<!-- saved from url=(0063)file:///C:/Users/Mahmoud%20Ragab/Downloads/studio-os%20(9).html -->
+<html lang="ar" dir="rtl"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Studio OS — نظام الاستوديو</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="./Studio OS — نظام الاستوديو_files/css2" rel="stylesheet">
 <style>
 @media print {
   body > *:not(#print-area) { display: none !important; }
@@ -935,7 +934,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
 <body>
 
 <!-- ═══ AUTH SCREEN ═══ -->
-<div id="auth-screen">
+<div id="auth-screen" class="hidden" style="transition: opacity 0.4s;">
   <div class="auth-card">
 
     <!-- Logo -->
@@ -949,8 +948,8 @@ tr:hover td { background: rgba(255,255,255,.02); }
 
     <!-- Tabs -->
     <div class="auth-tabs">
-      <button class="auth-tab active" onclick="switchAuthTab('login')">تسجيل الدخول</button>
-      <button class="auth-tab"        onclick="switchAuthTab('register')">إنشاء حساب</button>
+      <button class="auth-tab active" onclick="switchAuthTab(&#39;login&#39;)">تسجيل الدخول</button>
+      <button class="auth-tab" onclick="switchAuthTab(&#39;register&#39;)">إنشاء حساب</button>
     </div>
 
     <!-- ── LOGIN PANEL ── -->
@@ -966,7 +965,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
       </div>
       <div class="auth-input-group">
         <label class="auth-label">كلمة المرور</label>
-        <input class="auth-input" id="login-password" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+        <input class="auth-input" id="login-password" type="password" placeholder="••••••••" onkeydown="if(event.key===&#39;Enter&#39;)doLogin()">
       </div>
 
       <button class="auth-btn" onclick="doLogin()">تسجيل الدخول</button>
@@ -974,7 +973,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
       <div class="auth-divider">أو</div>
       <div style="text-align:center;font-size:12px;color:var(--text2)">
         ما عندكش حساب؟
-        <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="switchAuthTab('register')">أنشئ حساب جديد</span>
+        <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="switchAuthTab(&#39;register&#39;)">أنشئ حساب جديد</span>
       </div>
     </div>
 
@@ -983,7 +982,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
       <div class="auth-title">إنشاء حساب جديد ✨</div>
       <div class="auth-subtitle">ادخل بياناتك وابدأ إدارة استوديوك</div>
 
-      <div id="register-error"   class="auth-error"></div>
+      <div id="register-error" class="auth-error"></div>
       <div id="register-success" class="auth-success"></div>
 
       <div class="auth-input-row">
@@ -1010,7 +1009,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
       </div>
       <div class="auth-input-group">
         <label class="auth-label">تأكيد كلمة المرور *</label>
-        <input class="auth-input" id="reg-password2" type="password" placeholder="أعد كتابة كلمة المرور" onkeydown="if(event.key==='Enter')doRegister()">
+        <input class="auth-input" id="reg-password2" type="password" placeholder="أعد كتابة كلمة المرور" onkeydown="if(event.key===&#39;Enter&#39;)doRegister()">
       </div>
 
       <button class="auth-btn" onclick="doRegister()">إنشاء الحساب</button>
@@ -1018,7 +1017,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
       <div class="auth-divider">أو</div>
       <div style="text-align:center;font-size:12px;color:var(--text2)">
         عندك حساب بالفعل؟
-        <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="switchAuthTab('login')">سجّل الدخول</span>
+        <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="switchAuthTab(&#39;login&#39;)">سجّل الدخول</span>
       </div>
     </div>
 
@@ -1046,23 +1045,23 @@ tr:hover td { background: rgba(255,255,255,.02); }
     </div>
   </div>
   <div class="nav-section-label">الرئيسية</div>
-  <div class="nav-item active" onclick="showPage('dashboard',this)"><span class="nav-icon">⚡</span>لوحة التحكم</div>
-  <div class="nav-item" onclick="showPage('tasks',this)"><span class="nav-icon">✦</span>المهام والمشاريع<span class="nav-badge" id="tasks-badge" style="display:none"></span></div>
-  <div class="nav-item" onclick="showPage('schedule',this)"><span class="nav-icon">◷</span>تنظيم اليوم</div>
+  <div class="nav-item active" onclick="showPage(&#39;dashboard&#39;,this)"><span class="nav-icon">⚡</span>لوحة التحكم</div>
+  <div class="nav-item" onclick="showPage(&#39;tasks&#39;,this)"><span class="nav-icon">✦</span>المهام والمشاريع<span class="nav-badge" id="tasks-badge" style="display:none"></span></div>
+  <div class="nav-item" onclick="showPage(&#39;schedule&#39;,this)"><span class="nav-icon">◷</span>تنظيم اليوم</div>
   <div class="nav-section-label">المال والعملاء</div>
-  <div class="nav-item" onclick="showPage('clients',this)"><span class="nav-icon">◈</span>قاعدة العملاء</div>
-  <div class="nav-item" onclick="showPage('finance',this)"><span class="nav-icon">◎</span>المالية</div>
-  <div class="nav-item" onclick="showPage('invoices',this)"><span class="nav-icon">◻</span>الفواتير والعقود</div>
+  <div class="nav-item" onclick="showPage(&#39;clients&#39;,this)"><span class="nav-icon">◈</span>قاعدة العملاء</div>
+  <div class="nav-item" onclick="showPage(&#39;finance&#39;,this)"><span class="nav-icon">◎</span>المالية</div>
+  <div class="nav-item" onclick="showPage(&#39;invoices&#39;,this)"><span class="nav-icon">◻</span>الفواتير والعقود</div>
   <div class="nav-section-label">التطوير</div>
-  <div class="nav-item" onclick="showPage('learning',this)"><span class="nav-icon">◆</span>التعلم والأهداف</div>
+  <div class="nav-item" onclick="showPage(&#39;learning&#39;,this)"><span class="nav-icon">◆</span>التعلم والأهداف</div>
   <div class="nav-section-label">الإعدادات</div>
-  <div class="nav-item" onclick="showPage('settings',this)"><span class="nav-icon">⚙</span>إعدادات الاستوديو</div>
+  <div class="nav-item" onclick="showPage(&#39;settings&#39;,this)"><span class="nav-icon">⚙</span>إعدادات الاستوديو</div>
   <!-- User badge -->
   <div class="sidebar-user" id="sidebar-user" onclick="openProfileModal()" style="cursor:pointer" title="الملف الشخصي">
     <div class="user-avatar" id="user-avatar-icon">م</div>
     <div class="user-info">
-      <div class="user-name" id="user-display-name">المستخدم</div>
-      <div class="user-phone" id="user-display-phone"></div>
+      <div class="user-name" id="user-display-name">محمود</div>
+      <div class="user-phone" id="user-display-phone">01090412218</div>
     </div>
     <button class="logout-btn" onclick="event.stopPropagation();doLogout()" title="تسجيل الخروج">⏻</button>
   </div>
@@ -1078,8 +1077,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
   </button>
   <div class="header-page-title" id="header-page-title">لوحة التحكم</div>
   <div class="header-actions">
-    <span id="sync-badge" style="font-size:11px;color:var(--accent3);opacity:0;transition:opacity .3s;font-weight:600"></span>
-    <button class="btn btn-primary btn-sm" id="header-cta" onclick="openTaskModal()">+ مهمة جديدة</button>
+    <button class="btn btn-primary btn-sm" id="header-cta" onclick="openTaskModal()" style="display: inline-flex;">+ مهمة جديدة</button>
   </div>
 </header>
 
@@ -1089,25 +1087,25 @@ tr:hover td { background: rgba(255,255,255,.02); }
 <!-- BOTTOM NAV (mobile) -->
 <div class="bn-overlay" id="bn-overlay" onclick="closeBnMore()"></div>
 <div class="bn-more-menu" id="bn-more-menu">
-  <div class="bn-more-item" onclick="showPage('clients');closeBnMore()" id="bnm-clients"><span>◈</span>قاعدة العملاء</div>
-  <div class="bn-more-item" onclick="showPage('finance');closeBnMore()" id="bnm-finance"><span>◎</span>المالية</div>
-  <div class="bn-more-item" onclick="showPage('invoices');closeBnMore()" id="bnm-invoices"><span>◻</span>الفواتير والعقود</div>
-  <div class="bn-more-item" onclick="showPage('learning');closeBnMore()" id="bnm-learning"><span>◆</span>التعلم والأهداف</div>
-  <div class="bn-more-item" onclick="showPage('schedule');closeBnMore()" id="bnm-schedule"><span>◷</span>تنظيم اليوم</div>
-  <div class="bn-more-item" onclick="showPage('settings');closeBnMore()" id="bnm-settings"><span>⚙</span>الإعدادات</div>
+  <div class="bn-more-item" onclick="showPage(&#39;clients&#39;);closeBnMore()" id="bnm-clients"><span>◈</span>قاعدة العملاء</div>
+  <div class="bn-more-item" onclick="showPage(&#39;finance&#39;);closeBnMore()" id="bnm-finance"><span>◎</span>المالية</div>
+  <div class="bn-more-item" onclick="showPage(&#39;invoices&#39;);closeBnMore()" id="bnm-invoices"><span>◻</span>الفواتير والعقود</div>
+  <div class="bn-more-item" onclick="showPage(&#39;learning&#39;);closeBnMore()" id="bnm-learning"><span>◆</span>التعلم والأهداف</div>
+  <div class="bn-more-item" onclick="showPage(&#39;schedule&#39;);closeBnMore()" id="bnm-schedule"><span>◷</span>تنظيم اليوم</div>
+  <div class="bn-more-item" onclick="showPage(&#39;settings&#39;);closeBnMore()" id="bnm-settings"><span>⚙</span>الإعدادات</div>
 </div>
 <div class="bottom-nav">
   <div class="bottom-nav-inner">
-    <button class="bn-item active" id="bn-dashboard" onclick="showPage('dashboard')">
+    <button class="bn-item active" id="bn-dashboard" onclick="showPage(&#39;dashboard&#39;)">
       <span class="bn-icon">⚡</span><span>الرئيسية</span>
     </button>
-    <button class="bn-item" id="bn-tasks" onclick="showPage('tasks')">
+    <button class="bn-item" id="bn-tasks" onclick="showPage(&#39;tasks&#39;)">
       <span class="bn-icon">✦</span><span>المهام</span>
     </button>
-    <button class="bn-item" id="bn-invoices" onclick="showPage('invoices')">
+    <button class="bn-item" id="bn-invoices" onclick="showPage(&#39;invoices&#39;)">
       <span class="bn-icon">◻</span><span>الفواتير</span>
     </button>
-    <button class="bn-item" id="bn-clients" onclick="showPage('clients')">
+    <button class="bn-item" id="bn-clients" onclick="showPage(&#39;clients&#39;)">
       <span class="bn-icon">◈</span><span>العملاء</span>
     </button>
     <button class="bn-item" id="bn-more" onclick="toggleBnMore()">
@@ -1121,17 +1119,22 @@ tr:hover td { background: rgba(255,255,255,.02); }
 <!-- DASHBOARD -->
 <div class="page active" id="page-dashboard">
   <div class="page-header">
-    <div><div class="page-title">أهلاً، <span id="studio-name-disp">المصمم</span> 👋</div><div class="page-subtitle">نظرة عامة على استوديوك</div></div>
+    <div><div class="page-title">أهلاً، <span id="studio-name-disp">محمود</span> 👋</div><div class="page-subtitle">نظرة عامة على استوديوك</div></div>
     <button class="btn btn-primary" onclick="openTaskModal()">+ مهمة جديدة</button>
   </div>
   <div class="grid grid-4" style="margin-bottom:16px">
     <div class="card"><div class="stat-label">💰 إيرادات مسجلة</div><div class="stat-value green" id="dash-income">0 ج</div><div class="stat-change">إجمالي الدخل</div></div>
-    <div class="card"><div class="stat-label">📋 مشاريع نشطة</div><div class="stat-value purple" id="dash-projects">0</div><div class="stat-change">غير مكتملة</div></div>
-    <div class="card"><div class="stat-label">✅ مهام مكتملة</div><div class="stat-value yellow" id="dash-done">0</div><div class="stat-change" id="dash-pending-txt">0 معلقة</div></div>
-    <div class="card"><div class="stat-label">👥 العملاء</div><div class="stat-value" id="dash-clients">0</div><div class="stat-change">في قاعدة البيانات</div></div>
+    <div class="card"><div class="stat-label">📋 مشاريع نشطة</div><div class="stat-value purple" id="dash-projects">1</div><div class="stat-change">غير مكتملة</div></div>
+    <div class="card"><div class="stat-label">✅ مهام مكتملة</div><div class="stat-value yellow" id="dash-done">0</div><div class="stat-change" id="dash-pending-txt">1 معلقة</div></div>
+    <div class="card"><div class="stat-label">👥 العملاء</div><div class="stat-value" id="dash-clients">1</div><div class="stat-change">في قاعدة البيانات</div></div>
   </div>
   <div class="grid grid-2" style="margin-bottom:16px">
-    <div class="card"><div class="section-title">آخر المهام</div><div id="dash-tasks-list"><div class="empty"><div class="empty-icon">✦</div>لا مهام بعد</div></div></div>
+    <div class="card"><div class="section-title">آخر المهام</div><div id="dash-tasks-list">
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(42,42,58,.3)">
+      <div class="task-priority priority-med"></div>
+      <div style="flex:1;font-size:13px;">sdds</div>
+      <span class="pay-badge pay-none">❌ لم يُدفع</span>
+    </div></div></div>
     <div class="card"><div class="section-title">جدول اليوم</div><div id="dash-sched-list"><div class="empty"><div class="empty-icon">◷</div>لا جدول اليوم</div></div></div>
   </div>
   <div class="grid grid-2">
@@ -1147,17 +1150,46 @@ tr:hover td { background: rgba(255,255,255,.02); }
     <button class="btn btn-primary" onclick="openTaskModal()">+ مهمة جديدة</button>
   </div>
   <div class="grid grid-3" id="tasks-cols" style="margin-bottom:20px">
-    <div><div class="section-title" style="color:var(--accent4)">🔴 عاجل</div><div id="col-high"></div></div>
-    <div><div class="section-title" style="color:var(--accent2)">🟡 متوسط</div><div id="col-med"></div></div>
-    <div><div class="section-title" style="color:var(--accent3)">🟢 عادي</div><div id="col-low"></div></div>
+    <div><div class="section-title" style="color:var(--accent4)">🔴 عاجل</div><div id="col-high"><div class="empty" style="padding:16px 0;font-size:12px">لا مهام</div></div></div>
+    <div><div class="section-title" style="color:var(--accent2)">🟡 متوسط</div><div id="col-med">
+      <div class="task-item">
+        <div class="task-priority priority-med"></div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">sdds</div>
+          <div style="font-size:11px;color:var(--text3)">sdsd</div>
+        </div>
+        <button class="btn btn-success btn-sm" onclick="completeTask(1772628440723)" title="تحديد كمكتمل" style="flex-shrink:0">✓</button>
+        <button class="btn btn-ghost btn-sm" onclick="openTaskModal(1772628440723)" style="flex-shrink:0">✏</button>
+      </div></div></div>
+    <div><div class="section-title" style="color:var(--accent3)">🟢 عادي</div><div id="col-low"><div class="empty" style="padding:16px 0;font-size:12px">لا مهام</div></div></div>
   </div>
   <div class="card" style="margin-bottom:16px;border-color:rgba(79,209,165,.3)">
     <div class="section-title" style="color:var(--accent3)">✅ مشاريع مكتملة</div>
-    <div id="col-done"></div>
+    <div id="col-done"><div class="empty" style="padding:16px 0;font-size:12px;color:var(--accent3)">لا مشاريع مكتملة</div></div>
   </div>
   <div class="card">
     <div class="section-title">جدول المهام الكامل</div>
-    <div class="table-wrap"><table><thead><tr><th>المهمة</th><th>العميل</th><th class="hide-mobile">الأولوية</th><th class="hide-mobile">تاريخ الطلب</th><th class="hide-mobile">تاريخ التسليم</th><th>الدفع</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody id="tasks-tbody"></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>المهمة</th><th>العميل</th><th class="hide-mobile">الأولوية</th><th class="hide-mobile">تاريخ الطلب</th><th class="hide-mobile">تاريخ التسليم</th><th>الدفع</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody id="tasks-tbody"><tr style="">
+    <td>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-success btn-sm" onclick="completeTask(1772628440723)" title="إكمال المشروع" style="padding:4px 8px;font-size:13px;flex-shrink:0">✓</button>
+        <div>
+          <b style="" "="">sdds</b>
+          
+        </div>
+      </div>
+    </td>
+    <td>sdsd</td>
+    <td class="hide-mobile"><span class="badge badge-yellow">متوسطة</span></td>
+    <td class="hide-mobile" style="font-family:var(--mono);font-size:11px">2026-03-04</td>
+    <td class="hide-mobile" style="font-family:var(--mono);font-size:11px">—</td>
+    <td><span class="pay-badge pay-none">❌ لم يُدفع</span></td>
+    <td><span class="badge badge-gray">جديد</span></td>
+    <td><div style="display:flex;gap:4px">
+      <button class="btn btn-ghost btn-sm" onclick="openTaskModal(1772628440723)">✏</button>
+      <button class="btn btn-danger btn-sm" onclick="delTask(1772628440723)">🗑</button>
+    </div></td>
+  </tr></tbody></table></div>
   </div>
 </div>
 
@@ -1168,7 +1200,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
     <button class="btn btn-primary" onclick="openSchedModal()">+ إضافة وقت</button>
   </div>
   <div class="grid grid-2">
-    <div class="card"><div class="section-title">جدول اليوم</div><div id="sched-list"></div></div>
+    <div class="card"><div class="section-title">جدول اليوم</div><div id="sched-list"><div class="empty"><div class="empty-icon">◷</div>أضف وقت لجدول اليوم</div></div></div>
     <div class="card">
       <div class="section-title">💡 روتين مقترح</div>
       <div class="hlbox" style="font-size:13px;line-height:2">
@@ -1188,7 +1220,25 @@ tr:hover td { background: rgba(255,255,255,.02); }
     <div><div class="page-title">قاعدة <span>العملاء</span></div><div class="page-subtitle">سجل كل عميل وتاريخه معك</div></div>
     <button class="btn btn-primary" onclick="openClientModal()">+ عميل جديد</button>
   </div>
-  <div class="grid grid-3" id="clients-grid"><div class="empty" style="grid-column:span 3"><div class="empty-icon">◈</div>لم تضف عملاء بعد</div></div>
+  <div class="grid grid-3" id="clients-grid">
+    <div class="client-card" onclick="openClientProfile(1772628436111)" style="cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="client-avatar" style="background:#7c6ff722;color:#7c6ff7">s</div>
+        <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
+          <button class="btn btn-ghost btn-sm" onclick="openClientModal(1772628436111)">✏</button>
+          <button class="btn btn-danger btn-sm" onclick="delClient(1772628436111)">🗑</button>
+        </div>
+      </div>
+      <div style="font-size:15px;font-weight:700">sdsd</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px">شركة · واتساب</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:6px">📞 sd</div>
+      <div style="font-size:12px;color:var(--text3)">✉ sd</div>
+      
+      <div style="display:flex;gap:16px;margin-top:12px">
+        <div><div style="font-size:16px;font-weight:700;color:#7c6ff7">1</div><div style="font-size:11px;color:var(--text3)">مشاريع</div></div>
+        <div><div style="font-size:16px;font-weight:700;color:var(--accent3)">0</div><div style="font-size:11px;color:var(--text3)">إجمالي ج</div></div>
+      </div>
+    </div></div>
 </div>
 
 <!-- FINANCE -->
@@ -1220,7 +1270,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
   </div>
   <div class="card">
     <div class="section-title">سجل المعاملات</div>
-    <div class="table-wrap"><table><thead><tr><th>الوصف</th><th class="hide-mobile">المصدر/الفئة</th><th>النوع</th><th>المبلغ</th><th class="hide-mobile">التاريخ</th><th>إجراءات</th></tr></thead><tbody id="fin-tbody"></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>الوصف</th><th class="hide-mobile">المصدر/الفئة</th><th>النوع</th><th>المبلغ</th><th class="hide-mobile">التاريخ</th><th>إجراءات</th></tr></thead><tbody id="fin-tbody"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">لا معاملات</td></tr></tbody></table></div>
   </div>
 </div>
 
@@ -1233,7 +1283,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
   <div class="grid grid-2">
     <div class="card">
       <div class="section-title">سجل الفواتير</div>
-      <div class="table-wrap"><table><thead><tr><th>رقم</th><th>العميل</th><th>المبلغ</th><th class="hide-mobile">الحالة</th><th>إجراءات</th></tr></thead><tbody id="inv-tbody"></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>رقم</th><th>العميل</th><th>المبلغ</th><th class="hide-mobile">الحالة</th><th>إجراءات</th></tr></thead><tbody id="inv-tbody"><tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">لا فواتير</td></tr></tbody></table></div>
     </div>
     <div class="card" id="inv-preview-card">
       <div class="section-title">معاينة الفاتورة</div>
@@ -1266,7 +1316,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
   </div>
 
   <!-- Goals grid -->
-  <div id="goals-grid"></div>
+  <div id="goals-grid"><div class="empty card"><div class="empty-icon">◆</div>أضف أهدافك التعليمية والمهنية<br><div style="margin-top:12px"><button class="btn btn-primary" onclick="openGoalModal()">+ هدف جديد</button></div></div></div>
 </div>
 
 <!-- SETTINGS -->
@@ -1287,7 +1337,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
       <div id="logo-preview" style="margin-bottom:14px;min-height:90px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border-radius:var(--r2);border:2px dashed var(--border)"><span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span></div>
       <input type="file" id="logo-input" accept="image/*" style="display:none" onchange="uploadLogo(this)">
       <div style="display:flex;gap:10px;margin-bottom:20px">
-        <button class="btn btn-ghost" onclick="document.getElementById('logo-input').click()">📁 رفع لوجو</button>
+        <button class="btn btn-ghost" onclick="document.getElementById(&#39;logo-input&#39;).click()">📁 رفع لوجو</button>
         <button class="btn btn-danger btn-sm" onclick="removeLogo()">حذف</button>
       </div>
       <div class="divider"></div>
@@ -1309,7 +1359,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
   <div class="modal" style="width:480px">
     <div class="modal-header">
       <div class="modal-title">✅ إكمال المشروع</div>
-      <button class="close-btn" onclick="closeM('modal-complete')">✕</button>
+      <button class="close-btn" onclick="closeM(&#39;modal-complete&#39;)">✕</button>
     </div>
     <input type="hidden" id="complete-task-id">
     <div style="background:rgba(79,209,165,.08);border:1px solid rgba(79,209,165,.25);border-radius:var(--r2);padding:14px 16px;margin-bottom:16px">
@@ -1322,7 +1372,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
     </div>
     <div id="complete-income-section">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <input type="checkbox" id="complete-register-income" checked style="width:18px;height:18px;accent-color:var(--accent3);cursor:pointer">
+        <input type="checkbox" id="complete-register-income" checked="" style="width:18px;height:18px;accent-color:var(--accent3);cursor:pointer">
         <label for="complete-register-income" style="font-size:14px;font-weight:600;cursor:pointer;color:var(--text)">تسجيل الإيراد في المالية تلقائياً</label>
       </div>
       <div class="form-group">
@@ -1331,7 +1381,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
       </div>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
-      <button class="btn btn-ghost" onclick="closeM('modal-complete')">إلغاء</button>
+      <button class="btn btn-ghost" onclick="closeM(&#39;modal-complete&#39;)">إلغاء</button>
       <button class="btn btn-success" onclick="confirmComplete()">✅ تأكيد الإكمال</button>
     </div>
   </div>
@@ -1342,7 +1392,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
   <div class="modal" style="width:720px">
     <div class="modal-header">
       <div class="modal-title" id="profile-title">ملف العميل</div>
-      <button class="close-btn" onclick="closeM('modal-client-profile')">✕</button>
+      <button class="close-btn" onclick="closeM(&#39;modal-client-profile&#39;)">✕</button>
     </div>
     <div id="profile-body"></div>
   </div>
@@ -1352,7 +1402,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
 <!-- TASK -->
 <div class="modal-overlay" id="modal-task">
   <div class="modal">
-    <div class="modal-header"><div class="modal-title" id="task-modal-ttl">✦ مهمة / مشروع جديد</div><button class="close-btn" onclick="closeM('modal-task')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="task-modal-ttl">✦ مهمة / مشروع جديد</div><button class="close-btn" onclick="closeM(&#39;modal-task&#39;)">✕</button></div>
     <input type="hidden" id="task-eid">
     <div class="form-row">
       <div class="form-group"><label class="form-label">اسم المهمة *</label><input class="form-input" id="t-title" placeholder="مثال: تصميم لوجو شركة X"></div>
@@ -1360,7 +1410,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
         <label class="form-label">العميل *</label>
         <div style="display:flex;gap:8px">
           <select class="form-select" id="t-client" style="flex:1"><option value="">— اختر عميل —</option></select>
-          <button class="btn btn-ghost btn-sm" title="إضافة عميل جديد" onclick="closeM('modal-task');openClientModal()" style="flex-shrink:0;padding:9px 13px;font-size:16px">+</button>
+          <button class="btn btn-ghost btn-sm" title="إضافة عميل جديد" onclick="closeM(&#39;modal-task&#39;);openClientModal()" style="flex-shrink:0;padding:9px 13px;font-size:16px">+</button>
         </div>
       </div>
     </div>
@@ -1369,7 +1419,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
       <div class="form-group"><label class="form-label">تاريخ التسليم</label><input class="form-input" type="date" id="t-deadline"></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">الأولوية</label><select class="form-select" id="t-priority"><option value="high">🔴 عالية — عاجل</option><option value="med" selected>🟡 متوسطة</option><option value="low">🟢 منخفضة</option></select></div>
+      <div class="form-group"><label class="form-label">الأولوية</label><select class="form-select" id="t-priority"><option value="high">🔴 عالية — عاجل</option><option value="med" selected="">🟡 متوسطة</option><option value="low">🟢 منخفضة</option></select></div>
       <div class="form-group"><label class="form-label">الحالة</label><select class="form-select" id="t-status"><option value="new">جديد</option><option value="progress">قيد التنفيذ</option><option value="review">مراجعة</option><option value="done">مكتمل</option></select></div>
     </div>
     <div class="form-row">
@@ -1379,7 +1429,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
     <div class="form-group" id="deposit-row" style="display:none"><label class="form-label">قيمة العربون المدفوع (ج)</label><input class="form-input" type="number" id="t-deposit" placeholder="0"></div>
     <div class="form-group"><label class="form-label">ملاحظات</label><textarea class="form-textarea" id="t-notes" placeholder="تفاصيل إضافية..."></textarea></div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeM('modal-task')">إلغاء</button>
+      <button class="btn btn-ghost" onclick="closeM(&#39;modal-task&#39;)">إلغاء</button>
       <button class="btn btn-primary" onclick="saveTask()">💾 حفظ</button>
     </div>
   </div>
@@ -1388,7 +1438,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
 <!-- CLIENT -->
 <div class="modal-overlay" id="modal-client">
   <div class="modal">
-    <div class="modal-header"><div class="modal-title" id="client-modal-ttl">◈ عميل جديد</div><button class="close-btn" onclick="closeM('modal-client')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="client-modal-ttl">◈ عميل جديد</div><button class="close-btn" onclick="closeM(&#39;modal-client&#39;)">✕</button></div>
     <input type="hidden" id="client-eid">
     <div class="form-row">
       <div class="form-group"><label class="form-label">اسم العميل *</label><input class="form-input" id="c-name" placeholder="الاسم الكامل أو الشركة"></div>
@@ -1404,7 +1454,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
     </div>
     <div class="form-group"><label class="form-label">ملاحظات</label><textarea class="form-textarea" id="c-notes" placeholder="تفاصيل، اهتمامات، تاريخ التعامل..."></textarea></div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeM('modal-client')">إلغاء</button>
+      <button class="btn btn-ghost" onclick="closeM(&#39;modal-client&#39;)">إلغاء</button>
       <button class="btn btn-primary" onclick="saveClient()">💾 حفظ</button>
     </div>
   </div>
@@ -1413,7 +1463,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
 <!-- INCOME -->
 <div class="modal-overlay" id="modal-income">
   <div class="modal" style="width:460px">
-    <div class="modal-header"><div class="modal-title" id="income-ttl">💰 تسجيل دخل</div><button class="close-btn" onclick="closeM('modal-income')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="income-ttl">💰 تسجيل دخل</div><button class="close-btn" onclick="closeM(&#39;modal-income&#39;)">✕</button></div>
     <input type="hidden" id="income-eid">
     <div class="form-row">
       <div class="form-group"><label class="form-label">المبلغ (ج) *</label><input class="form-input" type="number" id="in-amount" placeholder="0"></div>
@@ -1421,8 +1471,8 @@ tr:hover td { background: rgba(255,255,255,.02); }
     </div>
     <div class="form-group"><label class="form-label">وصف</label><input class="form-input" id="in-desc" placeholder="مثال: دفعة أولى مشروع لوجو"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeM('modal-income')">إلغاء</button>
-      <button class="btn btn-success" onclick="saveTrans('income')">💾 تسجيل</button>
+      <button class="btn btn-ghost" onclick="closeM(&#39;modal-income&#39;)">إلغاء</button>
+      <button class="btn btn-success" onclick="saveTrans(&#39;income&#39;)">💾 تسجيل</button>
     </div>
   </div>
 </div>
@@ -1430,7 +1480,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
 <!-- EXPENSE -->
 <div class="modal-overlay" id="modal-expense">
   <div class="modal" style="width:460px">
-    <div class="modal-header"><div class="modal-title" id="expense-ttl">💸 تسجيل مصروف</div><button class="close-btn" onclick="closeM('modal-expense')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="expense-ttl">💸 تسجيل مصروف</div><button class="close-btn" onclick="closeM(&#39;modal-expense&#39;)">✕</button></div>
     <input type="hidden" id="expense-eid">
     <div class="form-row">
       <div class="form-group"><label class="form-label">المبلغ (ج) *</label><input class="form-input" type="number" id="ex-amount" placeholder="0"></div>
@@ -1438,8 +1488,8 @@ tr:hover td { background: rgba(255,255,255,.02); }
     </div>
     <div class="form-group"><label class="form-label">وصف</label><input class="form-input" id="ex-desc" placeholder="مثال: اشتراك Adobe CC"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeM('modal-expense')">إلغاء</button>
-      <button class="btn btn-danger" onclick="saveTrans('expense')">💾 تسجيل</button>
+      <button class="btn btn-ghost" onclick="closeM(&#39;modal-expense&#39;)">إلغاء</button>
+      <button class="btn btn-danger" onclick="saveTrans(&#39;expense&#39;)">💾 تسجيل</button>
     </div>
   </div>
 </div>
@@ -1447,7 +1497,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
 <!-- INVOICE -->
 <div class="modal-overlay" id="modal-invoice">
   <div class="modal" style="width:660px">
-    <div class="modal-header"><div class="modal-title" id="inv-modal-ttl">◻ إنشاء فاتورة جديدة</div><button class="close-btn" onclick="closeM('modal-invoice')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="inv-modal-ttl">◻ إنشاء فاتورة جديدة</div><button class="close-btn" onclick="closeM(&#39;modal-invoice&#39;)">✕</button></div>
     <input type="hidden" id="inv-eid">
     <div class="form-row">
       <div class="form-group"><label class="form-label">العميل *</label><select class="form-select" id="inv-client"><option value="">— اختر عميل —</option></select></div>
@@ -1473,7 +1523,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
     </div>
     <div class="form-group"><label class="form-label">ملاحظات وشروط الدفع</label><textarea class="form-textarea" id="inv-notes" placeholder="مثال: الدفع خلال 7 أيام — الملكية تنتقل بعد السداد الكامل"></textarea></div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeM('modal-invoice')">إلغاء</button>
+      <button class="btn btn-ghost" onclick="closeM(&#39;modal-invoice&#39;)">إلغاء</button>
       <button class="btn btn-primary" onclick="saveInvoice()">💾 حفظ الفاتورة</button>
     </div>
   </div>
@@ -1482,16 +1532,16 @@ tr:hover td { background: rgba(255,255,255,.02); }
 <!-- GOAL -->
 <div class="modal-overlay" id="modal-goal">
   <div class="modal" style="width:460px">
-    <div class="modal-header"><div class="modal-title" id="goal-modal-ttl">◆ هدف تعليمي</div><button class="close-btn" onclick="closeM('modal-goal')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="goal-modal-ttl">◆ هدف تعليمي</div><button class="close-btn" onclick="closeM(&#39;modal-goal&#39;)">✕</button></div>
     <input type="hidden" id="goal-eid">
     <div class="form-group"><label class="form-label">الهدف *</label><input class="form-input" id="g-title" placeholder="مثال: إتقان After Effects"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">الفئة</label><select class="form-select" id="g-cat"><option>مهارة تقنية</option><option>برنامج جديد</option><option>مجال جديد</option><option>كورس</option><option>هدف مالي</option><option>هدف مهني</option></select></div>
       <div class="form-group"><label class="form-label">الموعد المستهدف</label><input class="form-input" type="date" id="g-deadline"></div>
     </div>
-    <div class="form-group"><label class="form-label">التقدم الحالي: <span id="g-pct-display">0%</span></label><input class="form-input" type="range" id="g-progress" min="0" max="100" value="0" oninput="document.getElementById('g-pct-display').textContent=this.value+'%'"></div>
+    <div class="form-group"><label class="form-label">التقدم الحالي: <span id="g-pct-display">0%</span></label><input class="form-input" type="range" id="g-progress" min="0" max="100" value="0" oninput="document.getElementById(&#39;g-pct-display&#39;).textContent=this.value+&#39;%&#39;"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeM('modal-goal')">إلغاء</button>
+      <button class="btn btn-ghost" onclick="closeM(&#39;modal-goal&#39;)">إلغاء</button>
       <button class="btn btn-primary" onclick="saveGoal()">💾 حفظ</button>
     </div>
   </div>
@@ -1500,7 +1550,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
 <!-- SCHEDULE -->
 <div class="modal-overlay" id="modal-schedule">
   <div class="modal" style="width:440px">
-    <div class="modal-header"><div class="modal-title" id="sched-modal-ttl">◷ وقت في الجدول</div><button class="close-btn" onclick="closeM('modal-schedule')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="sched-modal-ttl">◷ وقت في الجدول</div><button class="close-btn" onclick="closeM(&#39;modal-schedule&#39;)">✕</button></div>
     <input type="hidden" id="sched-eid">
     <div class="form-row">
       <div class="form-group"><label class="form-label">الوقت</label><input class="form-input" type="time" id="s-time"></div>
@@ -1508,7 +1558,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
     </div>
     <div class="form-group"><label class="form-label">العنوان</label><input class="form-input" id="s-title" placeholder="ماذا ستعمل؟"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeM('modal-schedule')">إلغاء</button>
+      <button class="btn btn-ghost" onclick="closeM(&#39;modal-schedule&#39;)">إلغاء</button>
       <button class="btn btn-primary" onclick="saveSched()">💾 حفظ</button>
     </div>
   </div>
@@ -1517,10 +1567,10 @@ tr:hover td { background: rgba(255,255,255,.02); }
 <!-- CONFIRM -->
 <div class="modal-overlay" id="modal-confirm">
   <div class="modal" style="width:360px">
-    <div class="modal-header"><div class="modal-title">⚠ تأكيد</div><button class="close-btn" onclick="closeM('modal-confirm')">✕</button></div>
+    <div class="modal-header"><div class="modal-title">⚠ تأكيد</div><button class="close-btn" onclick="closeM(&#39;modal-confirm&#39;)">✕</button></div>
     <p style="color:var(--text2);margin-bottom:20px" id="confirm-msg">هل تريد الحذف؟</p>
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeM('modal-confirm')">إلغاء</button>
+      <button class="btn btn-ghost" onclick="closeM(&#39;modal-confirm&#39;)">إلغاء</button>
       <button class="btn btn-danger" id="confirm-btn">تأكيد</button>
     </div>
   </div>
@@ -1528,81 +1578,16 @@ tr:hover td { background: rgba(255,255,255,.02); }
 
 <script>
 // ============================================================
-// SUPABASE CONFIG  ← ضع credentials هنا بعد إنشاء مشروعك
-// ============================================================
-const SB_URL  = 'https://mpfmcjgigpvdxbhgzufo.supabase.co';
-const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM';
-const sb = (SB_URL.startsWith('YOUR')) ? null : supabase.createClient(SB_URL, SB_KEY);
-let SB_USER_ID = null;   // set after login
-
-// ============================================================
 // CORE STATE
 // ============================================================
 const COLORS=['#7c6ff7','#f7c948','#4fd1a5','#f76f7c','#64b5f6','#ff8a65','#ce93d8','#80cbc4'];
 let S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:''}};
 let invItems=[];
-let _syncTimer=null;
 
-// ── Offline fallback (localStorage) ─────────────────────────
-function userKey(){return 'studioOS_v3_'+(SB_USER_ID||'guest');}
+function userKey(){const sess=getSession();return 'studioOS_v3_'+(sess?sess.id:'guest');}
 function lsLoad(){try{const d=localStorage.getItem(userKey());if(d)S=JSON.parse(d);}catch(e){}}
-function lsSave(){
-  try{localStorage.setItem(userKey(),JSON.stringify(S));}catch(e){}
-  updateDash();
-  // Debounced cloud sync
-  if(sb && SB_USER_ID){
-    clearTimeout(_syncTimer);
-    _syncTimer=setTimeout(()=>syncToCloud(), 800);
-  }
-}
-
-// ── Cloud sync ───────────────────────────────────────────────
-async function syncToCloud(){
-  if(!sb || !SB_USER_ID) return;
-  try {
-    const payload = {
-      user_id: SB_USER_ID,
-      data: JSON.stringify(S),
-      updated_at: new Date().toISOString()
-    };
-    await sb.from('studio_data')
-      .upsert(payload, {onConflict:'user_id'});
-    showSyncBadge('✅ محفوظ');
-  } catch(e){
-    showSyncBadge('⚠ offline');
-    console.warn('Sync error:', e);
-  }
-}
-
-async function loadFromCloud(){
-  if(!sb || !SB_USER_ID) { lsLoad(); return; }
-  try {
-    showSyncBadge('⏳ جاري التحميل...');
-    const {data,error} = await sb.from('studio_data')
-      .select('data')
-      .eq('user_id', SB_USER_ID)
-      .single();
-    if(data?.data){
-      S = JSON.parse(data.data);
-      localStorage.setItem(userKey(), data.data);  // update local cache
-    } else {
-      lsLoad();  // first time — start fresh or use local cache
-    }
-    showSyncBadge('');
-  } catch(e){
-    lsLoad();   // offline → use local cache
-    showSyncBadge('⚠ offline');
-  }
-}
-
-function showSyncBadge(txt){
-  let el=document.getElementById('sync-badge');
-  if(!el) return;
-  el.textContent=txt;
-  el.style.opacity=txt?'1':'0';
-}
-
-lsLoad();  // load local cache immediately (will be overwritten by cloud data after login)
+function lsSave(){try{localStorage.setItem(userKey(),JSON.stringify(S));}catch(e){}updateDash();}
+lsLoad();
 
 // ============================================================
 // NAVIGATION
@@ -2161,8 +2146,7 @@ function exportPDF(id){
     <!DOCTYPE html><html lang="ar" dir="rtl">
     <head>
     <meta charset="UTF-8">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
       *{margin:0;padding:0;box-sizing:border-box;}
       body{font-family:'Cairo',sans-serif;background:#fff;color:#1a1a2e;direction:rtl;}
@@ -2490,12 +2474,11 @@ function updateHeader(pageId){
 
 
 // ============================================================
-// AUTH SYSTEM  (Supabase Auth + localStorage fallback)
+// AUTH SYSTEM
 // ============================================================
-const AUTH_KEY  = 'studioOS_auth_v1';
+const AUTH_KEY = 'studioOS_auth_v1';
 const USERS_KEY = 'studioOS_users_v1';
 
-// Local user store (used when Supabase not configured)
 function getUsers(){ try{ return JSON.parse(localStorage.getItem(USERS_KEY)||'[]'); }catch(e){return [];} }
 function saveUsers(u){ localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
 function getSession(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY)||'null'); }catch(e){return null;} }
@@ -2508,22 +2491,26 @@ function switchAuthTab(tab){
   document.getElementById('panel-register').classList.toggle('active', tab==='register');
   clearAuthMessages();
 }
+
 function clearAuthMessages(){
   ['login-error','register-error','register-success'].forEach(id=>{
     const el=document.getElementById(id);
     if(el){el.classList.remove('show');el.textContent='';}
   });
 }
+
 function showAuthMsg(id, msg){
   const el=document.getElementById(id);
   if(el){el.textContent=msg;el.classList.add('show');}
 }
+
 function checkPwStrength(pw){
   const bar=document.getElementById('pw-bar');
   const hint=document.getElementById('pw-hint');
   if(!bar||!hint)return;
   let score=0;
-  [pw.length>=8, /[A-Za-z]/.test(pw), /[0-9]/.test(pw), pw.length>=12].forEach(c=>{if(c)score++;});
+  const checks=[pw.length>=8, /[A-Z]/.test(pw)||/[a-z]/.test(pw), /[0-9]/.test(pw), pw.length>=12];
+  checks.forEach(c=>{ if(c)score++; });
   const colors=['#f76f7c','#f7c948','#4fd1a5','#7c6ff7'];
   const labels=['ضعيفة','متوسطة','جيدة','قوية جداً'];
   bar.style.width=(score*25)+'%';
@@ -2531,8 +2518,7 @@ function checkPwStrength(pw){
   hint.textContent=pw.length?'قوة كلمة المرور: '+(labels[score-1]||''):'';
 }
 
-// ── REGISTER ────────────────────────────────────────────────
-async function doRegister(){
+function doRegister(){
   const name   = document.getElementById('reg-name').value.trim();
   const phone  = document.getElementById('reg-phone').value.trim();
   const studio = document.getElementById('reg-studio').value.trim();
@@ -2540,138 +2526,71 @@ async function doRegister(){
   const pw2    = document.getElementById('reg-password2').value;
   clearAuthMessages();
 
-  if(!name)  return showAuthMsg('register-error','⚠ يرجى إدخال الاسم الكامل');
-  if(!phone) return showAuthMsg('register-error','⚠ يرجى إدخال رقم الهاتف');
+  if(!name)            return showAuthMsg('register-error','⚠ يرجى إدخال الاسم الكامل');
+  if(!phone)           return showAuthMsg('register-error','⚠ يرجى إدخال رقم الهاتف');
   if(!/^[0-9+\-\s]{7,15}$/.test(phone)) return showAuthMsg('register-error','⚠ رقم الهاتف غير صحيح');
-  if(pw1.length < 6) return showAuthMsg('register-error','⚠ كلمة المرور يجب أن تكون 6 أحرف على الأقل');
-  if(pw1 !== pw2)    return showAuthMsg('register-error','⚠ كلمتا المرور غير متطابقتين');
+  if(pw1.length < 6)   return showAuthMsg('register-error','⚠ كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+  if(pw1 !== pw2)      return showAuthMsg('register-error','⚠ كلمتا المرور غير متطابقتين');
 
-  if(sb){
-    // ── Supabase path ──
-    showAuthMsg('register-success','⏳ جاري إنشاء الحساب...');
-    const email = phone.replace(/[^0-9]/g,'') + '@studioos.app'; // synthetic email
-    const {data, error} = await sb.auth.signUp({
-      email, password: pw1,
-      options:{ data:{ name, phone, studio: studio||name+' Studio' } }
-    });
-    if(error){
-      document.getElementById('register-success').classList.remove('show');
-      if(error.message.includes('already') || error.message.includes('registered')){
-        // Already registered — try to login directly
-        const {data:loginData, error:loginErr} = await sb.auth.signInWithPassword({email, password:pw1});
-        if(!loginErr && loginData?.user){
-          const meta = loginData.user.user_metadata||{};
-          const lu = { id:loginData.user.id, name:meta.name||name, phone, studio:meta.studio||studio||name+' Studio', sbUser:true };
-          const users=getUsers(); if(!users.find(u=>u.phone===phone)){users.push(lu);saveUsers(users);}
-          showAuthMsg('register-success','✅ تم تسجيل الدخول!');
-          setTimeout(()=>{ loginUserObj(lu, loginData.user.id); }, 600);
-          return;
-        }
-        return showAuthMsg('register-error','⚠ رقم الهاتف مسجل مسبقاً — جرّب تسجيل الدخول');
-      }
-      return showAuthMsg('register-error','⚠ ' + error.message);
-    }
-    // Store locally for multi-account switching
-    const userId = data.user?.id || data.session?.user?.id;
-    const localUser = { id: userId, name, phone, studio:studio||name+' Studio', sbUser:true, createdAt: new Date().toISOString() };
-    const users = getUsers();
-    if(!users.find(u=>u.phone===phone)){ users.push(localUser); saveUsers(users); }
-    // If session exists immediately (email confirm disabled) — login right away
-    if(data.session){
-      showAuthMsg('register-success','✅ تم إنشاء الحساب بنجاح!');
-      setTimeout(()=>{ loginUserObj(localUser, userId); }, 600);
-    } else {
-      // email confirm is ON — try signing in anyway
-      const {data:loginData, error:loginErr} = await sb.auth.signInWithPassword({email, password:pw1});
-      if(!loginErr && loginData?.user){
-        showAuthMsg('register-success','✅ تم إنشاء الحساب وتسجيل الدخول!');
-        setTimeout(()=>{ loginUserObj(localUser, loginData.user.id); }, 600);
-      } else {
-        showAuthMsg('register-success','✅ تم إنشاء الحساب! سجّل دخولك الآن.');
-        setTimeout(()=>switchAuthTab('login'), 1500);
-      }
-    }
-  } else {
-    // ── Local fallback ──
-    const users = getUsers();
-    if(users.find(u=>u.phone===phone)) return showAuthMsg('register-error','⚠ رقم الهاتف مسجل مسبقاً');
-    const hash = btoa(encodeURIComponent(pw1 + phone + 'studioOS'));
-    const newUser = { id: Date.now(), name, phone, studio: studio||name+' Studio', hash, createdAt: new Date().toISOString() };
-    users.push(newUser); saveUsers(users);
-    showAuthMsg('register-success','✅ تم إنشاء الحساب بنجاح!');
-    setTimeout(()=>{ loginUserObj(newUser, newUser.id); }, 800);
-  }
+  const users = getUsers();
+  if(users.find(u=>u.phone===phone)) return showAuthMsg('register-error','⚠ رقم الهاتف مسجل مسبقاً');
+
+  // Simple hash (XOR-based, sufficient for local storage)
+  const hash = btoa(encodeURIComponent(pw1 + phone + 'studioOS'));
+  const newUser = { id: Date.now(), name, phone, studio: studio||name+' Studio', hash, createdAt: new Date().toISOString() };
+  users.push(newUser);
+  saveUsers(users);
+
+  showAuthMsg('register-success', '✅ تم إنشاء الحساب بنجاح! جاري تسجيل الدخول...');
+  setTimeout(()=>{ loginUser(newUser); }, 1000);
 }
 
-// ── LOGIN ────────────────────────────────────────────────────
-async function doLogin(){
+function doLogin(){
   const phone = document.getElementById('login-phone').value.trim();
   const pw    = document.getElementById('login-password').value;
   clearAuthMessages();
+
   if(!phone || !pw) return showAuthMsg('login-error','⚠ يرجى إدخال رقم الهاتف وكلمة المرور');
 
-  if(sb){
-    showAuthMsg('login-error','');
-    const btn = document.querySelector('#panel-login .auth-btn');
-    if(btn){ btn.textContent='⏳ جاري الدخول...'; btn.disabled=true; }
-    const email = phone.replace(/[^0-9]/g,'') + '@studioos.app';
-    const {data, error} = await sb.auth.signInWithPassword({ email, password: pw });
-    if(btn){ btn.textContent='تسجيل الدخول'; btn.disabled=false; }
-    if(error){
-      const msg = error.message.includes('confirm') ? '⚠ يرجى تأكيد البريد أولاً — تحقق من إيميلك' :
-                  error.message.includes('Invalid') ? '⚠ رقم الهاتف أو كلمة المرور غير صحيحة' :
-                  '⚠ ' + error.message;
-      return showAuthMsg('login-error', msg);
-    }
-    const meta = data.user.user_metadata||{};
-    let localUser = getUsers().find(u=>u.phone===phone);
-    if(!localUser){
-      localUser = { id: data.user.id, name: meta.name||phone, phone, studio: meta.studio||phone+' Studio', sbUser:true };
-      const users = getUsers(); users.push(localUser); saveUsers(users);
-    }
-    loginUserObj(localUser, data.user.id);
-  } else {
-    const users = getUsers();
-    const user  = users.find(u=>u.phone===phone);
-    if(!user) return showAuthMsg('login-error','⚠ رقم الهاتف غير مسجل');
-    const hash = btoa(encodeURIComponent(pw + phone + 'studioOS'));
-    if(hash !== user.hash) return showAuthMsg('login-error','⚠ كلمة المرور غير صحيحة');
-    loginUserObj(user, user.id);
-  }
+  const users = getUsers();
+  const user  = users.find(u=>u.phone===phone);
+  if(!user) return showAuthMsg('login-error','⚠ رقم الهاتف غير مسجل');
+
+  const hash = btoa(encodeURIComponent(pw + phone + 'studioOS'));
+  if(hash !== user.hash) return showAuthMsg('login-error','⚠ كلمة المرور غير صحيحة');
+
+  loginUser(user);
 }
 
-// ── CORE LOGIN ───────────────────────────────────────────────
-async function loginUserObj(user, sbId){
-  SB_USER_ID = String(sbId);
-  saveSession({...user, id: SB_USER_ID});
+function loginUser(user){
+  saveSession(user);
+  // Reload data for this user
   S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:''}};
-  await loadFromCloud();
+  lsLoad();
+  // Pre-fill settings with user name if settings are empty
   if(!S.settings.name && user.name){
-    S.settings.name  = user.studio||user.name;
+    S.settings.name  = user.name;
     S.settings.phone = user.phone;
+    if(user.studio) S.settings.name = user.studio;
     lsSave();
   }
+  // Update UI
   updateUserBadge(user);
-  renderAll();
   const screen = document.getElementById('auth-screen');
-  screen.style.transition='opacity .35s ease';
+  screen.style.transition='opacity .4s ease';
   screen.style.opacity='0';
-  setTimeout(()=>{ screen.classList.add('hidden'); screen.style.opacity=''; }, 350);
+  setTimeout(()=>{ screen.classList.add('hidden'); screen.style.opacity=''; }, 400);
 }
-// alias
-function loginUser(user){ loginUserObj(user, user.id); }
 
-// ── LOGOUT ───────────────────────────────────────────────────
-async function doLogout(){
+function doLogout(){
   if(!confirm('هل تريد تسجيل الخروج؟')) return;
-  if(sb) await sb.auth.signOut().catch(()=>{});
   clearSession();
-  SB_USER_ID = null;
-  S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:''}};
+  // Reset inputs
   ['login-phone','login-password','reg-name','reg-phone','reg-studio','reg-password','reg-password2'].forEach(id=>{
     const el=document.getElementById(id); if(el)el.value='';
   });
-  clearAuthMessages(); checkPwStrength('');
+  clearAuthMessages();
+  checkPwStrength('');
   const screen=document.getElementById('auth-screen');
   screen.classList.remove('hidden');
   screen.style.opacity='0';
@@ -2691,26 +2610,18 @@ function updateUserBadge(user){
   if(nd) nd.textContent = user.name||'المصمم';
 }
 
-async function initAuth(){
-  // Try restoring Supabase session first
-  if(sb){
-    const {data:{session}} = await sb.auth.getSession().catch(()=>({data:{session:null}}));
-    if(session){
-      const meta = session.user.user_metadata||{};
-      const phone = meta.phone||(session.user.email||'').replace('@studioos.app','');
-      let localUser = getUsers().find(u=>u.phone===phone)||{id:session.user.id,name:meta.name||phone,phone,studio:meta.studio||''};
-      await loginUserObj(localUser, session.user.id);
+function initAuth(){
+  const session = getSession();
+  if(session){
+    // Validate session user still exists
+    const users = getUsers();
+    const stillExists = users.find(u=>u.id===session.id&&u.hash===session.hash);
+    if(stillExists){
+      loginUser(stillExists);
       return;
     }
-  } else {
-    // Local fallback session
-    const session = getSession();
-    if(session){
-      const users = getUsers();
-      const stillExists = users.find(u=>u.id===session.id&&(u.hash===session.hash||u.sbUser));
-      if(stillExists){ await loginUserObj(stillExists, stillExists.id); return; }
-    }
   }
+  // Show auth screen
   document.getElementById('auth-screen').classList.remove('hidden');
 }
 
@@ -2886,15 +2797,13 @@ function saveProfileEdit(){
   updateUserBadge(users[idx]);
   // Update app settings name
   if(S.settings){ S.settings.name=studio||name; S.settings.phone=phone; lsSave(); }
-  // Update Supabase metadata
-  if(sb) sb.auth.updateUser({data:{name, phone, studio:studio||name+' Studio'}}).catch(()=>{});
 
   if(msgEl){ msgEl.textContent='✅ تم حفظ التعديلات بنجاح'; msgEl.className='auth-success show'; }
   // refresh header avatar
   const av=document.getElementById('pm-avatar'); if(av) av.textContent=(name||'م')[0];
 }
 
-async function doResetPassword(){
+function doResetPassword(){
   const user  = getSession();
   if(!user) return;
   const oldPw = document.getElementById('rp-old')?.value||'';
@@ -2906,27 +2815,18 @@ async function doResetPassword(){
 
   const show=(el,msg,ok)=>{ if(el){el.textContent=msg;el.classList.add('show');} };
 
+  const oldHash = btoa(encodeURIComponent(oldPw + user.phone + 'studioOS'));
+  if(oldHash!==user.hash) return show(errEl,'⚠ كلمة المرور الحالية غير صحيحة');
   if(newPw1.length<6)    return show(errEl,'⚠ كلمة المرور الجديدة قصيرة جداً (6 أحرف على الأقل)');
   if(newPw1!==newPw2)    return show(errEl,'⚠ كلمتا المرور الجديدتان غير متطابقتين');
 
-  if(sb){
-    // Verify old password by re-signing in
-    const email = user.phone.replace(/[^0-9]/g,'')+'@studioos.app';
-    const {error:signErr} = await sb.auth.signInWithPassword({email, password:oldPw});
-    if(signErr) return show(errEl,'⚠ كلمة المرور الحالية غير صحيحة');
-    const {error:updErr} = await sb.auth.updateUser({password:newPw1});
-    if(updErr) return show(errEl,'⚠ حصل خطأ: '+updErr.message);
-  } else {
-    const oldHash = btoa(encodeURIComponent(oldPw + user.phone + 'studioOS'));
-    if(oldHash!==user.hash) return show(errEl,'⚠ كلمة المرور الحالية غير صحيحة');
-    const newHash = btoa(encodeURIComponent(newPw1 + user.phone + 'studioOS'));
-    const users = getUsers();
-    const idx   = users.findIndex(u=>u.id===user.id);
-    if(idx<0) return;
-    users[idx].hash = newHash;
-    saveUsers(users);
-    saveSession(users[idx]);
-  }
+  const newHash = btoa(encodeURIComponent(newPw1 + user.phone + 'studioOS'));
+  const users = getUsers();
+  const idx   = users.findIndex(u=>u.id===user.id);
+  if(idx<0) return;
+  users[idx].hash = newHash;
+  saveUsers(users);
+  saveSession(users[idx]);
 
   ['rp-old','rp-new1','rp-new2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   checkPwStrength2('');
@@ -3010,11 +2910,12 @@ window.addEventListener('resize',()=>{
   <div class="modal" style="width:480px">
     <div class="modal-header">
       <div class="modal-title" id="profile-modal-title">👤 الملف الشخصي</div>
-      <button class="close-btn" onclick="closeM('modal-profile')">✕</button>
+      <button class="close-btn" onclick="closeM(&#39;modal-profile&#39;)">✕</button>
     </div>
     <div id="profile-modal-body"></div>
   </div>
 </div>
 
-</body>
-</html>
+
+
+</body></html>
