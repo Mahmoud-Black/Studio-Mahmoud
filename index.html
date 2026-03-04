@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Studio OS — نظام الاستوديو</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 @media print {
@@ -1077,6 +1078,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
   </button>
   <div class="header-page-title" id="header-page-title">لوحة التحكم</div>
   <div class="header-actions">
+    <span id="sync-badge" style="font-size:11px;color:var(--accent3);opacity:0;transition:opacity .3s;font-weight:600"></span>
     <button class="btn btn-primary btn-sm" id="header-cta" onclick="openTaskModal()">+ مهمة جديدة</button>
   </div>
 </header>
@@ -1526,16 +1528,81 @@ tr:hover td { background: rgba(255,255,255,.02); }
 
 <script>
 // ============================================================
+// SUPABASE CONFIG  ← ضع credentials هنا بعد إنشاء مشروعك
+// ============================================================
+const SB_URL  = 'https://mpfmcjgigpvdxbhgzufo.supabase.co';
+const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM';
+const sb = (SB_URL.startsWith('YOUR')) ? null : supabase.createClient(SB_URL, SB_KEY);
+let SB_USER_ID = null;   // set after login
+
+// ============================================================
 // CORE STATE
 // ============================================================
 const COLORS=['#7c6ff7','#f7c948','#4fd1a5','#f76f7c','#64b5f6','#ff8a65','#ce93d8','#80cbc4'];
 let S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:''}};
 let invItems=[];
+let _syncTimer=null;
 
-function userKey(){const sess=getSession();return 'studioOS_v3_'+(sess?sess.id:'guest');}
+// ── Offline fallback (localStorage) ─────────────────────────
+function userKey(){return 'studioOS_v3_'+(SB_USER_ID||'guest');}
 function lsLoad(){try{const d=localStorage.getItem(userKey());if(d)S=JSON.parse(d);}catch(e){}}
-function lsSave(){try{localStorage.setItem(userKey(),JSON.stringify(S));}catch(e){}updateDash();}
-lsLoad();
+function lsSave(){
+  try{localStorage.setItem(userKey(),JSON.stringify(S));}catch(e){}
+  updateDash();
+  // Debounced cloud sync
+  if(sb && SB_USER_ID){
+    clearTimeout(_syncTimer);
+    _syncTimer=setTimeout(()=>syncToCloud(), 800);
+  }
+}
+
+// ── Cloud sync ───────────────────────────────────────────────
+async function syncToCloud(){
+  if(!sb || !SB_USER_ID) return;
+  try {
+    const payload = {
+      user_id: SB_USER_ID,
+      data: JSON.stringify(S),
+      updated_at: new Date().toISOString()
+    };
+    await sb.from('studio_data')
+      .upsert(payload, {onConflict:'user_id'});
+    showSyncBadge('✅ محفوظ');
+  } catch(e){
+    showSyncBadge('⚠ offline');
+    console.warn('Sync error:', e);
+  }
+}
+
+async function loadFromCloud(){
+  if(!sb || !SB_USER_ID) { lsLoad(); return; }
+  try {
+    showSyncBadge('⏳ جاري التحميل...');
+    const {data,error} = await sb.from('studio_data')
+      .select('data')
+      .eq('user_id', SB_USER_ID)
+      .single();
+    if(data?.data){
+      S = JSON.parse(data.data);
+      localStorage.setItem(userKey(), data.data);  // update local cache
+    } else {
+      lsLoad();  // first time — start fresh or use local cache
+    }
+    showSyncBadge('');
+  } catch(e){
+    lsLoad();   // offline → use local cache
+    showSyncBadge('⚠ offline');
+  }
+}
+
+function showSyncBadge(txt){
+  let el=document.getElementById('sync-badge');
+  if(!el) return;
+  el.textContent=txt;
+  el.style.opacity=txt?'1':'0';
+}
+
+lsLoad();  // load local cache immediately (will be overwritten by cloud data after login)
 
 // ============================================================
 // NAVIGATION
@@ -2094,7 +2161,8 @@ function exportPDF(id){
     <!DOCTYPE html><html lang="ar" dir="rtl">
     <head>
     <meta charset="UTF-8">
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
       *{margin:0;padding:0;box-sizing:border-box;}
       body{font-family:'Cairo',sans-serif;background:#fff;color:#1a1a2e;direction:rtl;}
@@ -2422,11 +2490,12 @@ function updateHeader(pageId){
 
 
 // ============================================================
-// AUTH SYSTEM
+// AUTH SYSTEM  (Supabase Auth + localStorage fallback)
 // ============================================================
-const AUTH_KEY = 'studioOS_auth_v1';
+const AUTH_KEY  = 'studioOS_auth_v1';
 const USERS_KEY = 'studioOS_users_v1';
 
+// Local user store (used when Supabase not configured)
 function getUsers(){ try{ return JSON.parse(localStorage.getItem(USERS_KEY)||'[]'); }catch(e){return [];} }
 function saveUsers(u){ localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
 function getSession(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY)||'null'); }catch(e){return null;} }
@@ -2439,26 +2508,22 @@ function switchAuthTab(tab){
   document.getElementById('panel-register').classList.toggle('active', tab==='register');
   clearAuthMessages();
 }
-
 function clearAuthMessages(){
   ['login-error','register-error','register-success'].forEach(id=>{
     const el=document.getElementById(id);
     if(el){el.classList.remove('show');el.textContent='';}
   });
 }
-
 function showAuthMsg(id, msg){
   const el=document.getElementById(id);
   if(el){el.textContent=msg;el.classList.add('show');}
 }
-
 function checkPwStrength(pw){
   const bar=document.getElementById('pw-bar');
   const hint=document.getElementById('pw-hint');
   if(!bar||!hint)return;
   let score=0;
-  const checks=[pw.length>=8, /[A-Z]/.test(pw)||/[a-z]/.test(pw), /[0-9]/.test(pw), pw.length>=12];
-  checks.forEach(c=>{ if(c)score++; });
+  [pw.length>=8, /[A-Za-z]/.test(pw), /[0-9]/.test(pw), pw.length>=12].forEach(c=>{if(c)score++;});
   const colors=['#f76f7c','#f7c948','#4fd1a5','#7c6ff7'];
   const labels=['ضعيفة','متوسطة','جيدة','قوية جداً'];
   bar.style.width=(score*25)+'%';
@@ -2466,7 +2531,8 @@ function checkPwStrength(pw){
   hint.textContent=pw.length?'قوة كلمة المرور: '+(labels[score-1]||''):'';
 }
 
-function doRegister(){
+// ── REGISTER ────────────────────────────────────────────────
+async function doRegister(){
   const name   = document.getElementById('reg-name').value.trim();
   const phone  = document.getElementById('reg-phone').value.trim();
   const studio = document.getElementById('reg-studio').value.trim();
@@ -2474,71 +2540,106 @@ function doRegister(){
   const pw2    = document.getElementById('reg-password2').value;
   clearAuthMessages();
 
-  if(!name)            return showAuthMsg('register-error','⚠ يرجى إدخال الاسم الكامل');
-  if(!phone)           return showAuthMsg('register-error','⚠ يرجى إدخال رقم الهاتف');
+  if(!name)  return showAuthMsg('register-error','⚠ يرجى إدخال الاسم الكامل');
+  if(!phone) return showAuthMsg('register-error','⚠ يرجى إدخال رقم الهاتف');
   if(!/^[0-9+\-\s]{7,15}$/.test(phone)) return showAuthMsg('register-error','⚠ رقم الهاتف غير صحيح');
-  if(pw1.length < 6)   return showAuthMsg('register-error','⚠ كلمة المرور يجب أن تكون 6 أحرف على الأقل');
-  if(pw1 !== pw2)      return showAuthMsg('register-error','⚠ كلمتا المرور غير متطابقتين');
+  if(pw1.length < 6) return showAuthMsg('register-error','⚠ كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+  if(pw1 !== pw2)    return showAuthMsg('register-error','⚠ كلمتا المرور غير متطابقتين');
 
-  const users = getUsers();
-  if(users.find(u=>u.phone===phone)) return showAuthMsg('register-error','⚠ رقم الهاتف مسجل مسبقاً');
-
-  // Simple hash (XOR-based, sufficient for local storage)
-  const hash = btoa(encodeURIComponent(pw1 + phone + 'studioOS'));
-  const newUser = { id: Date.now(), name, phone, studio: studio||name+' Studio', hash, createdAt: new Date().toISOString() };
-  users.push(newUser);
-  saveUsers(users);
-
-  showAuthMsg('register-success', '✅ تم إنشاء الحساب بنجاح! جاري تسجيل الدخول...');
-  setTimeout(()=>{ loginUser(newUser); }, 1000);
+  if(sb){
+    // ── Supabase path ──
+    showAuthMsg('register-success','⏳ جاري إنشاء الحساب...');
+    const email = phone.replace(/[^0-9]/g,'') + '@studioos.app'; // synthetic email
+    const {data, error} = await sb.auth.signUp({
+      email, password: pw1,
+      options:{ data:{ name, phone, studio: studio||name+' Studio' } }
+    });
+    if(error){
+      document.getElementById('register-success').classList.remove('show');
+      return showAuthMsg('register-error','⚠ ' + (error.message.includes('already')? 'رقم الهاتف مسجل مسبقاً' : error.message));
+    }
+    // Also store locally for multi-account switching
+    const localUser = { id: data.user.id, name, phone, studio:studio||name+' Studio', sbUser:true, createdAt: new Date().toISOString() };
+    const users = getUsers();
+    if(!users.find(u=>u.phone===phone)){ users.push(localUser); saveUsers(users); }
+    showAuthMsg('register-success','✅ تم إنشاء الحساب بنجاح!');
+    setTimeout(()=>{ loginUserObj(localUser, data.user.id); }, 800);
+  } else {
+    // ── Local fallback ──
+    const users = getUsers();
+    if(users.find(u=>u.phone===phone)) return showAuthMsg('register-error','⚠ رقم الهاتف مسجل مسبقاً');
+    const hash = btoa(encodeURIComponent(pw1 + phone + 'studioOS'));
+    const newUser = { id: Date.now(), name, phone, studio: studio||name+' Studio', hash, createdAt: new Date().toISOString() };
+    users.push(newUser); saveUsers(users);
+    showAuthMsg('register-success','✅ تم إنشاء الحساب بنجاح!');
+    setTimeout(()=>{ loginUserObj(newUser, newUser.id); }, 800);
+  }
 }
 
-function doLogin(){
+// ── LOGIN ────────────────────────────────────────────────────
+async function doLogin(){
   const phone = document.getElementById('login-phone').value.trim();
   const pw    = document.getElementById('login-password').value;
   clearAuthMessages();
-
   if(!phone || !pw) return showAuthMsg('login-error','⚠ يرجى إدخال رقم الهاتف وكلمة المرور');
 
-  const users = getUsers();
-  const user  = users.find(u=>u.phone===phone);
-  if(!user) return showAuthMsg('login-error','⚠ رقم الهاتف غير مسجل');
-
-  const hash = btoa(encodeURIComponent(pw + phone + 'studioOS'));
-  if(hash !== user.hash) return showAuthMsg('login-error','⚠ كلمة المرور غير صحيحة');
-
-  loginUser(user);
+  if(sb){
+    showAuthMsg('login-error','');
+    const btn = document.querySelector('#panel-login .auth-btn');
+    if(btn){ btn.textContent='⏳ جاري الدخول...'; btn.disabled=true; }
+    const email = phone.replace(/[^0-9]/g,'') + '@studioos.app';
+    const {data, error} = await sb.auth.signInWithPassword({ email, password: pw });
+    if(btn){ btn.textContent='تسجيل الدخول'; btn.disabled=false; }
+    if(error) return showAuthMsg('login-error','⚠ رقم الهاتف أو كلمة المرور غير صحيحة');
+    const meta = data.user.user_metadata||{};
+    let localUser = getUsers().find(u=>u.phone===phone);
+    if(!localUser){
+      localUser = { id: data.user.id, name: meta.name||phone, phone, studio: meta.studio||phone+' Studio', sbUser:true };
+      const users = getUsers(); users.push(localUser); saveUsers(users);
+    }
+    loginUserObj(localUser, data.user.id);
+  } else {
+    const users = getUsers();
+    const user  = users.find(u=>u.phone===phone);
+    if(!user) return showAuthMsg('login-error','⚠ رقم الهاتف غير مسجل');
+    const hash = btoa(encodeURIComponent(pw + phone + 'studioOS'));
+    if(hash !== user.hash) return showAuthMsg('login-error','⚠ كلمة المرور غير صحيحة');
+    loginUserObj(user, user.id);
+  }
 }
 
-function loginUser(user){
-  saveSession(user);
-  // Reload data for this user
+// ── CORE LOGIN ───────────────────────────────────────────────
+async function loginUserObj(user, sbId){
+  SB_USER_ID = String(sbId);
+  saveSession({...user, id: SB_USER_ID});
   S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:''}};
-  lsLoad();
-  // Pre-fill settings with user name if settings are empty
+  await loadFromCloud();
   if(!S.settings.name && user.name){
-    S.settings.name  = user.name;
+    S.settings.name  = user.studio||user.name;
     S.settings.phone = user.phone;
-    if(user.studio) S.settings.name = user.studio;
     lsSave();
   }
-  // Update UI
   updateUserBadge(user);
+  renderAll();
   const screen = document.getElementById('auth-screen');
-  screen.style.transition='opacity .4s ease';
+  screen.style.transition='opacity .35s ease';
   screen.style.opacity='0';
-  setTimeout(()=>{ screen.classList.add('hidden'); screen.style.opacity=''; }, 400);
+  setTimeout(()=>{ screen.classList.add('hidden'); screen.style.opacity=''; }, 350);
 }
+// alias
+function loginUser(user){ loginUserObj(user, user.id); }
 
-function doLogout(){
+// ── LOGOUT ───────────────────────────────────────────────────
+async function doLogout(){
   if(!confirm('هل تريد تسجيل الخروج؟')) return;
+  if(sb) await sb.auth.signOut().catch(()=>{});
   clearSession();
-  // Reset inputs
+  SB_USER_ID = null;
+  S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:''}};
   ['login-phone','login-password','reg-name','reg-phone','reg-studio','reg-password','reg-password2'].forEach(id=>{
     const el=document.getElementById(id); if(el)el.value='';
   });
-  clearAuthMessages();
-  checkPwStrength('');
+  clearAuthMessages(); checkPwStrength('');
   const screen=document.getElementById('auth-screen');
   screen.classList.remove('hidden');
   screen.style.opacity='0';
@@ -2558,18 +2659,26 @@ function updateUserBadge(user){
   if(nd) nd.textContent = user.name||'المصمم';
 }
 
-function initAuth(){
-  const session = getSession();
-  if(session){
-    // Validate session user still exists
-    const users = getUsers();
-    const stillExists = users.find(u=>u.id===session.id&&u.hash===session.hash);
-    if(stillExists){
-      loginUser(stillExists);
+async function initAuth(){
+  // Try restoring Supabase session first
+  if(sb){
+    const {data:{session}} = await sb.auth.getSession().catch(()=>({data:{session:null}}));
+    if(session){
+      const meta = session.user.user_metadata||{};
+      const phone = meta.phone||(session.user.email||'').replace('@studioos.app','');
+      let localUser = getUsers().find(u=>u.phone===phone)||{id:session.user.id,name:meta.name||phone,phone,studio:meta.studio||''};
+      await loginUserObj(localUser, session.user.id);
       return;
     }
+  } else {
+    // Local fallback session
+    const session = getSession();
+    if(session){
+      const users = getUsers();
+      const stillExists = users.find(u=>u.id===session.id&&(u.hash===session.hash||u.sbUser));
+      if(stillExists){ await loginUserObj(stillExists, stillExists.id); return; }
+    }
   }
-  // Show auth screen
   document.getElementById('auth-screen').classList.remove('hidden');
 }
 
@@ -2745,13 +2854,15 @@ function saveProfileEdit(){
   updateUserBadge(users[idx]);
   // Update app settings name
   if(S.settings){ S.settings.name=studio||name; S.settings.phone=phone; lsSave(); }
+  // Update Supabase metadata
+  if(sb) sb.auth.updateUser({data:{name, phone, studio:studio||name+' Studio'}}).catch(()=>{});
 
   if(msgEl){ msgEl.textContent='✅ تم حفظ التعديلات بنجاح'; msgEl.className='auth-success show'; }
   // refresh header avatar
   const av=document.getElementById('pm-avatar'); if(av) av.textContent=(name||'م')[0];
 }
 
-function doResetPassword(){
+async function doResetPassword(){
   const user  = getSession();
   if(!user) return;
   const oldPw = document.getElementById('rp-old')?.value||'';
@@ -2763,18 +2874,27 @@ function doResetPassword(){
 
   const show=(el,msg,ok)=>{ if(el){el.textContent=msg;el.classList.add('show');} };
 
-  const oldHash = btoa(encodeURIComponent(oldPw + user.phone + 'studioOS'));
-  if(oldHash!==user.hash) return show(errEl,'⚠ كلمة المرور الحالية غير صحيحة');
   if(newPw1.length<6)    return show(errEl,'⚠ كلمة المرور الجديدة قصيرة جداً (6 أحرف على الأقل)');
   if(newPw1!==newPw2)    return show(errEl,'⚠ كلمتا المرور الجديدتان غير متطابقتين');
 
-  const newHash = btoa(encodeURIComponent(newPw1 + user.phone + 'studioOS'));
-  const users = getUsers();
-  const idx   = users.findIndex(u=>u.id===user.id);
-  if(idx<0) return;
-  users[idx].hash = newHash;
-  saveUsers(users);
-  saveSession(users[idx]);
+  if(sb){
+    // Verify old password by re-signing in
+    const email = user.phone.replace(/[^0-9]/g,'')+'@studioos.app';
+    const {error:signErr} = await sb.auth.signInWithPassword({email, password:oldPw});
+    if(signErr) return show(errEl,'⚠ كلمة المرور الحالية غير صحيحة');
+    const {error:updErr} = await sb.auth.updateUser({password:newPw1});
+    if(updErr) return show(errEl,'⚠ حصل خطأ: '+updErr.message);
+  } else {
+    const oldHash = btoa(encodeURIComponent(oldPw + user.phone + 'studioOS'));
+    if(oldHash!==user.hash) return show(errEl,'⚠ كلمة المرور الحالية غير صحيحة');
+    const newHash = btoa(encodeURIComponent(newPw1 + user.phone + 'studioOS'));
+    const users = getUsers();
+    const idx   = users.findIndex(u=>u.id===user.id);
+    if(idx<0) return;
+    users[idx].hash = newHash;
+    saveUsers(users);
+    saveSession(users[idx]);
+  }
 
   ['rp-old','rp-new1','rp-new2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   checkPwStrength2('');
