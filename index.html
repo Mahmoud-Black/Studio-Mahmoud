@@ -1114,6 +1114,26 @@ function getQRDataURL(text, size) {
 
 /* ── Job type section in task modal ── */
 #t-salary-section{background:rgba(79,209,165,.06);border:1px solid rgba(79,209,165,.2);border-radius:var(--r2);padding:12px 14px;margin-bottom:10px;}
+/* ── Task Steps ── */
+.steps-container{display:flex;flex-direction:column;gap:0}
+.step-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;position:relative}
+.step-row:not(:last-child)::after{content:'';position:absolute;right:10px;top:28px;bottom:0;width:2px;background:var(--border)}
+.step-num{width:22px;height:22px;border-radius:50%;background:var(--surface3);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;cursor:pointer;transition:.15s}
+.step-num.done{background:var(--accent3);border-color:var(--accent3);color:#fff}
+.step-num.active-step{background:var(--accent);border-color:var(--accent);color:#fff}
+.step-text{flex:1;font-size:13px;padding-top:2px}
+.step-text.done{text-decoration:line-through;color:var(--text3)}
+.steps-progress{height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;margin:8px 0}
+.steps-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent3));border-radius:3px;transition:.4s}
+/* ── Follow-up alert ── */
+.followup-alert{background:rgba(247,201,72,.07);border:1.5px solid rgba(247,201,72,.35);border-radius:var(--r2);padding:11px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px}
+.followup-alert.overdue{border-color:rgba(247,107,107,.4);background:rgba(247,107,107,.06)}
+.followup-dot{width:8px;height:8px;border-radius:50%;background:var(--accent2);flex-shrink:0}
+/* ── Linked task badge in schedule ── */
+.sched-linked{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--accent);background:rgba(124,111,247,.12);border-radius:10px;padding:2px 7px;margin-top:2px}
+.sched-linked.done{color:var(--accent3);background:rgba(79,209,165,.12)}
+/* ── Task type badge ── */
+.task-type-pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(100,181,246,.15);color:#64b5f6;margin-bottom:2px}
 /* ── WhatsApp ── */
 .wa-preview{background:#0d1f13;border-radius:12px;padding:14px 14px 10px;min-height:70px;}
 .wa-bubble{background:#005c4b;border-radius:12px 12px 3px 12px;padding:10px 14px 6px;font-size:13px;line-height:1.75;color:#e9edef;max-width:92%;white-space:pre-wrap;word-break:break-word;box-shadow:0 1px 4px rgba(0,0,0,.35);display:inline-block;}
@@ -1337,6 +1357,10 @@ function getQRDataURL(text, size) {
 
   <!-- تذكيرات الرواتب -->
   <div id="dash-salary-reminders" style="display:none;margin-bottom:16px"></div>
+
+  <!-- تذكيرات المتابعة -->
+  <div id="dash-followup-reminders" style="display:none;margin-bottom:16px"></div>
+
   <div class="grid grid-2" style="margin-bottom:16px">
     <div class="card"><div class="section-title">آخر المهام</div><div id="dash-tasks-list">
     <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(42,42,58,.3)">
@@ -1656,6 +1680,17 @@ function getQRDataURL(text, size) {
     </div>
   </div>
 
+  <!-- ── أنواع المهام ── -->
+  <div class="card" style="margin-top:16px">
+    <div class="section-title">🏷 أنواع المهام</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px">خصّص أنواع المهام اللي بتشتغل عليها — تظهر في قائمة الاختيار عند إنشاء مهمة</div>
+    <div id="settings-task-types" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px">
+      <input class="form-input" id="settings-new-task-type" placeholder="مثال: موشن جرافيك، ويب ديزاين..." style="max-width:300px">
+      <button class="btn btn-ghost btn-sm" onclick="addTaskTypeFromSettings()">+ إضافة نوع</button>
+    </div>
+  </div>
+
   <!-- ── قوالب واتساب ── -->
   <div class="card" style="margin-top:16px">
     <div class="section-title">
@@ -1824,7 +1859,7 @@ function getQRDataURL(text, size) {
       </div>
     </div>
 
-    <!-- ── نوع العمل ── -->
+    <!-- ── نوع العمل + نوع المهمة ── -->
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">نوع العمل</label>
@@ -1832,6 +1867,15 @@ function getQRDataURL(text, size) {
           <option value="freelance">🎯 فري لانس</option>
           <option value="fulltime">🏢 دوام كامل</option>
           <option value="parttime">⏰ بارت تايم</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+          <span>نوع المهمة</span>
+          <span onclick="openTaskTypesSettings()" style="font-size:10px;color:var(--accent);cursor:pointer;font-weight:600">⚙ إدارة الأنواع</span>
+        </label>
+        <select class="form-select" id="t-tasktype">
+          <option value="">— اختر النوع —</option>
         </select>
       </div>
     </div>
@@ -1849,6 +1893,15 @@ function getQRDataURL(text, size) {
     </div>
     <div class="form-group" id="deposit-row" style="display:none"><label class="form-label">قيمة العربون المدفوع (ج)</label><input class="form-input" type="number" id="t-deposit" placeholder="0"></div>
     <div class="form-group"><label class="form-label">ملاحظات</label><textarea class="form-textarea" id="t-notes" placeholder="تفاصيل إضافية..."></textarea></div>
+
+    <!-- ── خطوات التنفيذ (اختياري) ── -->
+    <div style="background:rgba(124,111,247,.06);border:1px solid rgba(124,111,247,.2);border-radius:var(--r2);padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;color:var(--accent)">📋 خطوات التنفيذ <span style="font-size:10px;font-weight:400;color:var(--text3)">(اختياري — للمشاريع الكبيرة)</span></div>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="addTaskStep()">+ خطوة</button>
+      </div>
+      <div id="t-steps-list" style="min-height:0"></div>
+    </div>
 
     <!-- ── بريف المشروع (rich editor) ── -->
     <div class="form-group">
@@ -1928,6 +1981,35 @@ function getQRDataURL(text, size) {
     </div>
 
     <div class="form-group"><label class="form-label">ملاحظات</label><textarea class="form-textarea" id="c-notes" placeholder="تفاصيل، اهتمامات، تاريخ التعامل..."></textarea></div>
+
+    <!-- ── إعدادات المتابعة ── -->
+    <div style="background:rgba(247,201,72,.06);border:1px solid rgba(247,201,72,.25);border-radius:var(--r2);padding:12px 14px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--accent2);margin-bottom:10px">🔔 إعدادات المتابعة التلقائية</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">تذكير المتابعة</label>
+          <select class="form-select" id="c-followup-enabled">
+            <option value="off">معطّل</option>
+            <option value="on">مفعّل</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">لو مطلبش حاجة خلال</label>
+          <select class="form-select" id="c-followup-months">
+            <option value="2">شهرين</option>
+            <option value="3" selected>3 شهور</option>
+            <option value="4">4 شهور</option>
+            <option value="6">6 شهور</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">رسالة المتابعة (واتساب)</label>
+        <textarea class="form-textarea" id="c-followup-msg" placeholder="مثال: أهلاً {{الاسم}}، اتمنى تكون بخير. عايز أطمن عليك وأعرف لو محتاج حاجة من ناحيتنا 🙏" style="min-height:60px"></textarea>
+      </div>
+      <div style="font-size:11px;color:var(--text3)">⚡ هيظهر تنبيه في الداشبورد عند مرور الفترة بدون طلبات</div>
+    </div>
+
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeM(&#39;modal-client&#39;)">إلغاء</button>
       <button class="btn btn-primary" onclick="saveClient()">💾 حفظ</button>
@@ -2073,7 +2155,7 @@ function getQRDataURL(text, size) {
 
 <!-- SCHEDULE -->
 <div class="modal-overlay" id="modal-schedule">
-  <div class="modal" style="width:440px">
+  <div class="modal" style="width:460px">
     <div class="modal-header"><div class="modal-title" id="sched-modal-ttl">◷ وقت في الجدول</div><button class="close-btn" onclick="closeM(&#39;modal-schedule&#39;)">✕</button></div>
     <input type="hidden" id="sched-eid">
     <div class="form-row">
@@ -2081,9 +2163,34 @@ function getQRDataURL(text, size) {
       <div class="form-group"><label class="form-label">النوع</label><select class="form-select" id="s-type"><option value="work">شغل تصميم</option><option value="meeting">اجتماع عميل</option><option value="learning">تعلم وتطوير</option><option value="break">استراحة</option><option value="admin">إدارة وفواتير</option></select></div>
     </div>
     <div class="form-group"><label class="form-label">العنوان</label><input class="form-input" id="s-title" placeholder="ماذا ستعمل؟"></div>
+    <div class="form-group">
+      <label class="form-label" style="display:flex;align-items:center;gap:6px">
+        🔗 ربط بمهمة
+        <span style="font-size:11px;color:var(--text3);font-weight:400">(اختياري — إتمام أي منهما يكمل الآخر)</span>
+      </label>
+      <select class="form-select" id="s-linked-task">
+        <option value="">— بدون ربط —</option>
+      </select>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeM(&#39;modal-schedule&#39;)">إلغاء</button>
       <button class="btn btn-primary" onclick="saveSched()">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- TASK TYPES MODAL -->
+<div class="modal-overlay" id="modal-task-types">
+  <div class="modal" style="width:min(460px,95vw)">
+    <div class="modal-header"><div class="modal-title">🏷 إدارة أنواع المهام</div><button class="close-btn" onclick="closeM(&#39;modal-task-types&#39;)">✕</button></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">أضف وعدّل أنواع المهام اللي بتشتغل عليها — تظهر في قائمة الاختيار عند إنشاء مهمة</div>
+    <div id="task-types-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px">
+      <input class="form-input" id="new-task-type-input" placeholder="مثال: موشن جرافيك..." style="flex:1">
+      <button class="btn btn-primary btn-sm" onclick="addTaskTypeFromModal()">+ إضافة</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px">
+      <button class="btn btn-ghost" onclick="closeM(&#39;modal-task-types&#39;)">تم</button>
     </div>
   </div>
 </div>
@@ -2105,11 +2212,26 @@ function getQRDataURL(text, size) {
 // CORE STATE
 // ============================================================
 const COLORS=['#7c6ff7','#f7c948','#4fd1a5','#f76f7c','#64b5f6','#ff8a65','#ce93d8','#80cbc4'];
-let S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:''}};
+let S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:'',taskTypes:['تصميم سوشيال ميديا','برانيدنج','لوجو','فيديو موشن','كونتنت','ويب ديزاين']}};
 let invItems=[];
 
 function userKey(){const sess=getSession();return 'studioOS_v3_'+(sess?sess.id:'guest');}
-function lsLoad(){try{const d=localStorage.getItem(userKey());if(d)S=JSON.parse(d);}catch(e){}}
+function lsLoad(){
+  try{
+    const d=localStorage.getItem(userKey());
+    if(d) S=JSON.parse(d);
+    // migrate: ensure new fields exist
+    if(!S.settings) S.settings={};
+    if(!S.settings.taskTypes) S.settings.taskTypes=['تصميم سوشيال ميديا','برانيدنج','لوجو','فيديو موشن','كونتنت','ويب ديزاين'];
+    if(!S.schedule) S.schedule=[];
+    // migrate schedule items — add done/linkedTaskId if missing
+    S.schedule.forEach(s=>{if(s.done===undefined)s.done=false;if(s.linkedTaskId===undefined)s.linkedTaskId=null;});
+    // migrate clients — add followup fields if missing
+    S.clients.forEach(c=>{if(!c.followupEnabled)c.followupEnabled='off';if(!c.followupMonths)c.followupMonths=3;});
+    // migrate tasks — add steps/taskType if missing
+    S.tasks.forEach(t=>{if(!t.steps)t.steps=[];if(!t.taskType)t.taskType='';});
+  }catch(e){}
+}
 function lsSave(){try{localStorage.setItem(userKey(),JSON.stringify(S));}catch(e){}updateDash();}
 lsLoad();
 
@@ -2185,7 +2307,7 @@ function loadSettings(){
   const nd=document.getElementById('studio-name-disp');if(nd)nd.textContent=s.name||'المصمم';
   renderPoliciesList('policies-list', s.policies||[], 'removePolicy');
   renderSocialsList();
-  // تحميل قوالب واتساب
+  // قوالب واتساب
   const wt = s.waTemplates||{};
   const defaults = {
     invoice: `مرحباً {{اسم_العميل}} 👋\nتم إصدار فاتورة رقم {{رقم_الفاتورة}} بقيمة {{قيمة_الفاتورة}}\nموعد السداد: {{تاريخ_الاستحقاق}}\n\nشكراً لتعاملك مع {{اسم_الاستوديو}} 🙏`,
@@ -2197,6 +2319,33 @@ function loadSettings(){
     const el=document.getElementById('wa-tpl-'+k);
     if(el) el.value = wt[k]||defaults[k];
   });
+  // أنواع المهام في الإعدادات
+  renderSettingsTaskTypes();
+}
+function renderSettingsTaskTypes(){
+  const el=document.getElementById('settings-task-types');if(!el)return;
+  const types=S.settings?.taskTypes||[];
+  el.innerHTML=types.map((t,i)=>`
+    <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(100,181,246,.12);border:1px solid rgba(100,181,246,.25);color:#64b5f6;border-radius:20px;padding:5px 10px 5px 12px;font-size:12px;font-weight:600">
+      ${t}
+      <button onclick="removeTaskTypeFromSettings(${i})" style="background:none;border:none;color:rgba(100,181,246,.6);cursor:pointer;font-size:12px;padding:0;line-height:1">✕</button>
+    </div>`).join('')||'<div style="font-size:12px;color:var(--text3)">لا أنواع محددة — أضف أنواع المهام اللي بتشتغل بيها</div>';
+}
+function addTaskTypeFromSettings(){
+  const inp=document.getElementById('settings-new-task-type');
+  const val=inp?.value.trim();if(!val)return;
+  if(!S.settings.taskTypes) S.settings.taskTypes=[];
+  if(!S.settings.taskTypes.includes(val)) S.settings.taskTypes.push(val);
+  inp.value='';
+  lsSave();renderSettingsTaskTypes();fillTaskTypesDD();
+  showToast('✅ تم إضافة نوع المهمة: '+val);
+}
+function removeTaskTypeFromSettings(i){
+  if(!S.settings.taskTypes)return;
+  const name=S.settings.taskTypes[i];
+  S.settings.taskTypes.splice(i,1);
+  lsSave();renderSettingsTaskTypes();fillTaskTypesDD();
+  showToast('🗑 تم حذف: '+name);
 }
 function saveSettings(){
   S.settings={name:v('set-name'),phone:v('set-phone'),email:v('set-email'),address:v('set-address'),terms:v('set-terms'),logo:S.settings?.logo||'',policies:S.settings?.policies||[],socials:S.settings?.socials||[],waTemplates:S.settings?.waTemplates||{}};
@@ -2587,6 +2736,7 @@ function openTaskDetail(id){
           <span style="color:${statusColor[t.status]};font-weight:700;font-size:12px">● ${statusLabel[t.status]||t.status}</span>
           ${t.client?`<span style="background:rgba(124,111,247,.15);color:var(--accent);padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700">${t.client}</span>`:''}
           <span style="background:var(--surface2);border:1px solid var(--border);padding:2px 10px;border-radius:20px;font-size:11px">${prioLabel[t.priority]||t.priority}</span>
+          ${t.taskType?`<span class="task-type-pill">${t.taskType}</span>`:''}
           ${t.done?'<span style="background:rgba(79,209,165,.15);color:var(--accent3);padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700">✅ مكتمل</span>':''}
         </div>
       </div>
@@ -2600,6 +2750,7 @@ function openTaskDetail(id){
       ${t.deadline?`<div class="td-info-cell"><div class="lbl">تاريخ التسليم</div><div class="val" style="font-family:var(--mono);color:var(--accent4)">${t.deadline}</div></div>`:''}
     </div>
 
+    ${renderStepsInDetail(t)}
     ${briefHTML}
     ${notesHTML}
     ${invHTML}
@@ -2623,6 +2774,7 @@ function openTaskDetail(id){
 
 function openTaskModal(id){
   fillDD('t-client');
+  fillTaskTypesDD();
   document.getElementById('task-modal-ttl').textContent=id?'✦ تعديل المهمة':'✦ مهمة / مشروع جديد';
   document.getElementById('task-eid').value=id||'';
   const invCb=document.getElementById('t-issue-inv');
@@ -2641,9 +2793,11 @@ function openTaskModal(id){
     document.getElementById('t-pay').value=t.pay||'none';
     document.getElementById('t-deposit').value=t.deposit||'';
     document.getElementById('t-notes').value=t.notes||'';
-    // job type
     document.getElementById('t-jobtype').value=t.jobType||'freelance';
+    const ttEl=document.getElementById('t-tasktype');if(ttEl)ttEl.value=t.taskType||'';
     toggleDeposit(); toggleJobType();
+    // Steps
+    renderTaskStepsForm(t.steps||[]);
     setTimeout(()=>{
       initTaskQuill();
       if(t.brief) taskQuill.clipboard.dangerouslyPasteHTML(t.brief);
@@ -2658,8 +2812,10 @@ function openTaskModal(id){
     document.getElementById('t-order').value=today();
     document.getElementById('t-deadline').value='';
     document.getElementById('t-jobtype').value='freelance';
+    const ttEl=document.getElementById('t-tasktype');if(ttEl)ttEl.value='';
     document.getElementById('deposit-row').style.display='none';
     toggleJobType();
+    renderTaskStepsForm([]);
     setTimeout(()=>{ initTaskQuill(); taskQuill.setText(''); }, 80);
   }
   openM('modal-task');
@@ -2679,8 +2835,9 @@ function saveTask(){
   const briefContent = (briefHTML === '<p><br></p>' || briefHTML === '<p></p>') ? '' : briefHTML;
   const jobType = v('t-jobtype')||'freelance';
   const isFulltime = jobType==='fulltime';
-  // بيانات الراتب تيجي من العميل مش من المهمة
-  const clientData = S.clients.find(x=>x.name===client)||{};
+  const taskType = document.getElementById('t-tasktype')?.value||'';
+  // collect steps from DOM
+  const steps = collectTaskSteps();
   const d={
     title, client,
     priority:v('t-priority'), status:v('t-status'),
@@ -2689,14 +2846,13 @@ function saveTask(){
     pay: isFulltime ? 'none' : v('t-pay'),
     deposit:+v('t-deposit')||0,
     notes:v('t-notes'), brief:briefContent, done:false,
-    jobType,
+    jobType, taskType, steps,
   };
-  if(eid){const i=S.tasks.findIndex(t=>t.id==eid);if(i>-1){d.id=+eid;d.done=S.tasks[i].done;S.tasks[i]=d;}}
+  if(eid){const i=S.tasks.findIndex(t=>t.id==eid);if(i>-1){d.id=+eid;d.done=S.tasks[i].done;d.steps=mergeSteps(S.tasks[i].steps||[],steps);S.tasks[i]=d;}}
   else{d.id=Date.now();S.tasks.push(d);}
   lsSave();closeM('modal-task');renderAll();
   // إصدار فاتورة تلقائي
   if(issueInv && !eid){
-    // فتح مودال الفاتورة مع تعبئة بيانات المهمة
     setTimeout(()=>openInvoiceFromTask(d), 150);
   }
 }
@@ -2785,7 +2941,14 @@ function confirmComplete(){
       });
     }
   }
+
+  // مزامنة مع الجدول اليومي — لو فيه وقت مربوط بالمهمة دي، اكمله
+  S.schedule.forEach(s=>{
+    if(s.linkedTaskId===id && !s.done){ s.done=true; }
+  });
+
   lsSave(); closeM('modal-complete'); renderAll();
+  showToast('🎉 تم إنجاز المشروع: '+t.title);
 }
 
 function toggleDone(id){completeTask(id);}
@@ -2900,6 +3063,9 @@ function openClientModal(id){
     document.getElementById('c-salary').value=c.salary||'';
     document.getElementById('c-salary-day').value=c.salaryDay||1;
     document.getElementById('c-salary-lastpaid').value=c.salaryLastPaid||'';
+    document.getElementById('c-followup-enabled').value=c.followupEnabled||'off';
+    document.getElementById('c-followup-months').value=c.followupMonths||'3';
+    document.getElementById('c-followup-msg').value=c.followupMsg||'';
   } else {
     ['c-name','c-phone','c-email','c-field','c-notes','c-salary'].forEach(f=>{const e=document.getElementById(f);if(e)e.value='';});
     document.getElementById('c-type').value='شركة';
@@ -2907,6 +3073,9 @@ function openClientModal(id){
     document.getElementById('c-worktype').value='freelance';
     document.getElementById('c-salary-day').value=1;
     document.getElementById('c-salary-lastpaid').value='';
+    document.getElementById('c-followup-enabled').value='off';
+    document.getElementById('c-followup-months').value='3';
+    document.getElementById('c-followup-msg').value='';
   }
   toggleClientSalary();
   openM('modal-client');
@@ -2924,6 +3093,9 @@ function saveClient(){
     salary:  isSal?(+v('c-salary')||0):0,
     salaryDay:   isSal?(+v('c-salary-day')||1):null,
     salaryLastPaid: isSal?v('c-salary-lastpaid'):null,
+    followupEnabled: document.getElementById('c-followup-enabled')?.value||'off',
+    followupMonths: +(document.getElementById('c-followup-months')?.value)||3,
+    followupMsg: document.getElementById('c-followup-msg')?.value||'',
   };
   if(eid){const i=S.clients.findIndex(c=>c.id==eid);if(i>-1){d.id=+eid;d.color=S.clients[i].color;S.clients[i]=d;}}
   else{d.id=Date.now();S.clients.push(d);}
@@ -3613,34 +3785,238 @@ function renderGoals(){
 // SCHEDULE
 // ============================================================
 function openSchedModal(id){
+  // ملأ قائمة المهام
+  const sel=document.getElementById('s-linked-task');
+  if(sel){
+    sel.innerHTML='<option value="">— بدون ربط —</option>';
+    S.tasks.filter(t=>!t.done).forEach(t=>{
+      sel.innerHTML+=`<option value="${t.id}">${t.title}${t.client?' ('+t.client+')':''}</option>`;
+    });
+  }
   document.getElementById('sched-modal-ttl').textContent=id?'◷ تعديل الوقت':'◷ إضافة وقت في الجدول';
   document.getElementById('sched-eid').value=id||'';
-  if(id){const s=S.schedule.find(s=>s.id===id);if(s){document.getElementById('s-time').value=s.time||'';document.getElementById('s-type').value=s.type||'work';document.getElementById('s-title').value=s.title||'';}}
-  else{document.getElementById('s-time').value='';document.getElementById('s-title').value='';}
+  if(id){
+    const s=S.schedule.find(s=>s.id===id);
+    if(s){
+      document.getElementById('s-time').value=s.time||'';
+      document.getElementById('s-type').value=s.type||'work';
+      document.getElementById('s-title').value=s.title||'';
+      if(sel) sel.value=s.linkedTaskId||'';
+    }
+  } else {
+    document.getElementById('s-time').value='';
+    document.getElementById('s-title').value='';
+    if(sel) sel.value='';
+  }
   openM('modal-schedule');
 }
 function saveSched(){
   const title=v('s-title').trim();if(!title)return alert('أدخل العنوان');
   const eid=v('sched-eid');
-  const d={time:v('s-time'),type:v('s-type'),title};
-  if(eid){const i=S.schedule.findIndex(s=>s.id==eid);if(i>-1){d.id=+eid;S.schedule[i]=d;}}
+  const linkedTaskId=document.getElementById('s-linked-task')?.value ? +document.getElementById('s-linked-task').value : null;
+  const d={time:v('s-time'),type:v('s-type'),title,linkedTaskId,done:false};
+  if(eid){const i=S.schedule.findIndex(s=>s.id==eid);if(i>-1){d.id=+eid;d.done=S.schedule[i].done||false;S.schedule[i]=d;}}
   else{d.id=Date.now();S.schedule.push(d);}
   S.schedule.sort((a,b)=>a.time>b.time?1:-1);
   lsSave();closeM('modal-schedule');renderAll();
 }
 function delSched(id){confirmDel('هل تريد حذف هذا الوقت؟',()=>{S.schedule=S.schedule.filter(s=>s.id!==id);lsSave();renderAll();});}
+function toggleSchedDone(id){
+  const s=S.schedule.find(x=>x.id===id);if(!s)return;
+  s.done=!s.done;
+  // إذا اكتمل الوقت وفيه مهمة مربوطة → اكمل المهمة
+  if(s.done && s.linkedTaskId){
+    const t=S.tasks.find(x=>x.id===s.linkedTaskId);
+    if(t&&!t.done){
+      t.done=true;t.status='done';
+      showToast('✅ تم اكتمال المهمة المرتبطة: '+t.title);
+    }
+  }
+  lsSave();renderAll();
+}
 function renderSchedule(){
   const el=document.getElementById('sched-list');if(!el)return;
-  el.innerHTML=S.schedule.length?S.schedule.map(s=>`
-    <div class="schedule-item">
-      <div class="schedule-time">${s.time||'—'}</div>
-      <div class="schedule-dot" style="background:${tcol[s.type]}"></div>
-      <div style="flex:1"><div style="font-size:13.5px;font-weight:600">${s.title}</div><div style="font-size:11px;color:var(--text2)">${tname[s.type]||''}</div></div>
-      <div style="display:flex;gap:4px">
+  el.innerHTML=S.schedule.length?S.schedule.map(s=>{
+    const linkedTask=s.linkedTaskId?S.tasks.find(t=>t.id===s.linkedTaskId):null;
+    const taskDone=linkedTask?.done||false;
+    const isDone=s.done||taskDone;
+    return `<div class="schedule-item" style="${isDone?'opacity:.6':''}">
+      <div class="schedule-time" style="${isDone?'text-decoration:line-through':''}">${s.time||'—'}</div>
+      <div class="schedule-dot" style="background:${isDone?'var(--accent3)':tcol[s.type]}"></div>
+      <div style="flex:1">
+        <div style="font-size:13.5px;font-weight:600;${isDone?'text-decoration:line-through;color:var(--text3)':''}">${s.title}</div>
+        <div style="font-size:11px;color:var(--text2)">${tname[s.type]||''}</div>
+        ${linkedTask?`<div class="sched-linked ${isDone?'done':''}">🔗 ${linkedTask.title}${isDone?' ✓':''}</div>`:''}
+      </div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="btn btn-sm" style="background:${isDone?'rgba(79,209,165,.15)':'rgba(124,111,247,.15)'};color:${isDone?'var(--accent3)':'var(--accent)'};border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer" onclick="toggleSchedDone(${s.id})" title="${isDone?'إلغاء الاكتمال':'تأشير كمكتمل'}">${isDone?'↩ رجوع':'✓ تم'}</button>
         <button class="btn btn-ghost btn-sm" onclick="openSchedModal(${s.id})">✏</button>
         <button class="btn btn-danger btn-sm" onclick="delSched(${s.id})">🗑</button>
       </div>
-    </div>`).join(''):'<div class="empty"><div class="empty-icon">◷</div>أضف وقت لجدول اليوم</div>';
+    </div>`;
+  }).join(''):'<div class="empty"><div class="empty-icon">◷</div>أضف وقت لجدول اليوم</div>';
+}
+
+// ============================================================
+// TASK TYPES
+// ============================================================
+function fillTaskTypesDD(){
+  const sel=document.getElementById('t-tasktype');if(!sel)return;
+  const types=S.settings?.taskTypes||[];
+  sel.innerHTML='<option value="">— اختر النوع —</option>';
+  types.forEach(tt=>sel.innerHTML+=`<option value="${tt}">${tt}</option>`);
+}
+function openTaskTypesSettings(){
+  closeM('modal-task');
+  renderTaskTypesList();
+  openM('modal-task-types');
+}
+function renderTaskTypesList(){
+  const el=document.getElementById('task-types-list');if(!el)return;
+  const types=S.settings?.taskTypes||[];
+  el.innerHTML=types.map((t,i)=>`
+    <div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface3);border-radius:20px;padding:5px 10px 5px 12px;font-size:12px">
+      ${t}
+      <button onclick="removeTaskType(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;line-height:1;padding:0">✕</button>
+    </div>`).join('')||'<div style="font-size:12px;color:var(--text3)">لا أنواع — أضف نوع أدناه</div>';
+}
+function addTaskTypeFromModal(){
+  const inp=document.getElementById('new-task-type-input');
+  const val=inp?.value.trim();
+  if(!val)return;
+  if(!S.settings.taskTypes) S.settings.taskTypes=[];
+  if(!S.settings.taskTypes.includes(val)) S.settings.taskTypes.push(val);
+  inp.value='';
+  lsSave();renderTaskTypesList();fillTaskTypesDD();
+}
+function removeTaskType(i){
+  S.settings.taskTypes.splice(i,1);
+  lsSave();renderTaskTypesList();fillTaskTypesDD();
+}
+
+// ============================================================
+// TASK STEPS
+// ============================================================
+let _editingSteps=[];
+function renderTaskStepsForm(steps){
+  _editingSteps=JSON.parse(JSON.stringify(steps||[]));
+  _renderStepsFormUI();
+}
+function _renderStepsFormUI(){
+  const el=document.getElementById('t-steps-list');if(!el)return;
+  if(!_editingSteps.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px 0">لا خطوات — اضغط + خطوة لإضافة</div>';return;}
+  el.innerHTML=_editingSteps.map((s,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <div class="step-num ${s.done?'done':''}" onclick="toggleEditStep(${i})">${s.done?'✓':i+1}</div>
+      <input class="form-input" style="flex:1;height:32px;font-size:12px" value="${s.text||''}" placeholder="وصف الخطوة..." oninput="_editingSteps[${i}].text=this.value">
+      <button onclick="removeEditStep(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
+    </div>`).join('');
+}
+function addTaskStep(){
+  _editingSteps.push({text:'',done:false});
+  _renderStepsFormUI();
+  // focus last input
+  const inputs=document.querySelectorAll('#t-steps-list input');
+  if(inputs.length) inputs[inputs.length-1].focus();
+}
+function toggleEditStep(i){_editingSteps[i].done=!_editingSteps[i].done;_renderStepsFormUI();}
+function removeEditStep(i){_editingSteps.splice(i,1);_renderStepsFormUI();}
+function collectTaskSteps(){return _editingSteps.filter(s=>s.text.trim());}
+function mergeSteps(oldSteps,newSteps){
+  // Preserve done status from old steps for matching text
+  return newSteps.map(ns=>{
+    const old=oldSteps.find(o=>o.text===ns.text);
+    return old?{...ns,done:old.done}:ns;
+  });
+}
+function toggleTaskStep(taskId,stepIdx){
+  const t=S.tasks.find(x=>x.id===taskId);if(!t||!t.steps)return;
+  t.steps[stepIdx].done=!t.steps[stepIdx].done;
+  // لو كل الخطوات اتنفذت → إكمال المهمة تلقائياً
+  if(t.steps.every(s=>s.done)&&!t.done){
+    showToast('🎉 تم إنجاز كل الخطوات! المهمة جاهزة للإكمال.');
+  }
+  lsSave();renderAll();
+  // إعادة فتح الديتيل
+  if(document.getElementById('modal-task-detail')?.classList.contains('open')){
+    openTaskDetail(taskId);
+  }
+}
+function renderStepsInDetail(task){
+  if(!task.steps||!task.steps.length) return '';
+  const total=task.steps.length, done=task.steps.filter(s=>s.done).length;
+  const pct=Math.round(done/total*100);
+  const currentStep=task.steps.find(s=>!s.done);
+  return `
+    <div style="margin:14px 0;padding:14px;background:var(--surface2);border-radius:var(--r2);border:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:700">📋 خطوات التنفيذ</div>
+        <div style="font-size:12px;font-weight:700;color:var(--accent)">${done}/${total} — ${pct}%</div>
+      </div>
+      <div class="steps-progress"><div class="steps-progress-fill" style="width:${pct}%"></div></div>
+      ${currentStep?`<div style="font-size:11px;color:var(--accent3);margin:6px 0 10px">▶ الخطوة الحالية: ${currentStep.text}</div>`:'<div style="font-size:11px;color:var(--accent3);margin:6px 0 10px">✅ كل الخطوات مكتملة!</div>'}
+      <div class="steps-container">
+        ${task.steps.map((s,i)=>`
+          <div class="step-row" style="cursor:pointer" onclick="toggleTaskStep(${task.id},${i})">
+            <div class="step-num ${s.done?'done':task.steps.slice(0,i).every(x=>x.done)?'active-step':''}">${s.done?'✓':i+1}</div>
+            <div class="step-text ${s.done?'done':''}">${s.text}</div>
+            <div style="font-size:10px;color:var(--text3)">${s.done?'✓ مكتمل':'معلق'}</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+// ============================================================
+// CLIENT FOLLOW-UP REMINDERS
+// ============================================================
+function renderFollowupReminders(){
+  const el=document.getElementById('dash-followup-reminders');if(!el)return;
+  const now=new Date();
+  const alerts=[];
+  S.clients.forEach(c=>{
+    if(c.followupEnabled!=='on')return;
+    const months=c.followupMonths||3;
+    // آخر طلب = آخر مهمة
+    const cTasks=S.tasks.filter(t=>t.client===c.name&&t.orderDate).sort((a,b)=>b.orderDate.localeCompare(a.orderDate));
+    const lastOrderDate=cTasks[0]?.orderDate||null;
+    if(!lastOrderDate)return; // مفيش طلبات أصلاً — مش هنبعت تنبيه
+    const last=new Date(lastOrderDate);
+    const diffMonths=(now-last)/(1000*60*60*24*30.44);
+    if(diffMonths>=months){
+      alerts.push({client:c,lastOrderDate,diffMonths:Math.round(diffMonths)});
+    }
+  });
+  if(!alerts.length){el.style.display='none';return;}
+  el.style.display='block';
+  el.innerHTML=`
+    <div class="card" style="border-color:rgba(247,201,72,.3)">
+      <div class="section-title" style="color:var(--accent2)">🔔 تذكيرات متابعة العملاء</div>
+      ${alerts.map(({client:c,lastOrderDate,diffMonths})=>`
+        <div class="followup-alert ${diffMonths>=(c.followupMonths||3)*2?'overdue':''}">
+          <div class="followup-dot"></div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700">${c.name}</div>
+            <div style="font-size:11px;color:var(--text3)">آخر طلب: ${lastOrderDate} — منذ ${diffMonths} شهر تقريباً</div>
+          </div>
+          ${c.phone?`<button class="btn btn-sm" style="background:#25D366;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-weight:700" onclick="sendFollowupWA(${c.id})">📱 واتساب</button>`:''}
+        </div>`).join('')}
+    </div>`;
+}
+function sendFollowupWA(clientId){
+  const c=S.clients.find(x=>x.id===clientId);if(!c)return;
+  const msg=c.followupMsg||`أهلاً ${c.name}، اتمنى تكون بخير 🙏 عايز أطمن عليك وأعرف لو محتاج حاجة من ناحيتنا ✨`;
+  const phone=c.phone?.replace(/\D/g,'');
+  if(!phone){alert('مفيش رقم واتساب محفوظ للعميل ده');return;}
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+
+// helper: show toast notification
+function showToast(msg,dur=3000){
+  let t=document.getElementById('_toast');
+  if(!t){t=document.createElement('div');t.id='_toast';t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:12px;font-size:13px;font-weight:600;z-index:9999;transition:.3s;border:1px solid rgba(124,111,247,.4);opacity:0';document.body.appendChild(t);}
+  t.textContent=msg;
+  t.style.transform='translateX(-50%) translateY(0)';t.style.opacity='1';
+  clearTimeout(t._to);t._to=setTimeout(()=>{t.style.transform='translateX(-50%) translateY(60px)';t.style.opacity='0';},dur);
 }
 
 // ============================================================
@@ -3681,6 +4057,7 @@ function updateDash(){
       <div class="progress-bar"><div class="progress-fill fill-purple" style="width:${g.progress||0}%"></div></div>
     </div>`).join('')||'<div class="empty"><div class="empty-icon">◆</div>أضف أهدافك</div>';
   renderSalaryReminders();
+  renderFollowupReminders();
 }
 
 // ============================================================
