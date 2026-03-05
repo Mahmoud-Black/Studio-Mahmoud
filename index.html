@@ -58,8 +58,19 @@ function applyPlatformConfig() {
 document.addEventListener('DOMContentLoaded', function() {
   applyPlatformConfig();
 });
-// Also run immediately for fast execution
-(function() { applyPlatformConfig(); })();
+
+// استمع لتغييرات localStorage من الأدمن (نفس الـ origin = GitHub Pages)
+window.addEventListener('storage', function(e) {
+  if(e.key === 'platform_config') {
+    applyPlatformConfig();
+  }
+});
+
+// Poll كل 3 ثواني كـ fallback لو الـ storage event ما وصلش
+setInterval(applyPlatformConfig, 3000);
+
+// Also run immediately
+(function() { if(document.readyState !== 'loading') applyPlatformConfig(); })();
 
 let _supaUserId = null;
 let _isAdminUser = false;
@@ -3580,6 +3591,8 @@ function showPage(id,el){
   if(window.innerWidth<=1024) closeSidebar();
   renderAll();
   window.scrollTo(0,0);
+  // sync platform name on every page change
+  applyPlatformConfig();
 }
 
 function _hideLock(){
