@@ -54,7 +54,11 @@ function applyPlatformConfig() {
   return cfg;
 }
 
-// Run on load
+// Run on load — after DOM ready
+document.addEventListener('DOMContentLoaded', function() {
+  applyPlatformConfig();
+});
+// Also run immediately for fast execution
 (function() { applyPlatformConfig(); })();
 
 let _supaUserId = null;
@@ -2427,10 +2431,15 @@ setTimeout(window._showApp, 4000);
 
 <!-- SETTINGS -->
 <div class="page" id="page-settings">
-  <div class="page-header"><div><div class="page-title">إعدادات <span>الاستوديو</span></div><div class="page-subtitle">خصّص نظامك كما تريد</div></div></div>
+  <div class="page-header">
+    <div>
+      <div class="page-title">إعدادات <span>الاستوديو</span></div>
+      <div class="page-subtitle">خصّص نظامك كما تريد</div>
+    </div>
+  </div>
 
-  <!-- Settings Tabs -->
-  <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;overflow-x:auto;flex-shrink:0" id="settings-tabs-row">
+  <!-- Settings Tabs Row -->
+  <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;overflow-x:auto" id="settings-tabs-row">
     <button class="stab active" onclick="switchSettingsTab('general')"   id="stab-general">🏢 عام</button>
     <button class="stab"        onclick="switchSettingsTab('appearance')" id="stab-appearance">🎨 المظهر</button>
     <button class="stab"        onclick="switchSettingsTab('finance')"    id="stab-finance">💰 المالية</button>
@@ -2439,72 +2448,218 @@ setTimeout(window._showApp, 4000);
     <button class="stab"        onclick="switchSettingsTab('danger')"     id="stab-danger">⚠ خطر</button>
   </div>
 
-  <!-- TAB: عام -->
+  <!-- ══ TAB: عام ══ -->
   <div class="stab-panel active" id="stabp-general">
-  <div class="grid grid-2">
-    <div class="card">
-      <div class="section-title">بيانات الاستوديو</div>
-      <div class="form-group"><label class="form-label">اسم الاستوديو / المصمم</label><input class="form-input" id="set-name" placeholder="اسمك أو اسم الاستوديو"></div>
-      <div class="form-group"><label class="form-label">رقم الهاتف</label><input class="form-input" id="set-phone" placeholder="+20 1XX XXX XXXX"></div>
-      <div class="form-group"><label class="form-label">البريد الإلكتروني</label><input class="form-input" id="set-email" placeholder="studio@email.com"></div>
-      <div class="form-group"><label class="form-label">الموقع / العنوان</label><input class="form-input" id="set-address" placeholder="المدينة، الدولة"></div>
-      <div class="form-group"><label class="form-label">شروط الدفع الافتراضية</label><textarea class="form-textarea" id="set-terms" placeholder="مثال: الدفع خلال 7 أيام — الملكية تنتقل بعد السداد الكامل"></textarea></div>
-      <div class="form-group">
-        <label class="form-label">سياسات الفاتورة الافتراضية</label>
-        <div id="policies-list" style="margin-bottom:8px"></div>
-        <div style="display:flex;gap:8px;margin-bottom:4px">
-          <select class="form-select" id="policy-icon-sel" style="width:56px;flex-shrink:0">
-            <option value="💳">💳</option>
-            <option value="✏">✏</option>
-            <option value="📦">📦</option>
-            <option value="⏰">⏰</option>
-            <option value="🔒">🔒</option>
-            <option value="📋">📋</option>
-            <option value="⚠">⚠</option>
-            <option value="✅">✅</option>
-          </select>
-          <input class="form-input" id="policy-text-input" placeholder="مثال: الدفع خلال 7 أيام من تاريخ الفاتورة">
-          <button class="btn btn-ghost btn-sm" onclick="addPolicy()" style="flex-shrink:0">+ إضافة</button>
+    <div class="grid grid-2">
+
+      <div class="card">
+        <div class="section-title">🏢 بيانات الاستوديو</div>
+        <div class="form-group"><label class="form-label">اسم الاستوديو / المصمم</label><input class="form-input" id="set-name" placeholder="اسمك أو اسم الاستوديو"></div>
+        <div class="form-group"><label class="form-label">رقم الهاتف</label><input class="form-input" id="set-phone" placeholder="+20 1XX XXX XXXX"></div>
+        <div class="form-group"><label class="form-label">البريد الإلكتروني</label><input class="form-input" id="set-email" placeholder="studio@email.com"></div>
+        <div class="form-group"><label class="form-label">الموقع / العنوان</label><input class="form-input" id="set-address" placeholder="المدينة، الدولة"></div>
+        <div class="form-group"><label class="form-label">شروط الدفع الافتراضية</label><textarea class="form-textarea" id="set-terms" placeholder="مثال: الدفع خلال 7 أيام"></textarea></div>
+        <div class="form-group">
+          <label class="form-label">سياسات الفاتورة الافتراضية</label>
+          <div id="policies-list" style="margin-bottom:8px"></div>
+          <div style="display:flex;gap:8px;margin-bottom:4px">
+            <select class="form-select" id="policy-icon-sel" style="width:56px;flex-shrink:0">
+              <option value="💳">💳</option><option value="✏">✏</option><option value="📦">📦</option>
+              <option value="⏰">⏰</option><option value="🔒">🔒</option><option value="📋">📋</option>
+              <option value="⚠">⚠</option><option value="✅">✅</option>
+            </select>
+            <input class="form-input" id="policy-text-input" placeholder="مثال: الدفع خلال 7 أيام">
+            <button class="btn btn-ghost btn-sm" onclick="addPolicy()" style="flex-shrink:0">+ إضافة</button>
+          </div>
         </div>
-        <div style="font-size:11px;color:var(--text3)">السياسات تظهر أسفل الفاتورة عند الطباعة أو التصدير كـ PDF</div>
-      </div>
-      <button class="btn btn-primary" onclick="saveSettings()">💾 حفظ الإعدادات</button>
-    </div>
-    <div class="card">
-      <div class="section-title">لوجو الاستوديو (يظهر في الفواتير)</div>
-      <div id="logo-preview" style="margin-bottom:14px;min-height:90px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border-radius:var(--r2);border:2px dashed var(--border)"><span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span></div>
-      <input type="file" id="logo-input" accept="image/*" style="display:none" onchange="uploadLogo(this)">
-      <div style="display:flex;gap:10px;margin-bottom:20px">
-        <button class="btn btn-ghost" onclick="document.getElementById(&#39;logo-input&#39;).click()">📁 رفع لوجو</button>
-        <button class="btn btn-danger btn-sm" onclick="removeLogo()">حذف</button>
+        <button class="btn btn-primary" onclick="saveSettings()">💾 حفظ الإعدادات</button>
       </div>
 
-      <div class="divider"></div>
-      <div class="section-title">🌐 منصات التواصل الاجتماعي</div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">تظهر كـ QR كودات أسفل الفاتورة — العميل يمسحها للتواصل</div>
-      <div id="socials-list" style="margin-bottom:10px"></div>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <select class="form-select" id="social-platform-sel" style="width:130px;flex-shrink:0" onchange="updateSocialPlaceholder()">
-          <option value="instagram" data-icon="📸">انستقرام</option>
-          <option value="facebook"  data-icon="📘">فيسبوك</option>
-          <option value="behance"   data-icon="🎨">بيهانس</option>
-          <option value="linkedin"  data-icon="💼">لينكدإن</option>
-          <option value="tiktok"    data-icon="🎵">تيك توك</option>
-          <option value="youtube"   data-icon="▶">يوتيوب</option>
-          <option value="twitter"   data-icon="🐦">تويتر/X</option>
-          <option value="website"   data-icon="🌐">موقع ويب</option>
-          <option value="whatsapp"  data-icon="💬">واتساب</option>
-          <option value="other"     data-icon="🔗">أخرى</option>
-        </select>
-        <input class="form-input" id="social-url-input" placeholder="الرابط أو الرقم" style="flex:1;min-width:120px">
-        <button class="btn btn-ghost btn-sm" onclick="addSocial()" style="flex-shrink:0">+ إضافة</button>
+      <div class="card">
+        <div class="section-title">🖼 لوجو الاستوديو</div>
+        <div id="logo-preview" style="margin-bottom:14px;min-height:90px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border-radius:var(--r2);border:2px dashed var(--border)"><span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span></div>
+        <input type="file" id="logo-input" accept="image/*" style="display:none" onchange="uploadLogo(this)">
+        <div style="display:flex;gap:10px;margin-bottom:20px">
+          <button class="btn btn-ghost" onclick="document.getElementById('logo-input').click()">📁 رفع لوجو</button>
+          <button class="btn btn-danger btn-sm" onclick="removeLogo()">حذف</button>
+        </div>
+        <div class="divider"></div>
+        <div class="section-title">🌐 منصات التواصل</div>
+        <div id="socials-list" style="margin-bottom:10px"></div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <select class="form-select" id="social-platform-sel" style="width:130px;flex-shrink:0" onchange="updateSocialPlaceholder()">
+            <option value="instagram" data-icon="📸">انستقرام</option>
+            <option value="facebook"  data-icon="📘">فيسبوك</option>
+            <option value="behance"   data-icon="🎨">بيهانس</option>
+            <option value="linkedin"  data-icon="💼">لينكدإن</option>
+            <option value="tiktok"    data-icon="🎵">تيك توك</option>
+            <option value="youtube"   data-icon="▶">يوتيوب</option>
+            <option value="twitter"   data-icon="🐦">تويتر/X</option>
+            <option value="website"   data-icon="🌐">موقع ويب</option>
+            <option value="whatsapp"  data-icon="💬">واتساب</option>
+            <option value="other"     data-icon="🔗">أخرى</option>
+          </select>
+          <input class="form-input" id="social-url-input" placeholder="الرابط أو الرقم" style="flex:1;min-width:120px">
+          <button class="btn btn-ghost btn-sm" onclick="addSocial()" style="flex-shrink:0">+ إضافة</button>
+        </div>
       </div>
 
     </div>
-  </div>
-
-  </div><!-- end grid-2 general -->
   </div><!-- end stabp-general -->
+
+  <!-- ══ TAB: مظهر ══ -->
+  <div class="stab-panel" id="stabp-appearance">
+    <div class="card">
+      <div class="section-title">🎨 مظهر النظام</div>
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:10px">وضع العرض</div>
+          <div style="display:flex;gap:8px">
+            <button id="btn-dark-mode"  class="btn btn-primary" onclick="setDisplayMode('dark')"  style="flex:1;justify-content:center">🌙 ليلي</button>
+            <button id="btn-light-mode" class="btn btn-ghost"   onclick="setDisplayMode('light')" style="flex:1;justify-content:center">☀️ نهاري</button>
+          </div>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:10px">اللغة / Language</div>
+          <div style="display:flex;gap:8px">
+            <button id="btn-lang-ar" class="btn btn-primary" onclick="setLanguage('ar')" style="flex:1;justify-content:center">🇪🇬 العربية</button>
+            <button id="btn-lang-en" class="btn btn-ghost"   onclick="setLanguage('en')" style="flex:1;justify-content:center">🇬🇧 English</button>
+          </div>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:10px">لون هوية النظام</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+            <div id="theme-colors" style="display:flex;gap:6px;flex-wrap:wrap">
+              <div class="theme-swatch" data-color="#7c6ff7" style="background:#7c6ff7" onclick="setThemeColor('#7c6ff7')" title="بنفسجي"></div>
+              <div class="theme-swatch" data-color="#0ea5e9" style="background:#0ea5e9" onclick="setThemeColor('#0ea5e9')" title="أزرق"></div>
+              <div class="theme-swatch" data-color="#10b981" style="background:#10b981" onclick="setThemeColor('#10b981')" title="أخضر"></div>
+              <div class="theme-swatch" data-color="#f59e0b" style="background:#f59e0b" onclick="setThemeColor('#f59e0b')" title="ذهبي"></div>
+              <div class="theme-swatch" data-color="#ef4444" style="background:#ef4444" onclick="setThemeColor('#ef4444')" title="أحمر"></div>
+              <div class="theme-swatch" data-color="#ec4899" style="background:#ec4899" onclick="setThemeColor('#ec4899')" title="وردي"></div>
+              <div class="theme-swatch" data-color="#f97316" style="background:#f97316" onclick="setThemeColor('#f97316')" title="برتقالي"></div>
+              <div class="theme-swatch" data-color="#06b6d4" style="background:#06b6d4" onclick="setThemeColor('#06b6d4')" title="سماوي"></div>
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
+              <input type="color" id="custom-accent-picker" value="#7c6ff7" onchange="setThemeColor(this.value)" style="width:32px;height:32px;border:none;border-radius:8px;cursor:pointer;padding:2px">
+              لون مخصص
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- end stabp-appearance -->
+
+  <!-- ══ TAB: مالية ══ -->
+  <div class="stab-panel" id="stabp-finance">
+
+    <!-- وسائل الدفع -->
+    <div class="card" id="payment-accounts-card">
+      <div class="section-title">💳 وسائل الدفع والحسابات</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">أضف وسائل الدفع اللي بتستخدمها</div>
+      <div id="payment-accounts-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+      <div id="payment-accounts-add" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input class="form-input" id="new-account-name"  placeholder="اسم الحساب (مثال: فودافون كاش)" style="flex:1;min-width:160px">
+        <input class="form-input" id="new-account-icon"  placeholder="📱" style="width:66px;text-align:center">
+        <input class="form-input" id="new-account-color" type="color" value="#7c6ff7" style="width:44px;height:36px;padding:2px;cursor:pointer;border-radius:8px">
+        <button class="btn btn-ghost btn-sm" onclick="addPaymentAccount()">+ إضافة</button>
+      </div>
+      <div id="payment-lock-overlay" style="display:none;position:absolute;inset:0;background:rgba(7,8,15,.75);backdrop-filter:blur(6px);border-radius:inherit;z-index:10;align-items:center;justify-content:center;flex-direction:column;gap:8px;text-align:center;padding:20px">
+        <div style="font-size:26px">🔒</div>
+        <div style="font-size:13px;font-weight:700">يتطلب اشتراكاً نشطاً</div>
+      </div>
+    </div>
+
+    <!-- بنود الصرف -->
+    <div class="card" style="margin-top:16px">
+      <div class="section-title">📤 بنود الصرف</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">خصّص فئات الصرف التي تناسب نشاطك</div>
+      <div id="expense-cats-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input class="form-input" id="new-exp-cat-icon" placeholder="☕" style="width:56px;text-align:center">
+        <input class="form-input" id="new-exp-cat-name" placeholder="مثال: كافيه، مطاعم، بنزين..." style="flex:1;min-width:160px">
+        <button class="btn btn-ghost btn-sm" onclick="addExpenseCat()">+ إضافة</button>
+      </div>
+    </div>
+
+  </div><!-- end stabp-finance -->
+
+  <!-- ══ TAB: مهام ══ -->
+  <div class="stab-panel" id="stabp-tasks">
+
+    <div class="card">
+      <div class="section-title">🏷 أنواع المهام</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">خصّص أنواع المهام اللي بتشتغل عليها</div>
+      <div id="settings-task-types" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+      <div style="display:flex;gap:8px">
+        <input class="form-input" id="settings-new-task-type" placeholder="مثال: موشن جرافيك، ويب ديزاين..." style="max-width:300px">
+        <button class="btn btn-ghost btn-sm" onclick="addTaskTypeFromSettings()">+ إضافة نوع</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="section-title">🎛 حالات المهام</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">أضف أو احذف حالات — الحالات الافتراضية لا يمكن حذفها</div>
+      <div id="task-statuses-list" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px"></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input class="form-input" id="new-status-label" placeholder="اسم الحالة" style="flex:1;min-width:160px">
+        <input class="form-input" id="new-status-color" type="color" value="#7c6ff7" style="width:44px;height:36px;padding:2px;cursor:pointer;border-radius:8px">
+        <input class="form-input" id="new-status-icon"  placeholder="⏳" style="width:66px;text-align:center">
+        <button class="btn btn-ghost btn-sm" onclick="addCustomStatus()">+ إضافة</button>
+      </div>
+    </div>
+
+  </div><!-- end stabp-tasks -->
+
+  <!-- ══ TAB: واتساب ══ -->
+  <div class="stab-panel" id="stabp-whatsapp">
+    <div class="card">
+      <div class="section-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366" style="vertical-align:middle;margin-left:6px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+        قوالب رسائل واتساب
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">اضغط على أي متغير لإضافته للقالب</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px" id="wa-vars-row">
+        <span class="wa-tag" onclick="insertWaVar('{{اسم_العميل}}')">{{اسم_العميل}}</span>
+        <span class="wa-tag" onclick="insertWaVar('{{اسم_المشروع}}')">{{اسم_المشروع}}</span>
+        <span class="wa-tag" onclick="insertWaVar('{{قيمة_الفاتورة}}')">{{قيمة_الفاتورة}}</span>
+        <span class="wa-tag" onclick="insertWaVar('{{رقم_الفاتورة}}')">{{رقم_الفاتورة}}</span>
+        <span class="wa-tag" onclick="insertWaVar('{{تاريخ_الاستحقاق}}')">{{تاريخ_الاستحقاق}}</span>
+        <span class="wa-tag" onclick="insertWaVar('{{رابط_المشروع}}')">{{رابط_المشروع}}</span>
+        <span class="wa-tag" onclick="insertWaVar('{{اسم_الاستوديو}}')">{{اسم_الاستوديو}}</span>
+        <span class="wa-tag" onclick="insertWaVar('{{رقم_هاتف_الاستوديو}}')">{{رقم_هاتف_الاستوديو}}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="tpl-card">
+          <div class="tpl-card-title" style="color:var(--accent)">◻ إصدار فاتورة جديدة</div>
+          <textarea class="form-textarea" id="wa-tpl-invoice" rows="5" onfocus="waActiveTpl=this.id" style="font-size:12px"></textarea>
+        </div>
+        <div class="tpl-card">
+          <div class="tpl-card-title" style="color:var(--accent2)">✦ تأكيد استلام مشروع</div>
+          <textarea class="form-textarea" id="wa-tpl-task" rows="5" onfocus="waActiveTpl=this.id" style="font-size:12px"></textarea>
+        </div>
+        <div class="tpl-card">
+          <div class="tpl-card-title" style="color:var(--accent3)">✅ تسليم المشروع</div>
+          <textarea class="form-textarea" id="wa-tpl-done" rows="5" onfocus="waActiveTpl=this.id" style="font-size:12px"></textarea>
+        </div>
+        <div class="tpl-card">
+          <div class="tpl-card-title" style="color:var(--accent4)">💸 تذكير بالدفع</div>
+          <textarea class="form-textarea" id="wa-tpl-remind" rows="5" onfocus="waActiveTpl=this.id" style="font-size:12px"></textarea>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:14px" onclick="saveWaTemplates()">💾 حفظ القوالب</button>
+    </div>
+  </div><!-- end stabp-whatsapp -->
+
+  <!-- ══ TAB: خطر ══ -->
+  <div class="stab-panel" id="stabp-danger">
+    <div class="card">
+      <div class="section-title" style="color:var(--accent4)">⚠ منطقة الخطر</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">هذه الإجراءات لا يمكن التراجع عنها</p>
+      <button class="btn btn-danger" onclick="clearAll()">🗑 مسح جميع البيانات المحلية</button>
+    </div>
+  </div><!-- end stabp-danger -->
+
+</div><!-- end stabp-general -->
 
   <!-- TAB: مظهر -->
   <div class="stab-panel" id="stabp-appearance">
@@ -3715,6 +3870,7 @@ function removeExpenseCat(i) {
 // SETTINGS
 // ============================================================
 function loadSettings(){
+  applyPlatformConfig(); // re-apply on each settings load
   const s=S.settings||{};
   renderExpenseCats();
   ['name','phone','email','address','terms'].forEach(k=>{const e=document.getElementById('set-'+k);if(e)e.value=s[k]||'';});
@@ -8500,13 +8656,26 @@ function getAllPayMethods(){
 }
 
 function fillPayMethodDropdowns(){
-  const methods = getAllPayMethods();
+  let methods = getAllPayMethods();
+  // فلترة وسائل الدفع حسب صلاحيات الباقة
+  const f = _getPlanFeatures();
+  const payMap = {
+    'cash':'pay_cash','instapay':'pay_instapay','vodafone':'pay_vodafone',
+    'etisalat':'pay_etisalat','bank':'pay_bank','card':'pay_card'
+  };
+  if(_supaUserId && hasActiveSub() && Object.keys(f).length) {
+    methods = methods.filter(m => {
+      const fk = payMap[m.id];
+      if(!fk) return true; // وسيلة مخصصة = مسموحة دائماً
+      return f[fk] !== false; // لو مش موجودة = مسموحة، لو false = محظورة
+    });
+  }
   const opts = methods.map(m=>`<option value="${m.id}">${m.icon} ${m.label}</option>`).join('');
   ['in-pay-method','ex-pay-method','fin-filter-method'].forEach(id=>{
     const sel = document.getElementById(id); if(!sel) return;
     const cur = sel.value;
     sel.innerHTML = id==='fin-filter-method' ? '<option value="">كل وسائل الدفع</option>'+opts : opts;
-    if(cur) sel.value = cur;
+    if(cur && [...sel.options].some(o=>o.value===cur)) sel.value = cur;
   });
 }
 
