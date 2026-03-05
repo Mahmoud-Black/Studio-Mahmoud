@@ -3684,21 +3684,27 @@ async function _activateCode(inputId, msgId, onSuccess){
   const btn=inp.parentElement?.querySelector('button');
   if(btn) btn.disabled=true;
   try{
-    // ابحث بالكود — جرّب كلا الـ column names (code أو key_code)
+    // ابحث بالكود — جرّب كلا الـ column names
     let data = null, error = null;
 
-    // جرّب 'code' أولاً
     const r1 = await supa.from('serial_keys').select('*').eq('code', code).maybeSingle();
     if(!r1.error && r1.data) {
       data = r1.data;
     } else {
-      // جرّب 'key_code' كـ fallback
       const r2 = await supa.from('serial_keys').select('*').eq('key_code', code).maybeSingle();
       if(!r2.error && r2.data) {
         data = r2.data;
-        data._colIsKeyCode = true; // flag للـ update
-      } else if(r1.error && r2.error) {
-        error = r1.error;
+        data._colIsKeyCode = true;
+      } else {
+        // جرّب ilike للـ case insensitive
+        const r3 = await supa.from('serial_keys').select('*').ilike('key_code', code).maybeSingle();
+        if(!r3.error && r3.data) {
+          data = r3.data;
+          data._colIsKeyCode = true;
+        } else if(r1.error) {
+          error = r1.error;
+          console.error('All code lookups failed:', r1.error, r2.error, r3.error);
+        }
       }
     }
 
@@ -3752,10 +3758,16 @@ async function _activateCode(inputId, msgId, onSuccess){
     if(data.billing!=='lifetime' && plan?.duration_days){
       const d=new Date(now);d.setDate(d.getDate()+plan.duration_days);exp=d.toISOString();
     }
+    // update بـ id (UUID) — مش بالـ code — علشان يعمل صح
     const {error:e2}=await supa
       .from('serial_keys')
-      .update({status:'active',user_id:_supaUserId,activated_at:now.toISOString(),expires_at:exp})
-      .eq('id',data.id);
+      .update({
+        status:'active',
+        user_id:_supaUserId,
+        activated_at:now.toISOString(),
+        expires_at:exp
+      })
+      .eq('id', data.id);
 
     if(e2){
       console.error('Serial update error:', e2);
@@ -3768,7 +3780,13 @@ async function _activateCode(inputId, msgId, onSuccess){
     msg.textContent='✅ تم تفعيل الاشتراك بنجاح!';
     inp.value='';
     await loadUserSubscription(_supaUserId);
-    setTimeout(()=>{_hideLock();if(onSuccess)onSuccess();},1000);
+    _updateNavLocks();
+    setTimeout(()=>{
+      _hideLock();
+      renderAll();
+      showPage('dashboard');
+      if(onSuccess) onSuccess();
+    }, 800);
   }catch(e){
     console.error('_activateCode exception:', e);
     msg.style.color='var(--accent4)';
@@ -6634,18 +6652,20 @@ async function loginWithSupaSession(supaUser, session, userMeta){
   }
 
   updateUserBadge(userObj);
-  renderAll();
-  updateHeader('dashboard');
 
-  // ── فحص صلاحية Admin ──
+  // ── فحص صلاحية Admin أولاً ──
   const isAdmin  = meta.role === 'admin' || meta.is_admin === true;
   const isViewer = meta.role === 'viewer';
   _isAdminUser = isAdmin || isViewer;
 
-  // تحميل الاشتراك أولاً قبل إظهار الـ app (منع flash)
+  // ── حمّل الاشتراك قبل أي render ──
   await loadUserSubscription(supaUser.id);
 
-  // إخفاء شاشة اللوجين وإظهار التطبيق بعد تحميل الاشتراك
+  // ── الآن render بعد ما الاشتراك اتحمل ──
+  renderAll();
+  updateHeader('dashboard');
+
+  // إخفاء اللوجين وإظهار التطبيق
   if(window._showApp) window._showApp();
   const screen = document.getElementById('auth-screen');
   screen.style.transition='opacity .4s ease';
@@ -6658,7 +6678,9 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     return;
   }
 
-  showSyncIndicator('✅ أهلاً ' + (userObj.name||'') , '#4fd1a5');
+  // إظهار الداش بورد مباشرة بعد التحقق من الاشتراك
+  showPage('dashboard');
+  showSyncIndicator('✅ أهلاً ' + (userObj.name||''), '#4fd1a5');
 }
 
 // ══ SUBSCRIPTION SYSTEM ══
