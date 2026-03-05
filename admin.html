@@ -921,6 +921,26 @@ select.filter-sel:focus { outline:none; border-color:var(--accent); }
           </div>
         </div>
       </div>
+
+      <!-- Tab: Activity Log -->
+      <div class="detail-tab-panel" id="dtab-activity">
+        <div class="card" style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div style="font-size:13px;font-weight:700">📡 سجل نشاط المستخدم</div>
+            <button class="btn btn-ghost btn-sm" onclick="renderUserActivityLog(_currentDetailUid)">🔄 تحديث</button>
+          </div>
+          <div id="udp-activity-log">
+            <div style="text-align:center;padding:20px;color:var(--text3)">جاري التحميل...</div>
+          </div>
+        </div>
+
+        <!-- Account Status Card -->
+        <div class="card">
+          <div style="font-size:13px;font-weight:700;margin-bottom:14px">🔐 حالة الحساب</div>
+          <div id="udp-account-status-detail"></div>
+        </div>
+      </div>
+
     </div>
 
     <!-- ═══ ADMINS PAGE ═══ -->
@@ -1639,6 +1659,17 @@ let SERIALS = lsGet('serials', []);
 let ACTIVITY_LOG = lsGet('activity_log', []);
 let ALL_USERS = [];
 let ALL_STUDIO_DATA = {};
+let USER_STATUS = {}; // { uid: { banned: bool, bannedAt: iso, loginCount: n, lastLogin: iso, loginHistory: [] } }
+function loadUserStatuses() {
+  USER_STATUS = JSON.parse(localStorage.getItem('admin_user_status') || '{}');
+}
+function saveUserStatuses() {
+  localStorage.setItem('admin_user_status', JSON.stringify(USER_STATUS));
+}
+function getUserStatus(uid) {
+  return USER_STATUS[uid] || { banned: false, loginCount: 0, lastLogin: null, loginHistory: [] };
+}
+loadUserStatuses();
 
 // ══════════════════════════════════════════════════
 //  SUPABASE ↔ SERIALS BRIDGE
@@ -1901,6 +1932,20 @@ FOR ALL USING (
   (auth.jwt()->'user_metadata'->>'is_admin' = 'true') OR
   auth.uid() = user_id
 );
+
+-- جدول تتبع نشاط المستخدمين (أنشئه في Supabase)
+-- CREATE TABLE IF NOT EXISTS user_activity (
+--   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+--   user_id UUID REFERENCES auth.users(id),
+--   event TEXT,           -- 'login', 'page_view', etc
+--   metadata JSONB,
+--   created_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+-- ALTER TABLE user_activity ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "users_insert_own_activity" ON user_activity FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- CREATE POLICY "admin_read_all_activity" ON user_activity FOR SELECT USING (
+--   (auth.jwt()->'user_metadata'->>'role' = 'admin') OR auth.uid() = user_id
+-- );
 
 -- السماح للأدمن بتعديل studio_data لأي مستخدم
 DROP POLICY IF EXISTS "admin_update_studio_data" ON studio_data;
@@ -2897,6 +2942,113 @@ async function resetUserPw(uid, email) {
 // ══════════════════════════════════════════════════
 //  ACTIVITY LOG
 // ══════════════════════════════════════════════════
+// ═══ ACCOUNT STATUS (BAN/UNBAN) ═══
+async function toggleAccountStatus(uid, name, email) {
+  const st = getUserStatus(uid);
+  const isBanned = st.banned;
+  const action = isBanned ? 'تفعيل' : 'تعطيل';
+  if(!confirm(action + ' حساب ' + name + '؟')) return;
+
+  st.banned = !isBanned;
+  st.bannedAt = st.banned ? new Date().toISOString() : null;
+  st.bannedReason = st.banned ? (prompt('سبب التعطيل (اختياري):') || '') : null;
+  USER_STATUS[uid] = st;
+  saveUserStatuses();
+
+  // Try to update Supabase studio_data with banned flag
+  try {
+    const existing = ALL_STUDIO_DATA[uid]?.raw || {};
+    const updated = { ...existing, _account_banned: st.banned, _banned_at: st.bannedAt };
+    await supa.from('studio_data').update({ data: JSON.stringify(updated) }).eq('user_id', uid);
+  } catch(e) { console.warn('Could not update Supabase:', e.message); }
+
+  const color = st.banned ? 'var(--accent4)' : 'var(--accent3)';
+  logActivity(action + ' حساب', name + ' — ' + email, color);
+  toast((st.banned ? '⛔ تم تعطيل' : '✅ تم تفعيل') + ' حساب ' + name);
+
+  // Refresh detail page
+  if(_currentDetailUid === uid) openUserDetailPage(uid);
+  renderUsersTable();
+}
+
+// ═══ LOGIN TRACKING — called from index.html via Supabase ═══
+// We read login history from studio_data._login_log
+function getUserLoginHistory(uid) {
+  const raw = ALL_STUDIO_DATA[uid]?.raw || {};
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return parsed._login_log || [];
+  } catch(e) { return []; }
+}
+
+function renderUserActivityLog(uid) {
+  const st = getUserStatus(uid);
+  const history = getUserLoginHistory(uid);
+  const el = document.getElementById('udp-activity-log');
+  if(!el) return;
+
+  const loginCount = history.length || st.loginCount || 0;
+  const lastLogin  = history[0]?.time || st.lastLogin;
+  const lastLoginStr = lastLogin ? new Date(lastLogin).toLocaleString('ar-EG') : '—';
+
+  let html = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">';
+  html += '<div class="stat-mini"><div class="stat-mini-val" style="color:var(--accent)">' + loginCount + '</div><div class="stat-mini-lbl">إجمالي الدخولات</div></div>';
+  html += '<div class="stat-mini"><div class="stat-mini-val" style="color:var(--accent3);font-size:13px">' + lastLoginStr + '</div><div class="stat-mini-lbl">آخر دخول</div></div>';
+
+  const today = new Date().toDateString();
+  const todayLogins = history.filter(h => new Date(h.time).toDateString() === today).length;
+  html += '<div class="stat-mini"><div class="stat-mini-val" style="color:var(--accent2)">' + todayLogins + '</div><div class="stat-mini-lbl">دخولات اليوم</div></div>';
+  html += '</div>';
+
+  if(!history.length) {
+    html += '<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">لا يوجد سجل دخول مسجّل بعد</div>';
+  } else {
+    html += '<div style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto">';
+    history.slice(0, 50).forEach(function(h) {
+      const d = new Date(h.time);
+      const dateStr = d.toLocaleDateString('ar-EG') + ' ' + d.toLocaleTimeString('ar-EG', {hour:'2-digit',minute:'2-digit'});
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--surface2);border-radius:8px;font-size:12px">'
+        + '<div><span style="color:var(--accent3)">🔐</span> <span style="font-weight:600">تسجيل دخول</span>'
+        + (h.device ? ' <span style="color:var(--text3);font-size:10px">— ' + h.device + '</span>' : '')
+        + '</div>'
+        + '<div style="color:var(--text3)">' + dateStr + '</div>'
+        + '</div>';
+    });
+    html += '</div>';
+  }
+  el.innerHTML = html;
+
+  // Also render account status card
+  const statusEl = document.getElementById('udp-account-status-detail');
+  if(statusEl) {
+    const st2 = getUserStatus(uid);
+    const banned = st2.banned;
+    const name2 = (ALL_STUDIO_DATA[uid]?.parsed?.settings?.name || 'المستخدم').replace(/'/g, "");
+    const email2 = (ALL_STUDIO_DATA[uid]?.parsed?.settings?.email || '').replace(/'/g, "");
+    const bgColor  = banned ? 'rgba(247,111,124,.08)' : 'rgba(79,209,165,.08)';
+    const bdColor  = banned ? 'rgba(247,111,124,.3)'  : 'rgba(79,209,165,.3)';
+    const txtColor = banned ? 'var(--accent4)' : 'var(--accent3)';
+    const btnBg    = banned ? 'var(--accent3)' : 'var(--accent4)';
+    const statusTxt = banned ? '⛔ الحساب موقوف' : '✅ الحساب نشط';
+    const btnTxt    = banned ? '✅ تفعيل الحساب' : '⛔ تعطيل الحساب';
+    const bannedDate = (banned && st2.bannedAt) ? '<div style="font-size:11px;color:var(--text3);margin-top:4px">منذ: '+new Date(st2.bannedAt).toLocaleDateString('ar-EG')+'</div>' : '';
+    const bannedReason = (banned && st2.bannedReason) ? '<div style="font-size:11px;color:var(--text2);margin-top:2px">السبب: '+st2.bannedReason+'</div>' : '';
+
+    statusEl.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px;border-radius:10px;background:'+bgColor+';border:1px solid '+bdColor+'">'
+        + '<div>'
+          + '<div style="font-size:15px;font-weight:700;color:'+txtColor+'">'+statusTxt+'</div>'
+          + bannedDate + bannedReason
+        + '</div>'
+        + '<button data-uid="'+uid+'" data-name="'+name2+'" data-email="'+email2+'" onclick="toggleAccountStatus(this.dataset.uid,this.dataset.name,this.dataset.email)"'
+          + ' style="background:'+btnBg+';color:#fff;border:none;border-radius:8px;padding:10px 18px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">'
+          + btnTxt
+        + '</button>'
+      + '</div>';
+  }
+
+}
+
 function logActivity(type, msg, color) {
   ACTIVITY_LOG.unshift({
     type, msg, color,
@@ -3367,6 +3519,16 @@ function openUserDetailPage(uid) {
     ].map(s=>`<div class="stat-mini"><div class="stat-mini-val" style="color:var(--accent${s.c==='green'?'3':s.c==='yellow'?'2':''})">${s.v}</div><div class="stat-mini-lbl">${s.l}</div></div>`).join('');
   }
 
+  // Account status
+  const userSt = getUserStatus(uid);
+  const isBanned = userSt.banned;
+
+  // Banned badge
+  const badgesEl2 = document.getElementById('udp-badges');
+  if(badgesEl2 && isBanned) {
+    badgesEl2.innerHTML += '<span class="badge" style="background:rgba(247,111,124,.2);color:var(--accent4);border:1px solid var(--accent4)">⛔ موقوف</span>';
+  }
+
   // Actions
   const actionsEl = document.getElementById('udp-actions');
   if(actionsEl) {
@@ -3375,6 +3537,10 @@ function openUserDetailPage(uid) {
       <button class="btn btn-success btn-sm" onclick="openAssignSerialModal('${uid}')">🔑 تعيين اشتراك</button>
       <button class="btn btn-ghost btn-sm" onclick="openEditSubModal('${uid}')">📦 تعديل الاشتراك</button>
       <button class="btn btn-danger btn-sm" onclick="resetUserPw('${uid}','${email}')">🔄 ريسيت المرور</button>
+      <button id="udp-ban-btn" class="btn btn-sm" onclick="toggleAccountStatus('${uid}','${name}','${email}')"
+        style="background:${isBanned?'rgba(79,209,165,.15)':'rgba(247,111,124,.15)'};border:1px solid ${isBanned?'var(--accent3)':'var(--accent4)'};color:${isBanned?'var(--accent3)':'var(--accent4)'}">
+        ${isBanned?'✅ تفعيل الحساب':'⛔ تعطيل الحساب'}
+      </button>
       <button class="btn btn-danger btn-sm" style="background:rgba(220,53,69,.2);border-color:#dc3545" onclick="confirmDeleteUser('${uid}','${email}')">🗑 حذف الحساب</button>
     `;
   }
@@ -3389,13 +3555,13 @@ function openUserDetailPage(uid) {
 }
 
 function switchDetailTab(tab) {
-  document.querySelectorAll('.detail-tab').forEach((t,i) => {
-    const tabs = ['overview','subscription'];
-    t.classList.toggle('active', tabs[i] === tab);
-  });
+  document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+  const activeTab = document.querySelector('.detail-tab[data-tab="'+tab+'"]');
+  if(activeTab) activeTab.classList.add('active');
   document.querySelectorAll('.detail-tab-panel').forEach(p => p.classList.remove('active'));
   const panel = document.getElementById('dtab-'+tab);
   if(panel) panel.classList.add('active');
+  if(tab === 'activity') renderUserActivityLog(_currentDetailUid);
 }
 
 function loadDetailOverview(uid, p, sub, plan) {
