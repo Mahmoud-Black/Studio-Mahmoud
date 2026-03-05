@@ -1664,6 +1664,7 @@ function _supaRowToSerial(row) {
 
 function _serialToSupaPayload(s) {
   const p = {
+    code:         s.code      || null,
     plan_id:      s.planId    || null,
     billing:      s.billing   || 'monthly',
     note:         s.note      || null,
@@ -1671,9 +1672,6 @@ function _serialToSupaPayload(s) {
     activated_at: s.activatedAt || null,
     expires_at:   s.expiresAt !== undefined ? s.expiresAt : null
   };
-  // support both 'code' and 'key_code' column names
-  if(s.code) { p.code = s.code; p.key_code = s.code; }
-  // user_id: حطّها دايماً
   if('userId' in s) p.user_id = s.userId || null;
   return p;
 }
@@ -1702,20 +1700,13 @@ async function supaUpsertSerial(serial) {
                : isUUID(serial.id)      ? serial.id
                : null;
 
-    // لو مش عندنا UUID — ابحث بالكود (جرب code و key_code)
+    // لو مش عندنا UUID — ابحث بالكود
     if(!supaId && serial.code) {
-      let found = null;
       const { data: f1 } = await supa.from('serial_keys').select('id').eq('code', serial.code).maybeSingle();
-      if(f1?.id) { found = f1; }
-      else {
-        const { data: f2 } = await supa.from('serial_keys').select('id').eq('key_code', serial.code).maybeSingle();
-        if(f2?.id) found = f2;
-      }
-      if(found?.id) { supaId = found.id; serial._supaId = supaId; }
+      if(f1?.id) { supaId = f1.id; serial._supaId = supaId; }
     }
-
-    // لو لسه مفيش — ابحث بـ user_id وplan_id (للتعديل من الأدمن)
-    if(!supaId && serial.userId && serial.planId) {
+    // لو لسه مفيش — ابحث بـ user_id (للتعديل من الأدمن)
+    if(!supaId && serial.userId) {
       const { data: byUser } = await supa.from('serial_keys')
         .select('id').eq('user_id', serial.userId).eq('status','active').maybeSingle();
       if(byUser?.id) { supaId = byUser.id; serial._supaId = supaId; }
@@ -1750,7 +1741,7 @@ async function supaUpsertSerial(serial) {
     lsSet('serials', SERIALS);
     return true;
   } catch(e) {
-    console.warn('supaUpsertSerial failed:', e.message, e);
+    console.error('supaUpsertSerial FAILED:', e.message, '| payload was:', JSON.stringify(_serialToSupaPayload(serial)));
     lsSet('serials', SERIALS);
     return false;
   }
