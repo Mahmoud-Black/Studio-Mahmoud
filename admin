@@ -461,8 +461,15 @@ select.filter-sel:focus { outline:none; border-color:var(--accent); }
 </head>
 <body>
 
+<!-- ═══ LOADING SCREEN ═══ -->
+<div id="admin-loading" style="position:fixed;inset:0;background:#07080f;display:flex;align-items:center;justify-content:center;z-index:99999;flex-direction:column;gap:14px">
+  <div style="width:42px;height:42px;background:#6c63ff;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff;box-shadow:0 8px 30px rgba(108,99,255,.4)">⚡</div>
+  <div style="color:#8888aa;font-size:13px;font-family:'Cairo',sans-serif">جاري التحقق من الجلسة...</div>
+  <div style="width:18px;height:18px;border:2px solid #252640;border-top-color:#6c63ff;border-radius:50%;animation:spin .7s linear infinite"></div>
+</div>
+
 <!-- ═══ ADMIN LOGIN ═══ -->
-<div id="admin-login">
+<div id="admin-login" class="hidden">
   <div class="login-card">
     <div class="login-logo">⚡</div>
     <div class="login-title">Studio OS</div>
@@ -1362,6 +1369,8 @@ async function adminLogin() {
 }
 
 function showApp(user) {
+  const loadEl = document.getElementById('admin-loading');
+  if(loadEl) loadEl.style.display = 'none';
   document.getElementById('admin-login').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   const name = user.user_metadata?.name || user.email || 'Admin';
@@ -1376,13 +1385,43 @@ async function adminLogout() {
   document.getElementById('app').classList.add('hidden');
 }
 
-// Check existing session on load
+// ── تحقق من الجلسة عند فتح الصفحة مباشرة ──
+(async () => {
+  const hideLoading = () => {
+    const el = document.getElementById('admin-loading');
+    if(el) el.style.display = 'none';
+  };
+  try {
+    const { data: { session } } = await supa.auth.getSession();
+    if(session?.user) {
+      const meta = session.user.user_metadata || {};
+      if(meta.role === 'admin' || meta.is_admin === true) {
+        showApp(session.user);
+        hideLoading();
+        return;
+      }
+    }
+  } catch(e) { console.warn('getSession error:', e); }
+  // لا يوجد session أو ليس أدمن — اعرض شاشة اللوجين
+  hideLoading();
+  document.getElementById('admin-login').classList.remove('hidden');
+})();
+
+// ── تابع تغييرات الجلسة (login / logout) ──
 supa.auth.onAuthStateChange((event, session) => {
-  if(session?.user) {
+  if(event === 'SIGNED_IN' && session?.user) {
     const meta = session.user.user_metadata || {};
     if(meta.role === 'admin' || meta.is_admin === true) {
       showApp(session.user);
+    } else {
+      supa.auth.signOut();
+      const errEl = document.getElementById('adm-login-err');
+      if(errEl) errEl.textContent = '⛔ ليس لديك صلاحيات الإدارة';
     }
+  }
+  if(event === 'SIGNED_OUT') {
+    document.getElementById('admin-login').classList.remove('hidden');
+    document.getElementById('app').classList.add('hidden');
   }
 });
 
