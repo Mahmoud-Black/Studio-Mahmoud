@@ -4,7 +4,62 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Studio OS — نظام الاستوديو</title>
-<link href="./Studio OS — نظام الاستوديو_files/css2" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+<!-- ═══ SUPABASE SDK ═══ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// ══════════════════════════════════════════════════
+//  SUPABASE CONFIG
+// ══════════════════════════════════════════════════
+const SUPA_URL  = 'https://mpfmcjgigpvdxbhgzufo.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM';
+const supa = supabase.createClient(SUPA_URL, SUPA_ANON);
+
+// ══════════════════════════════════════════════════
+//  SUPABASE CLOUD SYNC
+// ══════════════════════════════════════════════════
+let _syncTimer = null;
+let _supaUserId = null;
+
+function cloudSave(data){
+  if(!_supaUserId) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(async ()=>{
+    try{
+      const payload = { user_id: _supaUserId, data: JSON.stringify(data), updated_at: new Date().toISOString() };
+      await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
+      showSyncIndicator('✅ محفوظ على السحابة', '#4fd1a5');
+    }catch(e){
+      showSyncIndicator('⚠ فشل المزامنة', '#f76f7c');
+    }
+  }, 1000);
+}
+
+async function cloudLoad(){
+  if(!_supaUserId) return null;
+  try{
+    const { data, error } = await supa.from('studio_data').select('data').eq('user_id', _supaUserId).single();
+    if(error || !data) return null;
+    return JSON.parse(data.data);
+  }catch(e){ return null; }
+}
+
+function showSyncIndicator(msg, color){
+  let el = document.getElementById('sync-indicator');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'sync-indicator';
+    el.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);z-index:8000;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:600;pointer-events:none;transition:opacity .4s;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.3)';
+    document.body.appendChild(el);
+  }
+  el.style.color = color || 'var(--accent3)';
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>{ el.style.opacity='0'; }, 2500);
+}
+</script>
 <style>
 @media print {
   body > *:not(#print-area) { display: none !important; }
@@ -261,6 +316,23 @@
 @media (max-width: 480px) {
   .auth-card { padding: 28px 20px; border-radius: 16px; }
   .auth-input-row { grid-template-columns: 1fr; gap: 0; }
+}
+
+/* Google login button */
+.auth-btn-google {
+  background: var(--surface2) !important;
+  border: 1.5px solid var(--border) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  margin-top: 0 !important;
+}
+.auth-btn-google:hover {
+  border-color: #4285F4 !important;
+  background: rgba(66,133,244,.08) !important;
 }
 </style>
 <style>
@@ -1192,7 +1264,6 @@ function getQRDataURL(text, size) {
 <div id="auth-screen" class="hidden" style="transition: opacity 0.4s;">
   <div class="auth-card">
 
-    <!-- Logo -->
     <div class="auth-logo">
       <div class="auth-logo-mark">⬡</div>
       <div class="auth-logo-text">
@@ -1201,29 +1272,38 @@ function getQRDataURL(text, size) {
       </div>
     </div>
 
-    <!-- Tabs -->
     <div class="auth-tabs">
-      <button class="auth-tab active" onclick="switchAuthTab(&#39;login&#39;)">تسجيل الدخول</button>
-      <button class="auth-tab" onclick="switchAuthTab(&#39;register&#39;)">إنشاء حساب</button>
+      <button class="auth-tab active" onclick="switchAuthTab('login')">تسجيل الدخول</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')">إنشاء حساب</button>
     </div>
 
     <!-- ── LOGIN PANEL ── -->
     <div class="auth-panel active" id="panel-login">
       <div class="auth-title">أهلاً بعودتك 👋</div>
       <div class="auth-subtitle">سجّل دخولك لمتابعة العمل</div>
-
       <div id="login-error" class="auth-error"></div>
+      <div id="login-success" class="auth-success"></div>
 
       <div class="auth-input-group">
-        <label class="auth-label">رقم الهاتف</label>
-        <input class="auth-input" id="login-phone" type="tel" placeholder="01xxxxxxxxx" inputmode="numeric">
+        <label class="auth-label">البريد الإلكتروني</label>
+        <input class="auth-input" id="login-email" type="email" placeholder="example@gmail.com" dir="ltr">
       </div>
       <div class="auth-input-group">
         <label class="auth-label">كلمة المرور</label>
-        <input class="auth-input" id="login-password" type="password" placeholder="••••••••" onkeydown="if(event.key===&#39;Enter&#39;)doLogin()">
+        <input class="auth-input" id="login-password" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div style="text-align:left;margin-bottom:12px">
+        <span onclick="showForgotPassword()" style="font-size:12px;color:var(--accent);cursor:pointer;font-weight:600">نسيت كلمة المرور؟</span>
       </div>
 
       <button class="auth-btn" onclick="doLogin()">تسجيل الدخول</button>
+
+      <div class="auth-divider">أو</div>
+
+      <button class="auth-btn auth-btn-google" onclick="doGoogleLogin()">
+        <svg width="18" height="18" viewBox="0 0 48 48" style="flex-shrink:0"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 16.1 19 13 24 13c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.5-2.1 14.2-5.5l-6.6-5.6C29.7 35 27 36 24 36c-5.3 0-9.7-3.3-11.3-8H6.1C9.4 35.5 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.9l.1-.1 6.6 5.6C37.3 39.3 44 34.3 44 24c0-1.3-.1-2.7-.4-3.9z"/></svg>
+        متابعة بـ Google
+      </button>
 
       <div class="auth-divider">أو</div>
       <button class="auth-btn" onclick="triggerAuthBackupImport()" style="background:var(--surface2);border:1.5px solid var(--border);color:var(--text2);box-shadow:none;margin-top:0">
@@ -1231,9 +1311,9 @@ function getQRDataURL(text, size) {
       </button>
       <input type="file" id="auth-backup-input" accept=".json" style="display:none" onchange="doAuthBackupImport(this)">
 
-      <div style="text-align:center;font-size:12px;color:var(--text2)">
+      <div style="text-align:center;font-size:12px;color:var(--text2);margin-top:10px">
         ما عندكش حساب؟
-        <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="switchAuthTab(&#39;register&#39;)">أنشئ حساب جديد</span>
+        <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="switchAuthTab('register')">أنشئ حساب جديد</span>
       </div>
     </div>
 
@@ -1241,7 +1321,6 @@ function getQRDataURL(text, size) {
     <div class="auth-panel" id="panel-register">
       <div class="auth-title">إنشاء حساب جديد ✨</div>
       <div class="auth-subtitle">ادخل بياناتك وابدأ إدارة استوديوك</div>
-
       <div id="register-error" class="auth-error"></div>
       <div id="register-success" class="auth-success"></div>
 
@@ -1251,9 +1330,14 @@ function getQRDataURL(text, size) {
           <input class="auth-input" id="reg-name" type="text" placeholder="اسمك هنا">
         </div>
         <div class="auth-input-group">
-          <label class="auth-label">رقم الهاتف *</label>
+          <label class="auth-label">رقم الهاتف</label>
           <input class="auth-input" id="reg-phone" type="tel" placeholder="01xxxxxxxxx" inputmode="numeric">
         </div>
+      </div>
+
+      <div class="auth-input-group">
+        <label class="auth-label">البريد الإلكتروني *</label>
+        <input class="auth-input" id="reg-email" type="email" placeholder="example@gmail.com" dir="ltr">
       </div>
 
       <div class="auth-input-group">
@@ -1263,30 +1347,50 @@ function getQRDataURL(text, size) {
 
       <div class="auth-input-group">
         <label class="auth-label">كلمة المرور *</label>
-        <input class="auth-input" id="reg-password" type="password" placeholder="8 أحرف على الأقل" oninput="checkPwStrength(this.value)">
+        <input class="auth-input" id="reg-password" type="password" placeholder="6 أحرف على الأقل" oninput="checkPwStrength(this.value)">
         <div class="pw-strength"><div class="pw-strength-bar" id="pw-bar"></div></div>
         <div id="pw-hint" style="font-size:11px;color:var(--text3);margin-top:4px;min-height:16px"></div>
       </div>
       <div class="auth-input-group">
         <label class="auth-label">تأكيد كلمة المرور *</label>
-        <input class="auth-input" id="reg-password2" type="password" placeholder="أعد كتابة كلمة المرور" onkeydown="if(event.key===&#39;Enter&#39;)doRegister()">
+        <input class="auth-input" id="reg-password2" type="password" placeholder="أعد كتابة كلمة المرور" onkeydown="if(event.key==='Enter')doRegister()">
       </div>
 
       <button class="auth-btn" onclick="doRegister()">إنشاء الحساب</button>
 
       <div class="auth-divider">أو</div>
-      <button class="auth-btn" onclick="triggerAuthBackupImport()" style="background:var(--surface2);border:1.5px solid var(--border);color:var(--text2);box-shadow:none;margin-top:0">
-        📂 عندي نسخة احتياطية — استعادة البيانات
+      <button class="auth-btn auth-btn-google" onclick="doGoogleLogin()">
+        <svg width="18" height="18" viewBox="0 0 48 48" style="flex-shrink:0"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 16.1 19 13 24 13c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.5-2.1 14.2-5.5l-6.6-5.6C29.7 35 27 36 24 36c-5.3 0-9.7-3.3-11.3-8H6.1C9.4 35.5 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.9l.1-.1 6.6 5.6C37.3 39.3 44 34.3 44 24c0-1.3-.1-2.7-.4-3.9z"/></svg>
+        متابعة بـ Google
       </button>
 
-      <div style="text-align:center;font-size:12px;color:var(--text2);margin-top:8px">
+      <div style="text-align:center;font-size:12px;color:var(--text2);margin-top:10px">
         عندك حساب بالفعل؟
-        <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="switchAuthTab(&#39;login&#39;)">سجّل الدخول</span>
+        <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="switchAuthTab('login')">سجّل الدخول</span>
+      </div>
+    </div>
+
+    <!-- ── FORGOT PASSWORD PANEL ── -->
+    <div class="auth-panel" id="panel-forgot">
+      <div class="auth-title">نسيت كلمة المرور؟ 🔑</div>
+      <div class="auth-subtitle">هنبعتلك رابط تغيير كلمة المرور على إيميلك</div>
+      <div id="forgot-error" class="auth-error"></div>
+      <div id="forgot-success" class="auth-success"></div>
+
+      <div class="auth-input-group" style="margin-top:16px">
+        <label class="auth-label">البريد الإلكتروني</label>
+        <input class="auth-input" id="forgot-email" type="email" placeholder="example@gmail.com" dir="ltr" onkeydown="if(event.key==='Enter')doForgotPassword()">
+      </div>
+
+      <button class="auth-btn" onclick="doForgotPassword()">📧 إرسال رابط التغيير</button>
+
+      <div style="text-align:center;margin-top:12px">
+        <span onclick="switchAuthTab('login')" style="font-size:12px;color:var(--accent);cursor:pointer;font-weight:600">← العودة لتسجيل الدخول</span>
       </div>
     </div>
 
     <div class="auth-footer">
-      بياناتك محفوظة محلياً على جهازك فقط 🔒
+      بياناتك محفوظة على السحابة بأمان تام ☁️🔒
     </div>
   </div>
 </div>
@@ -2968,37 +3072,9 @@ function lsLoad(){
   try{
     const d=localStorage.getItem(userKey());
     if(d) S=JSON.parse(d);
-    // migrate: ensure new fields exist
-    if(!S.settings) S.settings={};
-    if(!S.settings.taskTypes) S.settings.taskTypes=['تصميم سوشيال ميديا','برانيدنج','لوجو','فيديو موشن','كونتنت','ويب ديزاين'];
-    if(!S.schedule) S.schedule=[];
-    if(!S.teams) S.teams=[];
-    if(!S.subscriptions) S.subscriptions=[];
-    if(!S.customStatuses) S.customStatuses=[];
-    if(!S.paymentAccounts) S.paymentAccounts=[];
-    if(!S.hiddenPayMethods) S.hiddenPayMethods=[];
-    if(!S.hiddenStatuses) S.hiddenStatuses=[];
-    if(!S.meetings) S.meetings=[];
-    if(!S.courses) S.courses=[];
-    // migrate tasks to include worker fields
-    S.tasks.forEach(t=>{
-      if(t.workerType===undefined) t.workerType='me';
-      if(t.workerMember===undefined) t.workerMember=null;
-      if(t.workerAmount===undefined) t.workerAmount=0;
-      if(t.workerDepositPaid===undefined) t.workerDepositPaid=false;
-      if(t.workerDepositAmount===undefined) t.workerDepositAmount=0;
-      if(t.paymentCollected===undefined) t.paymentCollected=false;
-    });
+    migrateSFields();
     // migrate transactions to have proper ISO date
-    S.transactions.forEach(t=>{
-      if(!t.isoDate && t.date) t.isoDate = tryParseDate(t.date);
-    });
-    // migrate schedule items — add done/linkedTaskId if missing
-    S.schedule.forEach(s=>{if(s.done===undefined)s.done=false;if(s.linkedTaskId===undefined)s.linkedTaskId=null;});
-    // migrate clients — add followup fields if missing
-    S.clients.forEach(c=>{if(!c.followupEnabled)c.followupEnabled='off';if(!c.followupMonths)c.followupMonths=3;});
-    // migrate tasks — add steps/taskType if missing
-    S.tasks.forEach(t=>{if(!t.steps)t.steps=[];if(!t.taskType)t.taskType='';});
+    S.transactions.forEach(t=>{ if(!t.isoDate && t.date) t.isoDate = tryParseDate(t.date); });
   }catch(e){}
 }
 function tryParseDate(dateStr){
@@ -3012,7 +3088,11 @@ function tryParseDate(dateStr){
   } catch(e){}
   return '';
 }
-function lsSave(){try{localStorage.setItem(userKey(),JSON.stringify(S));}catch(e){}updateDash();}
+function lsSave(){
+  try{ localStorage.setItem(userKey(), JSON.stringify(S)); }catch(e){}
+  cloudSave(S);
+  updateDash();
+}
 lsLoad();
 
 // ============================================================
@@ -5368,11 +5448,12 @@ function updateHeader(pageId){
 
 
 // ============================================================
-// AUTH SYSTEM
+// AUTH SYSTEM — Supabase Cloud
 // ============================================================
-const AUTH_KEY = 'studioOS_auth_v1';
+const AUTH_KEY  = 'studioOS_auth_v1';
 const USERS_KEY = 'studioOS_users_v1';
 
+// ── local compat shims (kept for backup/restore) ──
 function getUsers(){ try{ return JSON.parse(localStorage.getItem(USERS_KEY)||'[]'); }catch(e){return [];} }
 function saveUsers(u){ localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
 function getSession(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY)||'null'); }catch(e){return null;} }
@@ -5381,8 +5462,9 @@ function clearSession(){ localStorage.removeItem(AUTH_KEY); }
 
 function switchAuthTab(tab){
   document.querySelectorAll('.auth-tab').forEach((t,i)=>t.classList.toggle('active', (tab==='login'&&i===0)||(tab==='register'&&i===1)));
-  document.getElementById('panel-login').classList.toggle('active', tab==='login');
-  document.getElementById('panel-register').classList.toggle('active', tab==='register');
+  document.querySelectorAll('.auth-panel').forEach(p=>p.classList.remove('active'));
+  const el = document.getElementById('panel-'+tab);
+  if(el) el.classList.add('active');
   clearAuthMessages();
 }
 
@@ -5412,63 +5494,96 @@ function checkPwStrength(pw){
   hint.textContent=pw.length?'قوة كلمة المرور: '+(labels[score-1]||''):'';
 }
 
-function doRegister(){
-  const name   = document.getElementById('reg-name').value.trim();
-  const phone  = document.getElementById('reg-phone').value.trim();
-  const studio = document.getElementById('reg-studio').value.trim();
-  const pw1    = document.getElementById('reg-password').value;
-  const pw2    = document.getElementById('reg-password2').value;
+async function doRegister(){
+  const name   = (document.getElementById('reg-name')?.value||'').trim();
+  const email  = (document.getElementById('reg-email')?.value||'').trim().toLowerCase();
+  const phone  = (document.getElementById('reg-phone')?.value||'').trim();
+  const studio = (document.getElementById('reg-studio')?.value||'').trim();
+  const pw1    = document.getElementById('reg-password')?.value||'';
+  const pw2    = document.getElementById('reg-password2')?.value||'';
   clearAuthMessages();
 
-  if(!name)            return showAuthMsg('register-error','⚠ يرجى إدخال الاسم الكامل');
-  if(!phone)           return showAuthMsg('register-error','⚠ يرجى إدخال رقم الهاتف');
-  if(!/^[0-9+\-\s]{7,15}$/.test(phone)) return showAuthMsg('register-error','⚠ رقم الهاتف غير صحيح');
-  if(pw1.length < 6)   return showAuthMsg('register-error','⚠ كلمة المرور يجب أن تكون 6 أحرف على الأقل');
-  if(pw1 !== pw2)      return showAuthMsg('register-error','⚠ كلمتا المرور غير متطابقتين');
+  if(!name)                     return showAuthMsg('register-error','⚠ يرجى إدخال الاسم الكامل');
+  if(!email || !email.includes('@')) return showAuthMsg('register-error','⚠ يرجى إدخال بريد إلكتروني صحيح');
+  if(pw1.length < 6)            return showAuthMsg('register-error','⚠ كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+  if(pw1 !== pw2)               return showAuthMsg('register-error','⚠ كلمتا المرور غير متطابقتين');
 
-  const users = getUsers();
-  if(users.find(u=>u.phone===phone)) return showAuthMsg('register-error','⚠ رقم الهاتف مسجل مسبقاً');
+  const btns = document.querySelectorAll('#panel-register .auth-btn');
+  btns.forEach(b=>{ b.disabled=true; });
+  showAuthMsg('register-success','⏳ جاري إنشاء الحساب...');
 
-  // Simple hash (XOR-based, sufficient for local storage)
-  const hash = btoa(encodeURIComponent(pw1 + phone + 'studioOS'));
-  const newUser = { id: Date.now(), name, phone, studio: studio||name+' Studio', hash, createdAt: new Date().toISOString() };
-  users.push(newUser);
-  saveUsers(users);
+  const { data, error } = await supa.auth.signUp({
+    email,
+    password: pw1,
+    options: { data: { name, phone, studio: studio||name+' Studio' } }
+  });
 
-  showAuthMsg('register-success', '✅ تم إنشاء الحساب بنجاح! جاري تسجيل الدخول...');
-  setTimeout(()=>{ loginUser(newUser); }, 1000);
+  btns.forEach(b=>{ b.disabled=false; });
+
+  if(error){
+    let msg = error.message;
+    if(msg.includes('already')) msg = 'البريد الإلكتروني مسجل مسبقاً — جرب تسجيل الدخول';
+    if(msg.includes('invalid')) msg = 'البريد الإلكتروني غير صحيح';
+    if(msg.includes('weak'))    msg = 'كلمة المرور ضعيفة جداً';
+    showAuthMsg('register-error','⚠ ' + msg);
+    return;
+  }
+
+  // Supabase بيبعت confirmation email — لو email confirmation مفعّل
+  if(data.user && !data.session){
+    showAuthMsg('register-success','✅ تم إنشاء الحساب! تحقق من بريدك الإلكتروني لتأكيد الحساب، ثم سجّل الدخول.');
+    setTimeout(()=>{ switchAuthTab('login'); document.getElementById('login-email').value=email; }, 3000);
+    return;
+  }
+
+  showAuthMsg('register-success','✅ تم إنشاء الحساب بنجاح!');
+  setTimeout(()=>{ loginWithSupaSession(data.user, data.session, {name, phone, studio: studio||name+' Studio'}); }, 800);
 }
 
-function doLogin(){
-  const phone = document.getElementById('login-phone').value.trim();
-  const pw    = document.getElementById('login-password').value;
+async function doLogin(){
+  const email = (document.getElementById('login-email')?.value||'').trim().toLowerCase();
+  const pw    = document.getElementById('login-password')?.value||'';
   clearAuthMessages();
 
-  if(!phone || !pw) return showAuthMsg('login-error','⚠ يرجى إدخال رقم الهاتف وكلمة المرور');
+  if(!email || !pw) return showAuthMsg('login-error','⚠ يرجى إدخال البريد الإلكتروني وكلمة المرور');
 
-  const users = getUsers();
-  const user  = users.find(u=>u.phone===phone);
-  if(!user) return showAuthMsg('login-error','⚠ رقم الهاتف غير مسجل');
+  const btns = document.querySelectorAll('#panel-login .auth-btn');
+  btns.forEach(b=>{ b.disabled=true; });
 
-  const hash = btoa(encodeURIComponent(pw + phone + 'studioOS'));
-  if(hash !== user.hash) return showAuthMsg('login-error','⚠ كلمة المرور غير صحيحة');
+  const { data, error } = await supa.auth.signInWithPassword({ email, password: pw });
 
-  loginUser(user);
+  btns.forEach(b=>{ b.disabled=false; });
+
+  if(error){
+    if(error.message.includes('confirm') || error.message.includes('verified'))
+      showAuthMsg('login-error','⚠ تحقق من بريدك الإلكتروني وأكّد حسابك أولاً');
+    else
+      showAuthMsg('login-error','⚠ البريد الإلكتروني أو كلمة المرور غير صحيحة');
+    return;
+  }
+
+  const meta = data.user?.user_metadata || {};
+  const userObj = {
+    id    : data.user.id,
+    supaId: data.user.id,
+    name  : meta.name   || data.user.email,
+    phone : meta.phone  || '',
+    studio: meta.studio || (meta.name ? meta.name+' Studio' : '')
+  };
+  loginWithSupaSession(data.user, data.session, userObj);
 }
 
+// loginUser – local compat (used by backup restore)
 function loginUser(user){
+  _supaUserId = user.supaId || user.id;
   saveSession(user);
-  // Reload data for this user
   S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:''}};
   lsLoad();
-  // Pre-fill settings with user name if settings are empty
   if(!S.settings.name && user.name){
     S.settings.name  = user.name;
     S.settings.phone = user.phone;
     if(user.studio) S.settings.name = user.studio;
-    lsSave();
   }
-  // Update UI
   updateUserBadge(user);
   const screen = document.getElementById('auth-screen');
   screen.style.transition='opacity .4s ease';
@@ -5476,10 +5591,80 @@ function loginUser(user){
   setTimeout(()=>{ screen.classList.add('hidden'); screen.style.opacity=''; }, 400);
 }
 
-function doLogout(){
+// loginWithSupaSession – Supabase login (cloud sync)
+async function loginWithSupaSession(supaUser, session, userMeta){
+  _supaUserId = supaUser.id;
+  const meta = supaUser.user_metadata || {};
+  const userObj = {
+    id    : supaUser.id,
+    supaId: supaUser.id,
+    email : supaUser.email || '',
+    name  : userMeta?.name  || meta.full_name || meta.name || supaUser.email || '',
+    phone : userMeta?.phone || meta.phone || '',
+    studio: userMeta?.studio || meta.studio || ''
+  };
+  saveSession(userObj);
+
+  // ── حمّل من السحابة أولاً ──
+  showSyncIndicator('☁️ جاري تحميل بياناتك...', 'var(--accent)');
+  const cloudData = await cloudLoad();
+  if(cloudData){
+    S = cloudData;
+    migrateSFields();
+    localStorage.setItem('studioOS_v3_'+supaUser.id, JSON.stringify(S));
+  } else {
+    lsLoad(); // fallback: local
+    // إذا مفيش بيانات محلية كمان، ابدأ بيانات جديدة
+  }
+
+  if(!S.settings.name && userObj.name){
+    S.settings.name  = userObj.studio || userObj.name;
+    S.settings.phone = userObj.phone;
+    cloudSave(S);
+  }
+
+  updateUserBadge(userObj);
+  renderAll();
+  updateHeader('dashboard');
+
+  const screen = document.getElementById('auth-screen');
+  screen.style.transition='opacity .4s ease';
+  screen.style.opacity='0';
+  setTimeout(()=>{ screen.classList.add('hidden'); screen.style.opacity=''; }, 400);
+  showSyncIndicator('✅ أهلاً ' + (userObj.name||'') , '#4fd1a5');
+}
+
+// migration helper
+function migrateSFields(){
+  try{
+    if(!S.settings) S.settings={};
+    if(!S.settings.taskTypes) S.settings.taskTypes=['تصميم سوشيال ميديا','برانيدنج','لوجو','فيديو موشن','كونتنت','ويب ديزاين'];
+    ['schedule','teams','subscriptions','customStatuses','paymentAccounts','hiddenPayMethods','hiddenStatuses','meetings','courses'].forEach(k=>{ if(!S[k]) S[k]=[]; });
+    if(!S.tasks) S.tasks=[];
+    if(!S.clients) S.clients=[];
+    if(!S.transactions) S.transactions=[];
+    if(!S.invoices) S.invoices=[];
+    if(!S.goals) S.goals=[];
+    S.tasks.forEach(t=>{
+      if(t.workerType===undefined) t.workerType='me';
+      if(t.workerMember===undefined) t.workerMember=null;
+      if(t.workerAmount===undefined) t.workerAmount=0;
+      if(t.workerDepositPaid===undefined) t.workerDepositPaid=false;
+      if(t.workerDepositAmount===undefined) t.workerDepositAmount=0;
+      if(t.paymentCollected===undefined) t.paymentCollected=false;
+      if(!t.steps) t.steps=[];
+      if(!t.taskType) t.taskType='';
+    });
+    S.schedule.forEach(s=>{ if(s.done===undefined)s.done=false; if(s.linkedTaskId===undefined)s.linkedTaskId=null; });
+    S.clients.forEach(c=>{ if(!c.followupEnabled)c.followupEnabled='off'; if(!c.followupMonths)c.followupMonths=3; });
+  }catch(e){}
+}
+
+async function doLogout(){
   if(!confirm('هل تريد تسجيل الخروج؟')) return;
+  await supa.auth.signOut();
+  _supaUserId = null;
   clearSession();
-  // Reset inputs
   ['login-phone','login-password','reg-name','reg-phone','reg-studio','reg-password','reg-password2'].forEach(id=>{
     const el=document.getElementById(id); if(el)el.value='';
   });
@@ -5498,27 +5683,121 @@ function updateUserBadge(user){
   const ph=document.getElementById('user-display-phone');
   const av=document.getElementById('user-avatar-icon');
   if(el) el.textContent = user.studio||user.name;
-  if(ph) ph.textContent = user.phone;
+  if(ph) ph.textContent = user.email || user.phone || '';
   if(av) av.textContent = (user.name||'م')[0];
   const nd=document.getElementById('studio-name-disp');
   if(nd) nd.textContent = user.name||'المصمم';
 }
 
+// initAuth kept for backup restore compat only
 function initAuth(){
-  const session = getSession();
-  if(session){
-    // Validate session user still exists
-    const users = getUsers();
-    const stillExists = users.find(u=>u.id===session.id&&u.hash===session.hash);
-    if(stillExists){
-      loginUser(stillExists);
-      return;
-    }
-  }
-  // Show auth screen
-  document.getElementById('auth-screen').classList.remove('hidden');
+  // No-op: handled by onAuthStateChange
 }
 
+
+// ============================================================
+// GOOGLE LOGIN
+// ============================================================
+async function doGoogleLogin(){
+  const { error } = await supa.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.href,
+      queryParams: { access_type: 'offline', prompt: 'consent' }
+    }
+  });
+  if(error) showAuthMsg('login-error','⚠ فشل تسجيل الدخول بـ Google: ' + error.message);
+}
+
+// ============================================================
+// FORGOT PASSWORD
+// ============================================================
+function showForgotPassword(){
+  document.querySelectorAll('.auth-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-forgot')?.classList.add('active');
+  clearAuthMessages();
+}
+
+async function doForgotPassword(){
+  const email = (document.getElementById('forgot-email')?.value||'').trim().toLowerCase();
+  if(!email || !email.includes('@')) return showAuthMsg('forgot-error','⚠ يرجى إدخال بريد إلكتروني صحيح');
+
+  const btn = document.querySelector('#panel-forgot .auth-btn');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ جاري الإرسال...'; }
+
+  const { error } = await supa.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href + '?reset=1'
+  });
+
+  if(btn){ btn.disabled=false; btn.textContent='📧 إرسال رابط التغيير'; }
+
+  if(error){
+    showAuthMsg('forgot-error','⚠ ' + error.message);
+  } else {
+    showAuthMsg('forgot-success','✅ تم إرسال رابط تغيير كلمة المرور على بريدك الإلكتروني! تحقق من صندوق الوارد (وأحياناً Spam).');
+    document.getElementById('forgot-email').value = '';
+  }
+}
+
+// Handle password reset redirect (when user comes back from email link)
+async function checkPasswordResetFlow(){
+  const hash = window.location.hash;
+  if(hash.includes('type=recovery') || new URLSearchParams(window.location.search).get('reset')){
+    // Show password reset UI
+    showResetPasswordFromEmail();
+  }
+}
+
+function showResetPasswordFromEmail(){
+  const old = document.getElementById('email-reset-overlay');
+  if(old) old.remove();
+  const div = document.createElement('div');
+  div.id = 'email-reset-overlay';
+  div.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+  div.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px 28px;width:100%;max-width:400px;box-shadow:0 32px 80px rgba(0,0,0,.6)">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:36px;margin-bottom:8px">🔑</div>
+        <div style="font-size:18px;font-weight:800;color:var(--text)">تعيين كلمة مرور جديدة</div>
+      </div>
+      <div id="ereset-error" class="auth-error"></div>
+      <div id="ereset-ok" class="auth-success"></div>
+      <div class="auth-input-group" style="margin-top:12px">
+        <label class="auth-label">كلمة المرور الجديدة</label>
+        <input class="auth-input" id="ereset-pw1" type="password" placeholder="6 أحرف على الأقل" oninput="checkPwStrength(this.value)">
+        <div class="pw-strength"><div class="pw-strength-bar" id="pw-bar"></div></div>
+      </div>
+      <div class="auth-input-group">
+        <label class="auth-label">تأكيد كلمة المرور</label>
+        <input class="auth-input" id="ereset-pw2" type="password" placeholder="أعد الكتابة" onkeydown="if(event.key==='Enter')doEmailReset()">
+      </div>
+      <button class="auth-btn" onclick="doEmailReset()" style="margin-top:8px">🔒 حفظ كلمة المرور الجديدة</button>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+async function doEmailReset(){
+  const pw1 = document.getElementById('ereset-pw1')?.value||'';
+  const pw2 = document.getElementById('ereset-pw2')?.value||'';
+  const errEl = document.getElementById('ereset-error');
+  const okEl  = document.getElementById('ereset-ok');
+  if(errEl) errEl.classList.remove('show');
+  if(okEl)  okEl.classList.remove('show');
+
+  if(pw1.length < 6){ if(errEl){errEl.textContent='⚠ كلمة المرور قصيرة جداً';errEl.classList.add('show');} return; }
+  if(pw1 !== pw2){    if(errEl){errEl.textContent='⚠ كلمتا المرور غير متطابقتين';errEl.classList.add('show');} return; }
+
+  const { error } = await supa.auth.updateUser({ password: pw1 });
+  if(error){
+    if(errEl){errEl.textContent='⚠ '+error.message;errEl.classList.add('show');}
+  } else {
+    if(okEl){okEl.textContent='✅ تم تغيير كلمة المرور بنجاح!';okEl.classList.add('show');}
+    setTimeout(()=>{
+      document.getElementById('email-reset-overlay')?.remove();
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }, 2000);
+  }
+}
 
 // ============================================================
 // PROFILE MODAL
@@ -5540,7 +5819,7 @@ function renderProfileBody(user, users, tab='profile'){
     <!-- Avatar + name -->
     <div class="profile-avatar-lg" id="pm-avatar">${(user.name||'م')[0]}</div>
     <div class="profile-name">${user.name}</div>
-    <div class="profile-phone">${user.phone}</div>
+    <div class="profile-phone">${user.email || user.phone || ''}</div>
 
     <!-- Stats -->
     <div class="profile-stats">
@@ -5666,7 +5945,7 @@ function checkPwStrength2(pw){
   hint.textContent=pw.length?'قوة كلمة المرور: '+(labels[score-1]||''):'';
 }
 
-function saveProfileEdit(){
+async function saveProfileEdit(){
   const user = getSession();
   if(!user) return;
   const name   = (document.getElementById('pe-name')?.value||'').trim();
@@ -5674,53 +5953,33 @@ function saveProfileEdit(){
   const phone  = (document.getElementById('pe-phone')?.value||'').trim();
   const msgEl  = document.getElementById('profile-edit-msg');
 
-  if(!name)  { if(msgEl){msgEl.textContent='⚠ الاسم مطلوب';msgEl.className='auth-error show';} return; }
-  if(!phone) { if(msgEl){msgEl.textContent='⚠ رقم الهاتف مطلوب';msgEl.className='auth-error show';} return; }
+  if(!name){ if(msgEl){msgEl.textContent='⚠ الاسم مطلوب';msgEl.className='auth-error show';} return; }
 
-  const users = getUsers();
-  // Check phone not taken by another user
-  if(phone!==user.phone && users.find(u=>u.phone===phone&&u.id!==user.id)){
-    if(msgEl){msgEl.textContent='⚠ رقم الهاتف مستخدم من حساب آخر';msgEl.className='auth-error show';} return;
-  }
+  // Update Supabase metadata
+  await supa.auth.updateUser({ data: { name, studio: studio||name+' Studio', phone } });
 
-  const idx = users.findIndex(u=>u.id===user.id);
-  if(idx<0) return;
-  users[idx] = {...users[idx], name, studio:studio||name+' Studio', phone};
-  saveUsers(users);
-  saveSession(users[idx]);
-  updateUserBadge(users[idx]);
-  // Update app settings name
+  const updated = {...user, name, studio: studio||name+' Studio', phone};
+  saveSession(updated);
+  updateUserBadge(updated);
   if(S.settings){ S.settings.name=studio||name; S.settings.phone=phone; lsSave(); }
 
   if(msgEl){ msgEl.textContent='✅ تم حفظ التعديلات بنجاح'; msgEl.className='auth-success show'; }
-  // refresh header avatar
   const av=document.getElementById('pm-avatar'); if(av) av.textContent=(name||'م')[0];
 }
 
-function doResetPassword(){
-  const user  = getSession();
-  if(!user) return;
-  const oldPw = document.getElementById('rp-old')?.value||'';
+async function doResetPassword(){
   const newPw1= document.getElementById('rp-new1')?.value||'';
   const newPw2= document.getElementById('rp-new2')?.value||'';
   const errEl = document.getElementById('reset-msg');
   const okEl  = document.getElementById('reset-ok');
   [errEl,okEl].forEach(el=>{if(el){el.textContent='';el.className=el.id==='reset-ok'?'auth-success':'auth-error';}});
+  const show=(el,msg)=>{ if(el){el.textContent=msg;el.classList.add('show');} };
 
-  const show=(el,msg,ok)=>{ if(el){el.textContent=msg;el.classList.add('show');} };
+  if(newPw1.length<6) return show(errEl,'⚠ كلمة المرور الجديدة قصيرة جداً (6 أحرف على الأقل)');
+  if(newPw1!==newPw2) return show(errEl,'⚠ كلمتا المرور الجديدتان غير متطابقتين');
 
-  const oldHash = btoa(encodeURIComponent(oldPw + user.phone + 'studioOS'));
-  if(oldHash!==user.hash) return show(errEl,'⚠ كلمة المرور الحالية غير صحيحة');
-  if(newPw1.length<6)    return show(errEl,'⚠ كلمة المرور الجديدة قصيرة جداً (6 أحرف على الأقل)');
-  if(newPw1!==newPw2)    return show(errEl,'⚠ كلمتا المرور الجديدتان غير متطابقتين');
-
-  const newHash = btoa(encodeURIComponent(newPw1 + user.phone + 'studioOS'));
-  const users = getUsers();
-  const idx   = users.findIndex(u=>u.id===user.id);
-  if(idx<0) return;
-  users[idx].hash = newHash;
-  saveUsers(users);
-  saveSession(users[idx]);
+  const { error } = await supa.auth.updateUser({ password: newPw1 });
+  if(error){ show(errEl,'⚠ فشل التحديث: '+error.message); return; }
 
   ['rp-old','rp-new1','rp-new2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   checkPwStrength2('');
@@ -5773,17 +6032,21 @@ function confirmSwitchAccount(userId){
 }
 
 function confirmDeleteAccount(){
-  confirmDel('⚠ هل تريد حذف هذا الحساب نهائياً؟ سيتم حذف جميع البيانات المرتبطة به.', ()=>{
+  confirmDel('⚠ هل تريد حذف هذا الحساب نهائياً؟ سيتم حذف جميع البيانات المرتبطة به.', async ()=>{
     const user = getSession();
     if(!user) return;
-    // Delete user data
+    // حذف من Supabase
+    if(_supaUserId){
+      await supa.from('studio_data').delete().eq('user_id', _supaUserId);
+    }
     localStorage.removeItem(userKey());
-    // Remove from users list
     const users = getUsers().filter(u=>u.id!==user.id);
     saveUsers(users);
     clearSession();
+    _supaUserId = null;
+    await supa.auth.signOut();
     closeM('modal-profile');
-    doLogout();
+    location.reload();
   });
 }
 
@@ -5888,12 +6151,14 @@ function doBackupNow(){
   updateNextReminderDisplay();
   // Reset 3h timer
   if(getBackupSettings().remind3h) initBackupTimers();
+  // ── Auto-sync to cloud on every backup ──
+  cloudSave(S);
   // Show path reminder if set
   const path = bs.path;
   if(path){
-    showMiniNotif(`💾 تم التنزيل! انقل الملف إلى: ${path}`);
+    showMiniNotif(`💾 تم التنزيل وحفظ على السحابة ✅`);
   } else {
-    showMiniNotif('✅ تم تنزيل النسخة الاحتياطية بنجاح!');
+    showMiniNotif('✅ تم النسخ الاحتياطي محلياً وعلى السحابة!');
   }
 }
 
@@ -7623,9 +7888,64 @@ function renderDashMeetings(){
     </div>`).join('');
 }
 
-initAuth();
-renderAll();
-updateHeader('dashboard');
+// ══════════════════════════════════════════════════
+// AUTH STATE — Single source of truth
+// ══════════════════════════════════════════════════
+let _authInitialized = false;
+
+supa.auth.onAuthStateChange(async (event, session) => {
+  console.log('Auth event:', event, session?.user?.email);
+
+  if(event === 'SIGNED_IN' && session && session.user){
+    // لو already logged in (منعاً للـ double login)
+    if(_supaUserId === session.user.id) return;
+
+    const meta = session.user.user_metadata || {};
+    const userObj = {
+      id    : session.user.id,
+      supaId: session.user.id,
+      email : session.user.email || '',
+      name  : meta.full_name || meta.name || session.user.email || '',
+      phone : meta.phone  || '',
+      studio: meta.studio || (meta.full_name ? meta.full_name + ' Studio' : '')
+    };
+    await loginWithSupaSession(session.user, session, userObj);
+    _authInitialized = true;
+  }
+
+  if(event === 'PASSWORD_RECOVERY'){
+    showResetPasswordFromEmail();
+  }
+
+  if(event === 'SIGNED_OUT'){
+    _supaUserId = null;
+    _authInitialized = false;
+  }
+
+  // لو مفيش session — اعرض شاشة اللوجين (بس لو مش logged in)
+  if(!session && !_supaUserId && !_authInitialized){
+    const authScreen = document.getElementById('auth-screen');
+    if(authScreen) authScreen.classList.remove('hidden');
+    _authInitialized = true;
+  }
+});
+
+// initAuth — بس تشغل renderAll وتعمل fallback لو onAuthStateChange تأخر
+async function initAuthFallback(){
+  renderAll();
+  updateHeader('dashboard');
+  checkPasswordResetFlow();
+  // Fallback: لو بعد ثانيتين مفيش session ومفيش login
+  setTimeout(()=>{
+    if(!_supaUserId){
+      const authScreen = document.getElementById('auth-screen');
+      if(authScreen && authScreen.classList.contains('hidden') === false) return;
+      if(authScreen) authScreen.classList.remove('hidden');
+    }
+  }, 2000);
+}
+
+initAuthFallback();
 // close sidebar on desktop resize
 window.addEventListener('resize',()=>{
   if(window.innerWidth>1024) closeSidebar();
