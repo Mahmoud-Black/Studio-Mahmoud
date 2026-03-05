@@ -480,27 +480,6 @@ select.filter-sel:focus { outline:none; border-color:var(--accent); }
     <div style="margin-top:20px;padding:12px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.2);border-radius:8px;font-size:11px;color:var(--text2);text-align:center">
       🔐 هذه اللوحة مخصصة للمشرفين فقط<br>يتطلب حساب بصلاحيات Admin في Supabase
     </div>
-    <!-- زرار إعادة إنشاء حساب أدمن -->
-    <div style="margin-top:14px;text-align:center">
-      <button onclick="document.getElementById('admin-reg-box').style.display=document.getElementById('admin-reg-box').style.display==='none'?'block':'none'"
-        style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;text-decoration:underline;font-family:inherit">
-        الحساب اتحذف؟ أنشئ حساب أدمن جديد
-      </button>
-    </div>
-    <div id="admin-reg-box" style="display:none;margin-top:12px;padding:14px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.25);border-radius:10px">
-      <div style="font-size:12px;font-weight:700;color:#a89cff;margin-bottom:10px;text-align:center">🔐 إنشاء حساب أدمن</div>
-      <input type="email" id="adm-reg-email" placeholder="البريد الإلكتروني" dir="ltr"
-        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:9px 12px;color:#fff;font-size:13px;margin-bottom:8px;box-sizing:border-box;font-family:inherit">
-      <input type="password" id="adm-reg-pw" placeholder="كلمة المرور (6 أحرف+)"
-        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:9px 12px;color:#fff;font-size:13px;margin-bottom:8px;box-sizing:border-box;font-family:inherit">
-      <input type="password" id="adm-reg-secret" placeholder="مفتاح الأمان السري"
-        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:9px 12px;color:#fff;font-size:13px;margin-bottom:10px;box-sizing:border-box;font-family:inherit">
-      <button onclick="adminRegisterNew()"
-        style="width:100%;background:linear-gradient(135deg,#6c63ff,#9f7aea);color:#fff;border:none;border-radius:7px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
-        إنشاء الحساب
-      </button>
-      <div id="adm-reg-err" style="color:#f76f7c;font-size:11px;margin-top:7px;text-align:center;min-height:14px"></div>
-    </div>
   </div>
 </div>
 
@@ -1380,38 +1359,6 @@ async function adminLogin() {
     return;
   }
   showApp(data.user);
-}
-
-async function adminRegisterNew() {
-  const ADMIN_SECRET = 'StudioOS_Admin_2025'; // مفتاح الأمان
-  const email  = (document.getElementById('adm-reg-email')?.value||'').trim();
-  const pw     = document.getElementById('adm-reg-pw')?.value||'';
-  const secret = document.getElementById('adm-reg-secret')?.value||'';
-  const errEl  = document.getElementById('adm-reg-err');
-  errEl.textContent = '';
-  if(!email || !pw || !secret) { errEl.textContent = '⚠ يرجى ملء كل الحقول'; return; }
-  if(pw.length < 6)            { errEl.textContent = '⚠ كلمة المرور 6 أحرف على الأقل'; return; }
-  if(secret !== ADMIN_SECRET)  { errEl.textContent = '⛔ مفتاح الأمان غير صحيح'; return; }
-  errEl.style.color = '#4fd1a5';
-  errEl.textContent = '⏳ جاري إنشاء الحساب...';
-  // محاولة signUp أولاً
-  const { data: signUpData, error: signUpErr } = await supa.auth.signUp({
-    email, password: pw,
-    options: { data: { role: 'admin', is_admin: true, name: 'Admin' } }
-  });
-  if(signUpErr && !signUpErr.message.includes('already registered')) {
-    errEl.style.color = '#f76f7c';
-    errEl.textContent = '⚠ ' + signUpErr.message;
-    return;
-  }
-  // سواء عمل signup جديد أو كان موجود، نعمل signIn
-  const { data, error } = await supa.auth.signInWithPassword({ email, password: pw });
-  if(error) { errEl.style.color='#f76f7c'; errEl.textContent='⚠ '+error.message; return; }
-  // تحديث metadata لتكون admin
-  await supa.auth.updateUser({ data: { role: 'admin', is_admin: true } });
-  errEl.style.color = '#4fd1a5';
-  errEl.textContent = '✅ تم! جاري الدخول...';
-  setTimeout(()=>{ showApp(data.user); }, 800);
 }
 
 function showApp(user) {
