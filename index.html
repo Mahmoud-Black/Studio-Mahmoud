@@ -1709,81 +1709,26 @@ setTimeout(window._showApp, 4000);
 <div class="page active" id="page-dashboard">
   <div class="page-header">
     <div><div class="page-title">أهلاً، <span id="studio-name-disp">محمود</span> 👋</div><div class="page-subtitle">نظرة عامة على استوديوك</div></div>
-    <button class="btn btn-primary" onclick="openTaskModal()">+ مهمة جديدة</button>
-  </div>
-
-  <!-- Stats Row -->
-  <div class="grid grid-4" style="margin-bottom:16px">
-    <div class="card"><div class="stat-label">💰 إيرادات مسجلة</div><div class="stat-value green" id="dash-income">0 ج</div><div class="stat-change">إجمالي الدخل</div></div>
-    <div class="card"><div class="stat-label">📋 مشاريع نشطة</div><div class="stat-value purple" id="dash-projects">0</div><div class="stat-change">غير مكتملة</div></div>
-    <div class="card"><div class="stat-label">✅ مهام مكتملة</div><div class="stat-value yellow" id="dash-done">0</div><div class="stat-change" id="dash-pending-txt">0 معلقة</div></div>
-    <div class="card"><div class="stat-label">👥 العملاء</div><div class="stat-value" id="dash-clients">0</div><div class="stat-change">في قاعدة البيانات</div></div>
-  </div>
-
-  <!-- Reminders -->
-  <div id="dash-salary-reminders" style="display:none;margin-bottom:16px"></div>
-  <div id="dash-followup-reminders" style="display:none;margin-bottom:16px"></div>
-
-  <!-- Alert Row 1: Overdue + Subscriptions -->
-  <div class="grid grid-2" style="margin-bottom:16px">
-    <div class="card" id="dash-overdue-section" style="border-color:rgba(247,111,124,.4)">
-      <div class="section-title" style="color:var(--accent4)">⚠ مهام تجاوزت 24 ساعة</div>
-      <div id="dash-overdue-list"><div class="empty" style="padding:8px 0"><div class="empty-icon" style="font-size:18px">✅</div><div style="font-size:12px">لا مهام متأخرة</div></div></div>
-    </div>
-    <div class="card" id="dash-subs-alert" style="border-color:rgba(124,111,247,.35)">
-      <div class="section-title" style="color:var(--accent)">🔔 اشتراكات قريبة التجديد</div>
-      <div id="dash-subs-list"><div class="empty" style="padding:8px 0"><div class="empty-icon" style="font-size:18px">✅</div><div style="font-size:12px">لا اشتراكات منتهية</div></div></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="_toggleDashEdit()" id="_dash-edit-btn" style="width:36px;height:36px;border-radius:10px;background:var(--surface2);border:1.5px solid var(--border);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.18s" title="تخصيص اللوحة">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
+      <button class="btn btn-primary" onclick="openTaskModal()">+ مهمة جديدة</button>
     </div>
   </div>
 
-  <!-- Alert Row 2: Uncollected + Team Tasks -->
-  <div class="grid grid-2" style="margin-bottom:16px">
-    <div class="card" id="dash-uncollected-alert" style="border-color:rgba(247,201,72,.35)">
-      <div class="section-title" style="color:var(--accent2)">💸 مبالغ لم تُحصَّل</div>
-      <div id="dash-uncollected-list"><div class="empty" style="padding:8px 0"><div class="empty-icon" style="font-size:18px">✅</div><div style="font-size:12px">كل المبالغ محصّلة</div></div></div>
-    </div>
-    <div class="card" id="dash-team-section" style="border-color:rgba(79,209,165,.3)">
-      <div class="section-title" style="color:var(--accent3)">👥 مهام أعضاء الفريق</div>
-      <div id="dash-team-tasks"><div class="empty" style="padding:8px 0"><div class="empty-icon" style="font-size:18px">👥</div><div style="font-size:12px">لا مهام مسندة للفريق</div></div></div>
-    </div>
+  <!-- Edit mode banner -->
+  <div id="_dash-edit-banner" style="display:none;background:rgba(124,111,247,.12);border:1.5px dashed var(--accent);border-radius:12px;padding:10px 16px;margin-bottom:14px;display:none;align-items:center;justify-content:space-between;gap:10px">
+    <div style="font-size:12px;color:var(--accent);font-weight:700">✏ وضع التخصيص — اسحب الكارد لتغيير ترتيبه، اضغط ✕ لإخفائه</div>
+    <button onclick="_toggleDashEdit()" style="padding:5px 14px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-family:var(--font);font-weight:700">✅ حفظ</button>
   </div>
 
-  <!-- Row: Team pay + Kanban mini shortcut -->
-  <div class="grid grid-2" style="margin-bottom:16px">
-    <div class="card" id="dash-team-pay-section" style="border-color:rgba(100,181,246,.3)">
-      <div class="section-title" style="color:#64b5f6">💰 مستحقات الفريق غير المدفوعة</div>
-      <div id="dash-team-pay-list"><div class="empty" style="padding:8px 0"><div class="empty-icon" style="font-size:18px">✅</div><div style="font-size:12px">لا مستحقات متأخرة</div></div></div>
-    </div>
-    <div class="card" id="dash-kanban-mini">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div class="section-title" style="margin:0">⚡ المهام النشطة</div>
-        <button onclick="showPage('tasks')" class="btn btn-ghost btn-sm" style="font-size:11px">عرض الكل ←</button>
-      </div>
-      <div id="dash-kanban-mini-list"><div class="empty" style="padding:8px 0"><div class="empty-icon">✦</div><div style="font-size:12px">لا مهام نشطة</div></div></div>
-    </div>
-  </div>
+  <!-- DASHBOARD GRID — all widgets rendered by JS -->
+  <div id="_dash-grid" style="display:flex;flex-direction:column;gap:14px"></div>
 
-  <!-- Main Grid -->
-  <div class="grid grid-2" style="margin-bottom:16px">
-    <div class="card"><div class="section-title">آخر المهام</div><div id="dash-tasks-list"><div class="empty"><div class="empty-icon">✦</div>لا مهام</div></div></div>
-    <div class="card"><div class="section-title">جدول اليوم</div><div id="dash-sched-list"><div class="empty"><div class="empty-icon">◷</div>لا جدول اليوم</div></div></div>
-  </div>
-
-  <div class="grid grid-2" style="margin-bottom:16px">
-    <div class="card"><div class="section-title">فواتير معلقة</div><div id="dash-inv-list"><div class="empty"><div class="empty-icon">◻</div>لا فواتير معلقة</div></div></div>
-    <div class="card"><div class="section-title">أهداف التطوير</div><div id="dash-goals-list"><div class="empty"><div class="empty-icon">◆</div>أضف أهدافك</div></div></div>
-  </div>
-  <!-- Meetings shortcut -->
-  <div class="card" style="border-color:rgba(124,111,247,.3)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div class="section-title" style="margin:0;color:var(--accent)">📅 الميتنجات القادمة</div>
-      <div style="display:flex;gap:6px">
-        <button onclick="openMeetingModal()" class="btn btn-ghost btn-sm" style="font-size:11px">+ جديد</button>
-        <button onclick="showPage('meetings')" class="btn btn-ghost btn-sm" style="font-size:11px">عرض الكل ←</button>
-      </div>
-    </div>
-    <div id="dash-meetings-shortcut"><div class="empty" style="padding:8px 0"><div class="empty-icon">📅</div>لا ميتنجات قادمة</div></div>
-  </div>
+  <!-- Reminders (always visible) -->
+  <div id="dash-salary-reminders" style="display:none;margin-top:14px"></div>
+  <div id="dash-followup-reminders" style="display:none;margin-top:8px"></div>
 </div>
 
 <!-- TASKS -->
@@ -6627,6 +6572,10 @@ function showToast(msg,dur=3000){
 // DASHBOARD
 // ============================================================
 function updateDash(){
+  // Ensure dashboard grid is initialized
+  const grid = document.getElementById('_dash-grid');
+  if(grid && !grid.querySelector('[data-widget-id]')) _renderDashGrid();
+
   const inc=S.transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
   const done=S.tasks.filter(t=>t.done).length,pending=S.tasks.filter(t=>!t.done).length;
   const set=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val;};
@@ -11231,6 +11180,345 @@ window.addEventListener('load', function(){
 // Timer fixed in original ttStop function above
 
 // ═══════════════════════════════════════════════════
+// DASHBOARD CUSTOMIZABLE WIDGETS SYSTEM
+// ═══════════════════════════════════════════════════
+const _DASH_WIDGETS_DEFAULT = [
+  {id:'stats',      label:'📊 الإحصائيات الرئيسية', visible:true, row:0},
+  {id:'overdue',    label:'⚠ مهام متأخرة',           visible:true, row:1},
+  {id:'subs',       label:'🔔 اشتراكات قريبة',        visible:true, row:1},
+  {id:'kanban',     label:'⚡ المهام النشطة',          visible:true, row:2},
+  {id:'uncollected',label:'💸 مبالغ لم تُحصَّل',      visible:true, row:2},
+  {id:'team',       label:'👥 مهام الفريق',            visible:true, row:3},
+  {id:'teampay',    label:'💰 مستحقات الفريق',        visible:true, row:3},
+  {id:'tasks',      label:'📋 آخر المهام',            visible:true, row:4},
+  {id:'schedule',   label:'🗓 جدول اليوم',            visible:true, row:4},
+  {id:'invoices',   label:'🧾 فواتير معلقة',          visible:true, row:5},
+  {id:'goals',      label:'🎯 أهداف التطوير',         visible:true, row:5},
+  {id:'meetings',   label:'📅 الميتنجات القادمة',     visible:true, row:6},
+];
+
+function _getDashLayout(){
+  try{
+    const stored = localStorage.getItem('_dashLayout_v2');
+    if(stored) return JSON.parse(stored);
+  }catch(e){}
+  return _DASH_WIDGETS_DEFAULT.map(w=>({...w}));
+}
+
+function _saveDashLayout(layout){
+  localStorage.setItem('_dashLayout_v2', JSON.stringify(layout));
+}
+
+let _dashEditMode = false;
+
+function _toggleDashEdit(){
+  _dashEditMode = !_dashEditMode;
+  const btn    = document.getElementById('_dash-edit-btn');
+  const banner = document.getElementById('_dash-edit-banner');
+  if(btn){
+    btn.style.borderColor = _dashEditMode ? 'var(--accent)' : 'var(--border)';
+    btn.style.color = _dashEditMode ? 'var(--accent)' : 'var(--text3)';
+  }
+  if(banner) banner.style.display = _dashEditMode ? 'flex' : 'none';
+  if(!_dashEditMode){
+    // Save current order
+    const grid = document.getElementById('_dash-grid');
+    if(grid){
+      const layout = _getDashLayout();
+      const items = grid.querySelectorAll('[data-widget-id]');
+      items.forEach((el,i)=>{
+        const wid = el.dataset.widgetId;
+        const w = layout.find(x=>x.id===wid);
+        if(w) w.row = i;
+      });
+      _saveDashLayout(layout);
+    }
+  }
+  _renderDashGrid();
+}
+
+function _hideWidget(id){
+  const layout = _getDashLayout();
+  const w = layout.find(x=>x.id===id);
+  if(w){ w.visible=false; _saveDashLayout(layout); _renderDashGrid(); toast('👁 تم إخفاء الودجت'); }
+}
+
+function _renderDashGrid(){
+  const grid = document.getElementById('_dash-grid');
+  if(!grid) return;
+  const layout = _getDashLayout().sort((a,b)=>a.row-b.row);
+  const visible = layout.filter(w=>w.visible);
+  const hidden  = layout.filter(w=>!w.visible);
+
+  // Group into pairs for 2-col rows where needed
+  let html = '';
+
+  // Stats always full width
+  const statsW = visible.find(w=>w.id==='stats');
+  const statsHide = _dashEditMode ? `<button onclick="_hideWidget('stats')" style="${_dashHideBtnStyle()}">✕</button>` : '';
+  if(statsW){
+    html += `<div data-widget-id="stats" draggable="${_dashEditMode}" ondragstart="_dashDragStart(event,'stats')" ondragover="_dashDragOver(event)" ondrop="_dashDrop(event,'stats')" style="${_dashWrapStyle(_dashEditMode)}">
+      ${statsHide}
+      <div class="grid grid-4" id="_dash-stats-inner">
+        <div class="card"><div class="stat-label">💰 إيرادات مسجلة</div><div class="stat-value green" id="dash-income">0 ج</div><div class="stat-change">إجمالي الدخل</div></div>
+        <div class="card"><div class="stat-label">📋 مشاريع نشطة</div><div class="stat-value purple" id="dash-projects">0</div><div class="stat-change">غير مكتملة</div></div>
+        <div class="card"><div class="stat-label">✅ مهام مكتملة</div><div class="stat-value yellow" id="dash-done">0</div><div class="stat-change" id="dash-pending-txt">0 معلقة</div></div>
+        <div class="card"><div class="stat-label">👥 العملاء</div><div class="stat-value" id="dash-clients">0</div><div class="stat-change">في قاعدة البيانات</div></div>
+      </div>
+    </div>`;
+  }
+
+  // Meetings full width
+  const meetW = visible.find(w=>w.id==='meetings');
+  // Pair remaining widgets 2 per row
+  const pairables = visible.filter(w=>w.id!=='stats'&&w.id!=='meetings');
+  for(let i=0;i<pairables.length;i+=2){
+    const w1=pairables[i], w2=pairables[i+1];
+    html += `<div style="display:grid;grid-template-columns:1fr${w2?'1fr':''}; gap:14px">`;
+    html += _dashWidgetHTML(w1);
+    if(w2) html += _dashWidgetHTML(w2);
+    html += '</div>';
+  }
+  if(meetW){
+    html += `<div data-widget-id="meetings" draggable="${_dashEditMode}" ondragstart="_dashDragStart(event,'meetings')" ondragover="_dashDragOver(event)" ondrop="_dashDrop(event,'meetings')" style="${_dashWrapStyle(_dashEditMode)}">
+      ${_dashEditMode?`<button onclick="_hideWidget('meetings')" style="${_dashHideBtnStyle()}">✕</button>`:''}
+      <div class="card" style="border-color:rgba(124,111,247,.3)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="section-title" style="margin:0;color:var(--accent)">📅 الميتنجات القادمة</div>
+          <div style="display:flex;gap:6px">
+            <button onclick="openMeetingModal()" class="btn btn-ghost btn-sm" style="font-size:11px">+ جديد</button>
+            <button onclick="showPage('meetings')" class="btn btn-ghost btn-sm" style="font-size:11px">عرض الكل ←</button>
+          </div>
+        </div>
+        <div id="dash-meetings-shortcut"><div class="empty" style="padding:8px 0"><div class="empty-icon">📅</div>لا ميتنجات قادمة</div></div>
+      </div>
+    </div>`;
+  }
+
+  // Hidden widgets restore bar
+  if(_dashEditMode && hidden.length){
+    html += `<div style="background:var(--surface2);border:1.5px dashed var(--border);border-radius:12px;padding:12px 14px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700">ودجتس مخفية — اضغط لإظهارها</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${hidden.map(w=>`<button onclick="_showWidget('${w.id}')" style="padding:5px 12px;background:var(--surface3);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text2);cursor:pointer;font-family:var(--font)">${w.label}</button>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  grid.innerHTML = html;
+  // Re-render dynamic content
+  updateDash();
+}
+
+function _showWidget(id){
+  const layout = _getDashLayout();
+  const w = layout.find(x=>x.id===id);
+  if(w){ w.visible=true; _saveDashLayout(layout); _renderDashGrid(); }
+}
+
+function _dashWidgetHTML(w){
+  const ed = _dashEditMode;
+  const hideBtn = ed ? `<button onclick="_hideWidget('${w.id}')" style="${_dashHideBtnStyle()}" title="إخفاء">✕</button>` : '';
+  const dragAttr = `data-widget-id="${w.id}" draggable="${ed}" ondragstart="_dashDragStart(event,'${w.id}')" ondragover="_dashDragOver(event)" ondrop="_dashDrop(event,'${w.id}')"`;
+  const wrapStyle = _dashWrapStyle(ed);
+  const inner = {
+    overdue:`<div class="card" id="dash-overdue-section" style="border-color:rgba(247,111,124,.35)"><div class="section-title" style="color:var(--accent4)">⚠ مهام تجاوزت 24 ساعة</div><div id="dash-overdue-list"><div class="empty" style="padding:8px 0"><div class="empty-icon" style="font-size:18px">✅</div><div style="font-size:12px">لا مهام متأخرة</div></div></div></div>`,
+    subs:`<div class="card" id="dash-subs-alert" style="border-color:rgba(124,111,247,.3)"><div class="section-title" style="color:var(--accent)">🔔 اشتراكات قريبة التجديد</div><div id="dash-subs-list"><div class="empty" style="padding:8px 0"><div class="empty-icon" style="font-size:18px">✅</div><div style="font-size:12px">لا اشتراكات منتهية</div></div></div></div>`,
+    kanban:`<div class="card" id="dash-kanban-mini"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="section-title" style="margin:0">⚡ المهام النشطة</div><button onclick="showPage('tasks')" class="btn btn-ghost btn-sm" style="font-size:11px">عرض الكل ←</button></div><div id="dash-kanban-mini-list"><div class="empty" style="padding:8px 0"><div class="empty-icon">✦</div><div style="font-size:12px">لا مهام نشطة</div></div></div></div>`,
+    uncollected:`<div class="card" id="dash-uncollected-alert" style="border-color:rgba(247,201,72,.3)"><div class="section-title" style="color:var(--accent2)">💸 مبالغ لم تُحصَّل</div><div id="dash-uncollected-list"><div class="empty" style="padding:8px 0"><div class="empty-icon" style="font-size:18px">✅</div><div style="font-size:12px">كل المبالغ محصّلة</div></div></div></div>`,
+    team:`<div class="card" id="dash-team-section" style="border-color:rgba(79,209,165,.25)"><div class="section-title" style="color:var(--accent3)">👥 مهام أعضاء الفريق</div><div id="dash-team-tasks"><div class="empty" style="padding:8px 0"><div class="empty-icon" style="font-size:18px">👥</div><div style="font-size:12px">لا مهام مسندة</div></div></div></div>`,
+    teampay:`<div class="card" id="dash-team-pay-section" style="border-color:rgba(100,181,246,.25)"><div class="section-title" style="color:#64b5f6">💰 مستحقات الفريق</div><div id="dash-team-pay-list"><div class="empty" style="padding:8px 0"><div class="empty-icon" style="font-size:18px">✅</div><div style="font-size:12px">لا مستحقات متأخرة</div></div></div></div>`,
+    tasks:`<div class="card"><div class="section-title">📋 آخر المهام</div><div id="dash-tasks-list"><div class="empty"><div class="empty-icon">✦</div>لا مهام</div></div></div>`,
+    schedule:`<div class="card"><div class="section-title">🗓 جدول اليوم</div><div id="dash-sched-list"><div class="empty"><div class="empty-icon">◷</div>لا جدول اليوم</div></div></div>`,
+    invoices:`<div class="card"><div class="section-title">🧾 فواتير معلقة</div><div id="dash-inv-list"><div class="empty"><div class="empty-icon">◻</div>لا فواتير معلقة</div></div></div>`,
+    goals:`<div class="card"><div class="section-title">🎯 أهداف التطوير</div><div id="dash-goals-list"><div class="empty"><div class="empty-icon">◆</div>أضف أهدافك</div></div></div>`,
+  }[w.id] || `<div class="card"><div class="section-title">${w.label}</div></div>`;
+  return `<div ${dragAttr} style="${wrapStyle}">${hideBtn}${inner}</div>`;
+}
+
+function _dashWrapStyle(editing){
+  return editing
+    ? 'position:relative;border-radius:12px;border:2px dashed rgba(124,111,247,.3);cursor:grab;transition:.15s'
+    : 'position:relative';
+}
+function _dashHideBtnStyle(){
+  return 'position:absolute;top:-8px;right:-8px;z-index:10;width:22px;height:22px;border-radius:50%;background:var(--accent4);border:none;color:#fff;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;line-height:1';
+}
+
+let _dashDragSrc = null;
+function _dashDragStart(ev, id){ _dashDragSrc = id; ev.dataTransfer.effectAllowed='move'; }
+function _dashDragOver(ev){ ev.preventDefault(); ev.dataTransfer.dropEffect='move'; }
+function _dashDrop(ev, targetId){
+  ev.preventDefault();
+  if(!_dashDragSrc || _dashDragSrc===targetId) return;
+  const layout = _getDashLayout();
+  const si = layout.findIndex(w=>w.id===_dashDragSrc);
+  const ti = layout.findIndex(w=>w.id===targetId);
+  if(si===-1||ti===-1) return;
+  const tmp = layout[si].row;
+  layout[si].row = layout[ti].row;
+  layout[ti].row = tmp;
+  _saveDashLayout(layout);
+  _renderDashGrid();
+  _dashDragSrc=null;
+}
+
+// Override updateDash to call _renderDashGrid on first load
+window.addEventListener('load', function(){
+  setTimeout(()=>{ _renderDashGrid(); }, 300);
+});
+
+// ═══════════════════════════════════════════════════
+// TIME LOG EDIT/DELETE in task detail
+// ═══════════════════════════════════════════════════
+function deleteTimeLog(taskId, dateKey){
+  confirmDel('هل تريد حذف هذا السجل الزمني؟', ()=>{
+    const t = S.tasks.find(x=>x.id===taskId);
+    if(!t) return;
+    if(!t.timeLogs) t.timeLogs=[];
+    t.timeLogs = t.timeLogs.filter(l=>l.date!==dateKey);
+    // Also remove from timeEntries
+    S.timeEntries = (S.timeEntries||[]).filter(e=>{
+      const d=(e.started_at||'').split('T')[0];
+      return !(d===dateKey && (e.task_title||'').toLowerCase()===(t.title||'').toLowerCase());
+    });
+    lsSave(); cloudSave(S);
+    openTaskDetail(taskId); // reopen to refresh
+    toast('🗑 تم حذف السجل');
+  });
+}
+
+function editTimeLog(taskId, dateKey){
+  const t = S.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  const log = (t.timeLogs||[]).find(l=>l.date===dateKey);
+  const curSecs = log?.seconds||0;
+  const curH = Math.floor(curSecs/3600);
+  const curM = Math.floor((curSecs%3600)/60);
+
+  let modal = document.getElementById('_modal-edit-timelog');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id='_modal-edit-timelog';
+    modal.className='modal-overlay';
+    modal.innerHTML='<div class="modal" style="width:340px" id="_modal-edit-timelog-inner"></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click',e=>{if(e.target===modal)closeM('_modal-edit-timelog');});
+  }
+  document.getElementById('_modal-edit-timelog-inner').innerHTML=`
+    <div class="modal-header">
+      <div class="modal-title">⏱ تعديل سجل الوقت</div>
+      <button class="close-btn" onclick="closeM('_modal-edit-timelog')">✕</button>
+    </div>
+    <div style="padding:20px">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">📅 التاريخ: ${dateKey}</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
+        <div class="form-group" style="flex:1;margin:0">
+          <label class="form-label">الساعات</label>
+          <input id="_etl-hours" type="number" min="0" max="23" value="${curH}" class="form-input" style="text-align:center;font-size:18px;font-weight:700">
+        </div>
+        <div style="font-size:20px;color:var(--text3);margin-top:18px">:</div>
+        <div class="form-group" style="flex:1;margin:0">
+          <label class="form-label">الدقائق</label>
+          <input id="_etl-mins" type="number" min="0" max="59" value="${curM}" class="form-input" style="text-align:center;font-size:18px;font-weight:700">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="deleteTimeLog(${taskId},'${dateKey}')" class="btn btn-danger" style="flex:1">🗑 حذف</button>
+        <button onclick="_saveEditedTimeLog(${taskId},'${dateKey}')" class="btn btn-primary" style="flex:1">💾 حفظ</button>
+      </div>
+    </div>`;
+  openM('_modal-edit-timelog');
+}
+
+function _saveEditedTimeLog(taskId, dateKey){
+  const h = parseInt(document.getElementById('_etl-hours')?.value)||0;
+  const m = parseInt(document.getElementById('_etl-mins')?.value)||0;
+  const newSecs = h*3600 + m*60;
+  if(newSecs<=0){ toast('أدخل وقتاً صحيحاً'); return; }
+  const t = S.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  if(!t.timeLogs) t.timeLogs=[];
+  const existing = t.timeLogs.find(l=>l.date===dateKey);
+  if(existing){ existing.seconds=newSecs; }
+  else { t.timeLogs.push({date:dateKey, seconds:newSecs}); }
+  lsSave(); cloudSave(S);
+  closeM('_modal-edit-timelog');
+  openTaskDetail(taskId);
+  toast('✅ تم تحديث الوقت');
+}
+
+function addManualTimeLog(taskId){
+  const today = new Date().toISOString().split('T')[0];
+  let modal = document.getElementById('_modal-edit-timelog');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id='_modal-edit-timelog';
+    modal.className='modal-overlay';
+    modal.innerHTML='<div class="modal" style="width:340px" id="_modal-edit-timelog-inner"></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click',e=>{if(e.target===modal)closeM('_modal-edit-timelog');});
+  }
+  document.getElementById('_modal-edit-timelog-inner').innerHTML=`
+    <div class="modal-header">
+      <div class="modal-title">+ إضافة وقت يدوي</div>
+      <button class="close-btn" onclick="closeM('_modal-edit-timelog')">✕</button>
+    </div>
+    <div style="padding:20px">
+      <div class="form-group">
+        <label class="form-label">التاريخ</label>
+        <input id="_etl-date" type="date" value="${today}" class="form-input">
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
+        <div class="form-group" style="flex:1;margin:0">
+          <label class="form-label">الساعات</label>
+          <input id="_etl-hours" type="number" min="0" max="23" value="1" class="form-input" style="text-align:center;font-size:18px;font-weight:700">
+        </div>
+        <div style="font-size:20px;color:var(--text3);margin-top:18px">:</div>
+        <div class="form-group" style="flex:1;margin:0">
+          <label class="form-label">الدقائق</label>
+          <input id="_etl-mins" type="number" min="0" max="59" value="0" class="form-input" style="text-align:center;font-size:18px;font-weight:700">
+        </div>
+      </div>
+      <button onclick="_saveManualTimeLog(${taskId})" class="btn btn-primary" style="width:100%">💾 إضافة</button>
+    </div>`;
+  openM('_modal-edit-timelog');
+}
+
+function _saveManualTimeLog(taskId){
+  const h = parseInt(document.getElementById('_etl-hours')?.value)||0;
+  const m = parseInt(document.getElementById('_etl-mins')?.value)||0;
+  const date = document.getElementById('_etl-date')?.value || new Date().toISOString().split('T')[0];
+  const newSecs = h*3600 + m*60;
+  if(newSecs<=0){ toast('أدخل وقتاً صحيحاً'); return; }
+  const t = S.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  if(!t.timeLogs) t.timeLogs=[];
+  const existing = t.timeLogs.find(l=>l.date===date);
+  if(existing){ existing.seconds += newSecs; }
+  else { t.timeLogs.push({date, seconds:newSecs}); }
+  lsSave(); cloudSave(S);
+  closeM('_modal-edit-timelog');
+  openTaskDetail(taskId);
+  toast('✅ تمت إضافة الوقت');
+}
+
+function clearAllTimeLogs(taskId){
+  confirmDel('سيتم حذف كل سجلات الوقت لهذه المهمة. هل أنت متأكد؟', ()=>{
+    const t = S.tasks.find(x=>x.id===taskId);
+    if(!t) return;
+    t.timeLogs = [];
+    // Remove from timeEntries too
+    S.timeEntries = (S.timeEntries||[]).filter(e=>
+      (e.task_title||'').toLowerCase() !== (t.title||'').toLowerCase()
+    );
+    lsSave(); cloudSave(S);
+    openTaskDetail(taskId);
+    toast('🗑 تم مسح كل سجلات الوقت');
+  });
+}
+
+// ═══════════════════════════════════════════════════
 // FILTER PANEL + LOG MENU TOGGLES
 // ═══════════════════════════════════════════════════
 (function(){
@@ -12610,15 +12898,23 @@ window.addEventListener('load', function(){
         });
         const logRows = Object.entries(logsByDate).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,5).map(([date,secs])=>{
           const hh=Math.floor(secs/3600), mm=Math.floor((secs%3600)/60);
-          return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">
+          return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)">
             <span style="color:var(--text3)">${date}</span>
-            <span style="font-family:var(--mono);font-weight:700;color:var(--accent3)">${hh}h ${mm}m</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-family:var(--mono);font-weight:700;color:var(--accent3)">${hh}h ${mm}m</span>
+              <button onclick="event.stopPropagation();editTimeLog(${t.id},'${date}')" style="background:rgba(124,111,247,.12);border:none;border-radius:6px;color:var(--accent);font-size:10px;padding:2px 7px;cursor:pointer;font-weight:700">✏</button>
+              <button onclick="event.stopPropagation();deleteTimeLog(${t.id},'${date}')" style="background:rgba(247,111,124,.1);border:none;border-radius:6px;color:var(--accent4);font-size:10px;padding:2px 7px;cursor:pointer;font-weight:700">🗑</button>
+            </div>
           </div>`;
         }).join('');
         timeHtml = `<div style="margin:14px 0;padding:14px;background:var(--surface2);border-radius:var(--r2);border:1px solid var(--border)">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
             <div style="font-size:13px;font-weight:700">⏱ وقت التنفيذ</div>
-            <div style="font-size:11px;padding:3px 10px;background:rgba(79,209,165,.12);color:var(--accent3);border-radius:20px;font-weight:700">${h}h ${m}m</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="font-size:11px;padding:3px 10px;background:rgba(79,209,165,.12);color:var(--accent3);border-radius:20px;font-weight:700">${h}h ${m}m</div>
+              <button onclick="addManualTimeLog(${t.id})" style="background:rgba(124,111,247,.12);border:none;border-radius:8px;color:var(--accent);font-size:10px;padding:3px 8px;cursor:pointer;font-weight:700" title="إضافة وقت يدوي">+ وقت</button>
+              <button onclick="clearAllTimeLogs(${t.id})" style="background:rgba(247,111,124,.08);border:none;border-radius:8px;color:var(--accent4);font-size:10px;padding:3px 8px;cursor:pointer;font-weight:700" title="مسح كل السجلات">مسح الكل</button>
+            </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
             <div style="text-align:center;background:var(--surface3);border-radius:10px;padding:10px">
