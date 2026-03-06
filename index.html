@@ -34,25 +34,27 @@ let _syncTimer = null;
 
 // ── Platform Name Sync ──
 function applyPlatformConfig() {
-  // Clear any stored email from display name
-  const storedDN = localStorage.getItem('_studioDisplayName')||'';
-  if(storedDN && (storedDN.includes('@') || storedDN.match(/^[0-9]/))) {
-    localStorage.removeItem('_studioDisplayName');
-  }
-  // PLATFORM name = admin-set name only (shown in sidebar + auth)
-  // USER studio name = S.settings.name (shown in dashboard greeting only, NOT in sidebar)
-  // Update sidebar logo with studio logo if available
-  const studioLogo = (typeof S !== 'undefined' && S.settings?.logo) ? S.settings.logo : '';
+  const cfg = JSON.parse(localStorage.getItem('platform_config') || '{}');
+  const _isEmail = v => v && (v.includes('@') || /^[^@]+@[^@]+\.[^@]+$/.test(v));
+
+  // PLATFORM name = ONLY admin-set (sidebar + auth) — never user studio name
+  let cfgName = cfg.name || '';
+  if(_isEmail(cfgName)) cfgName = '';
+  const name = cfgName || 'Studio OS';
+
+  // PLATFORM logo = admin-set cfg.logo (sidebar), favicon = cfg.favicon (tab + auth icon)
+  const platformLogo = cfg.logo || '';
+  const favicon = cfg.favicon || '';
+
+  // Sidebar logo: use PLATFORM logo (admin-set), NOT user's studio logo
   const imgEl = document.getElementById('_sidebar-logo-img');
   const hexEl = document.getElementById('_logo-mark-hex');
-  if(imgEl && studioLogo){
-    imgEl.src = studioLogo;
+  if(imgEl && platformLogo){
+    imgEl.src = platformLogo;
     imgEl.style.display = 'block';
     if(hexEl) hexEl.style.display = 'none';
-    // Expand the logo-mark to show full logo
     const wrap = document.getElementById('_logo-mark-wrap');
     if(wrap){ wrap.style.width='auto'; wrap.style.height='auto'; wrap.style.maxWidth='150px'; wrap.style.background='transparent'; wrap.style.borderRadius='0'; }
-    // Hide logo text when studio logo is shown
     const logoText = document.querySelector('.logo-text');
     if(logoText) logoText.style.display = 'none';
   } else if(imgEl){
@@ -64,15 +66,13 @@ function applyPlatformConfig() {
     if(logoText) logoText.style.display = '';
   }
 
-  const cfg = JSON.parse(localStorage.getItem('platform_config') || '{}');
-  const _isEmail = v => v && (v.includes('@') || /^[^@]+@[^@]+\.[^@]+$/.test(v));
-  // Platform name = ONLY from admin-set platform_config (NOT user studio name)
-  // This is what shows in sidebar and auth page
-  let cfgName = cfg.name || '';
-  if(_isEmail(cfgName)) cfgName = '';
-  const name = cfgName || 'Studio OS';
-  // User studio name is separate — only used in greeting, not in sidebar/auth
-  const favicon = cfg.favicon || cfg.logo_url || '';
+  // Auth screen: show favicon as logo icon
+  const authLogoMark = document.querySelector('.auth-logo-mark');
+  if(authLogoMark && favicon && !authLogoMark.querySelector('img')){
+    authLogoMark.innerHTML = '<img src="'+favicon+'" style="width:36px;height:36px;object-fit:contain" onerror="this.parentNode.textContent=String.fromCharCode(11041)">';
+  } else if(authLogoMark && !favicon){
+    if(!authLogoMark.querySelector('img')) authLogoMark.textContent = '⬡';
+  }
 
   // Update title
   document.title = name + ' — نظام الاستوديو';
@@ -115,11 +115,13 @@ window.addEventListener('storage', function(e) {
   }
 });
 
-// Poll كل 3 ثواني كـ fallback لو الـ storage event ما وصلش
-// Poll removed — name updates via storage event and explicit calls only
-
-// Also run immediately
+// Also run immediately from localStorage
 (function() { if(document.readyState !== 'loading') applyPlatformConfig(); })();
+
+// Load from Supabase as soon as DOM is ready (no login needed — public table)
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(_loadPlatformNameFromCloud, 500);
+});
 
 let _supaUserId = null;
 let _isAdminUser = false;
@@ -6968,27 +6970,26 @@ const USERS_KEY = 'studioOS_users_v1';
 function getUsers(){ try{ return JSON.parse(localStorage.getItem(USERS_KEY)||'[]'); }catch(e){return [];} }
 function saveUsers(u){ localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
 async function _trackLoginEvent(uid) {
-  try {
-    const device = navigator.userAgent.includes('Mobile') ? 'موبايل' :
-                   navigator.userAgent.includes('Tablet') ? 'تابلت' : 'كمبيوتر';
-    const logEntry = { time: new Date().toISOString(), device };
+  // Run after a delay to avoid race condition with cloudLoad
+  // We update only the _login_log field, not the entire data
+  setTimeout(async () => {
+    try {
+      const device = navigator.userAgent.includes('Mobile') ? 'موبايل' :
+                     navigator.userAgent.includes('Tablet') ? 'تابلت' : 'كمبيوتر';
+      const logEntry = { time: new Date().toISOString(), device };
 
-    // جيب البيانات الحالية
-    const { data: sd } = await supa.from('studio_data').select('data').eq('user_id', uid).maybeSingle();
-    let parsed = {};
-    if(sd?.data) {
-      try { parsed = typeof sd.data === 'string' ? JSON.parse(sd.data) : sd.data; } catch(e) {}
-    }
-    // أضف الـ login log
-    const log = parsed._login_log || [];
-    log.unshift(logEntry);
-    if(log.length > 100) log.splice(100);
-    parsed._login_log = log;
-
-    await supa.from('studio_data')
-      .update({ data: JSON.stringify(parsed) })
-      .eq('user_id', uid);
-  } catch(e) { console.warn('Login tracking failed:', e.message); }
+      // Use current S data (already loaded) instead of fetching from DB
+      // This avoids overwriting newly loaded data with stale data
+      if(typeof S !== 'undefined' && S) {
+        const log = S._login_log || [];
+        log.unshift(logEntry);
+        if(log.length > 100) log.splice(100);
+        S._login_log = log;
+        // cloudSave will debounce and use latest S
+        if(typeof cloudSave === 'function') cloudSave(S);
+      }
+    } catch(e) { console.warn('Login tracking failed:', e.message); }
+  }, 3000); // Wait 3s for cloudLoad to complete
 }
 
 // ─── Check if account is banned ───
@@ -12486,28 +12487,22 @@ function _loadThemeFromCloud(){
 // ═══════════════════════════════════════════════════
 async function _loadPlatformNameFromCloud(){
   try{
-    if(!_supaUserId || typeof supa === 'undefined') return;
-    // Use S.settings directly instead of separate platform_config table
-    if(typeof S !== 'undefined' && S?.settings?.name){
-      const stored = JSON.parse(localStorage.getItem('platform_config')||'{}');
-      const merged = { ...stored, name: S.settings.name };
-      localStorage.setItem('platform_config', JSON.stringify(merged));
+    if(typeof supa === 'undefined') return;
+    // Load from platform_settings table (admin saves here — global config for all users)
+    const { data, error } = await supa
+      .from('platform_settings').select('config').eq('id', 1).maybeSingle();
+    if(!error && data?.config){
+      const cfg = typeof data.config === 'string' ? JSON.parse(data.config) : data.config;
+      localStorage.setItem('platform_config', JSON.stringify(cfg));
       applyPlatformConfig();
       return;
     }
-    // Fallback: try platform_config table (may not exist)
-    try {
-      const { data, error } = await supa
-        .from('platform_config').select('*').limit(1).maybeSingle();
-      if(!error && data){
-        const cfg = { ...data };
-        const stored = JSON.parse(localStorage.getItem('platform_config')||'{}');
-        const merged = { ...stored, ...cfg };
-        localStorage.setItem('platform_config', JSON.stringify(merged));
-        applyPlatformConfig();
-      }
-    } catch(e){ /* table doesn't exist, use S.settings */ }
-  } catch(e){}
+    // Fallback: use localStorage (same-browser admin)
+    applyPlatformConfig();
+  } catch(e){
+    // Table doesn't exist yet — use localStorage only
+    applyPlatformConfig();
+  }
 }
 
 // ═══════════════════════════════════════════════════
