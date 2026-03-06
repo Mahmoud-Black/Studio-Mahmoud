@@ -5666,6 +5666,7 @@ function openClientProfile(id){
       ${c.email?`<span style="background:var(--surface2);padding:5px 12px;border-radius:20px;color:var(--text2)">✉ ${c.email}</span>`:''}
       ${c.channel?`<span style="background:var(--surface2);padding:5px 12px;border-radius:20px;color:var(--text2)">${c.channel}</span>`:''}
       ${c.field?`<span style="background:var(--surface2);padding:5px 12px;border-radius:20px;color:var(--text2)">${c.field}</span>`:''}
+      ${c.workType==='sub'&&c.parentClientId?(()=>{const par=S.clients.find(x=>String(x.id)===String(c.parentClientId));return par?`<span style="background:rgba(100,181,246,.15);color:#64b5f6;padding:5px 12px;border-radius:20px;font-weight:700">🔗 تابع لـ ${par.name}</span>`:''})():''}
       ${(c.socials&&c.socials.length)?c.socials.map(s=>`<a href="${s.url}" target="_blank" style="background:var(--surface2);padding:5px 12px;border-radius:20px;color:var(--accent);font-size:12px;text-decoration:none;font-weight:600">${getSocialIconHTML(s.platform,14)} <span>${(SOCIAL_META[s.platform]||SOCIAL_META.other).label}</span></a>`).join(''):''}
     </div>
     ${c.notes?`<div class="hlbox" style="margin-bottom:16px;font-size:13px;color:var(--text2)">${c.notes}</div>`:''}
@@ -5788,7 +5789,7 @@ function renderClients(){
       <div style="font-size:15px;font-weight:700">${c.name}</div>
       <div style="font-size:12px;color:var(--text2);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         <span>${c.type} · ${c.channel}${c.field?' · '+c.field:''}</span>
-        ${c.workType==='fulltime'?'<span class="jtype-badge jtype-fulltime">🏢 دوام</span>':c.workType==='parttime'?'<span class="jtype-badge jtype-parttime">⏰ بارت تايم</span>':'<span class="jtype-badge jtype-freelance">🎯 فري لانس</span>'}
+        ${c.workType==='fulltime'?'<span class="jtype-badge jtype-fulltime">🏢 دوام</span>':c.workType==='parttime'?'<span class="jtype-badge jtype-parttime">⏰ بارت تايم</span>':c.workType==='sub'?'<span class="jtype-badge" style="background:rgba(100,181,246,.15);color:#64b5f6;border:1px solid rgba(100,181,246,.3)">🔗 تابع</span>':'<span class="jtype-badge jtype-freelance">🎯 فري لانس</span>'}
       </div>
       ${c.salary?`<div style="font-size:12px;color:var(--accent3);margin-top:4px;font-weight:700">💰 ${c.salary.toLocaleString()} ج/شهر · يوم ${c.salaryDay}</div>`:''}
       ${c.phone?`<div style="font-size:12px;color:var(--text3);margin-top:6px;display:flex;align-items:center;gap:8px">📞 ${c.phone}<a href="https://wa.me/${c.phone.replace(/[^\d]/g,'')}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;background:#25D366;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;text-decoration:none">💬 واتساب</a></div>`:''}
@@ -11873,9 +11874,18 @@ var _notifTableExists = null; // null=unknown, true=exists, false=missing
 async function _checkNotifTableExists(){
   if(_notifTableExists !== null) return _notifTableExists;
   try {
-    // Try fetching just 1 row with limit — if table missing, error.code = 42P01
-    const { error } = await supa.from('user_notifications').select('id').limit(1);
-    _notifTableExists = !(error && (error.code === '42P01' || error.message?.includes('does not exist')));
+    // Try fetching just 1 row with limit — if table missing, error.code = 42P01 or status 404
+    const { error, status } = await supa.from('user_notifications').select('id').limit(1);
+    if(error) {
+      const isMissing = error.code === '42P01'
+        || error.message?.includes('does not exist')
+        || status === 404
+        || error.code === 'PGRST200'
+        || String(error.message).includes('404');
+      _notifTableExists = !isMissing;
+    } else {
+      _notifTableExists = true;
+    }
   } catch(e) { _notifTableExists = false; }
   return _notifTableExists;
 }
@@ -11895,7 +11905,9 @@ async function _loadServerNotifications(){
       .order('created_at', {ascending:false})
       .limit(30);
     if(res.error){
-      _notifTableExists = false;
+      if(res.status === 404 || res.error.code === '42P01' || res.error.code === 'PGRST200') {
+        _notifTableExists = false;
+      }
       return;
     }
     _notifTableExists = true;
