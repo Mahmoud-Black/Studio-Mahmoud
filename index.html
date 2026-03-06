@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-title" content="Ordo - Tasks">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#7c6ff7">
-<title>Ordo - Tasks — نظام الاستوديو</title>
+<title>Ordo - Tasks — نظام إدارة الأعمال</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
 <!-- ═══ SUPABASE SDK ═══ -->
@@ -74,7 +74,7 @@ function applyPlatformConfig() {
   } else if(authLogoMark){ if(!authLogoMark.querySelector('img')) authLogoMark.textContent = '⬡'; }
 
   // Update title
-  document.title = name + ' — نظام الاستوديو';
+  document.title = name + ' — نظام إدارة الأعمال';
   // Update logo texts
   document.querySelectorAll('.logo-title, .auth-app-name, [data-platform-name]').forEach(el => { el.textContent = name; });
   // Update meta description
@@ -1568,7 +1568,7 @@ setTimeout(window._showApp, 4000);
         <div class="auth-logo-mark">⬡</div>
         <div class="auth-logo-text">
           <div class="auth-app-name" data-platform-name>Ordo - Tasks</div>
-          <div class="auth-app-sub">نظام إدارة الاستوديو</div>
+          <div class="auth-app-sub">نظام إدارة الأعمال</div>
         </div>
       </div>
       <div class="auth-tabs">
@@ -1635,7 +1635,7 @@ setTimeout(window._showApp, 4000);
         <input class="auth-input" id="reg-email" type="email" placeholder="example@gmail.com" dir="ltr">
       </div>
       <div class="auth-input-group">
-        <label class="auth-label">اسم الاستوديو (اختياري)</label>
+        <label class="auth-label">اسم العمل (اختياري)</label>
         <input class="auth-input" id="reg-studio" type="text" placeholder="مثال: Creative Studio">
       </div>
       <div class="auth-input-group">
@@ -1676,7 +1676,7 @@ setTimeout(window._showApp, 4000);
       </div>
     </div>
 
-    <div class="auth-footer">Ordo - Tasks — نظام إدارة الاستوديو الاحترافي ⬡</div>
+    <div class="auth-footer">Ordo - Tasks — نظام إدارة الأعمال الاحترافي ⬡</div>
 
     </div><!-- end auth-card-body -->
   </div>
@@ -1699,7 +1699,7 @@ setTimeout(window._showApp, 4000);
     </div>
     <div class="logo-text">
       <div class="logo-title" data-platform-name>Ordo - Tasks</div>
-      <div class="logo-sub" id="_sidebar-logo-sub">نظام إدارة الاستوديو</div>
+      <div class="logo-sub" id="_sidebar-logo-sub">نظام إدارة الأعمال</div>
     </div>
   </div>
   <div class="nav-section-label">الرئيسية</div>
@@ -1718,7 +1718,7 @@ setTimeout(window._showApp, 4000);
   <div class="nav-item" onclick="showPage(&#39;timetracker&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span><span class="nav-label" data-ar="تتبع الوقت">تتبع الوقت</span></div>
   <div class="nav-item" onclick="showPage(&#39;freelancer-goals&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><span class="nav-label" data-ar="الأهداف والإنجازات">الأهداف والإنجازات</span></div>
   <div class="nav-section-label">الإعدادات</div>
-  <div class="nav-item" onclick="showPage(&#39;settings&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M20 12h2M2 12h2M12 20v2M12 2v2"/></svg></span><span class="nav-label" data-ar="إعدادات الاستوديو">إعدادات الاستوديو</span></div>
+  <div class="nav-item" onclick="showPage(&#39;settings&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M20 12h2M2 12h2M12 20v2M12 2v2"/></svg></span><span class="nav-label" data-ar="إعدادات النظام">إعدادات النظام</span></div>
   <div class="nav-item" onclick="openBackupModal()" style="color:var(--accent3)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>نسخ احتياطي<span id="backup-reminder-dot" style="display:none;width:8px;height:8px;background:var(--accent4);border-radius:50%;margin-right:auto;flex-shrink:0"></span></div>
   <!-- User badge -->
   <div class="sidebar-user" id="sidebar-user" onclick="openProfileModal()" style="cursor:pointer" title="الملف الشخصي">
@@ -2350,7 +2350,7 @@ setTimeout(window._showApp, 4000);
         <div class="form-group"><label class="form-label">التخصص</label>
           <select class="form-select" id="member-role">
             <option value="كونتنت كريتور">✍ كونتنت كريتور</option>
-            <option value="مصمم جرافيك">🎨 مصمم جرافيك</option>
+            <option value="مستقل">👤 مستقل / عام</option>
             <option value="فيديو إديتور">🎬 فيديو إديتور</option>
             <option value="مودريتور">💬 مودريتور</option>
             <option value="أخرى">📌 أخرى</option>
@@ -2687,8 +2687,8 @@ setTimeout(window._showApp, 4000);
 <div class="page" id="page-settings">
   <div class="page-header">
     <div>
-      <div class="page-title">إعدادات <span>الاستوديو</span></div>
-      <div class="page-subtitle">خصّص نظامك كما تريد</div>
+      <div class="page-title">إعدادات <span>النظام</span></div>
+      <div class="page-subtitle">خصّص النظام كما تريد</div>
     </div>
   </div>
 
@@ -2707,8 +2707,8 @@ setTimeout(window._showApp, 4000);
     <div class="grid grid-2">
 
       <div class="card">
-        <div class="section-title">🏢 بيانات الاستوديو</div>
-        <div class="form-group"><label class="form-label">اسم الاستوديو / المصمم</label><input class="form-input" id="set-name" placeholder="اسمك أو اسم الاستوديو"></div>
+        <div class="section-title">🏢 بيانات العمل</div>
+        <div class="form-group"><label class="form-label">اسم العمل / المشروع</label><input class="form-input" id="set-name" placeholder="اسمك أو اسم العمل"></div>
         <div class="form-group"><label class="form-label">رقم الهاتف</label><input class="form-input" id="set-phone" placeholder="+20 1XX XXX XXXX"></div>
         <div class="form-group"><label class="form-label">البريد الإلكتروني</label><input class="form-input" id="set-email" placeholder="studio@email.com"></div>
         <div class="form-group"><label class="form-label">الموقع / العنوان</label><input class="form-input" id="set-address" placeholder="المدينة، الدولة"></div>
@@ -2732,7 +2732,7 @@ setTimeout(window._showApp, 4000);
       </div>
 
       <div class="card">
-        <div class="section-title">🖼 لوجو الاستوديو</div>
+        <div class="section-title">🖼 الشعار</div>
         <div id="logo-preview" style="margin-bottom:14px;min-height:90px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border-radius:var(--r2);border:2px dashed var(--border)"><span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span></div>
         <input type="file" id="logo-input" accept="image/*" style="display:none" onchange="uploadLogo(this)">
         <div style="display:flex;gap:10px;margin-bottom:20px">
@@ -2895,8 +2895,8 @@ setTimeout(window._showApp, 4000);
         <span class="wa-tag" onclick="insertWaVar('{{رقم_الفاتورة}}')">{{رقم_الفاتورة}}</span>
         <span class="wa-tag" onclick="insertWaVar('{{تاريخ_الاستحقاق}}')">{{تاريخ_الاستحقاق}}</span>
         <span class="wa-tag" onclick="insertWaVar('{{رابط_المشروع}}')">{{رابط_المشروع}}</span>
-        <span class="wa-tag" onclick="insertWaVar('{{اسم_الاستوديو}}')">{{اسم_الاستوديو}}</span>
-        <span class="wa-tag" onclick="insertWaVar('{{رقم_هاتف_الاستوديو}}')">{{رقم_هاتف_الاستوديو}}</span>
+        <span class="wa-tag" onclick="insertWaVar('{{اسم_العمل}}')">{{اسم_العمل}}</span>
+        <span class="wa-tag" onclick="insertWaVar('{{رقم_هاتف_العمل}}')">{{رقم_هاتف_العمل}}</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="tpl-card">
@@ -3055,8 +3055,8 @@ setTimeout(window._showApp, 4000);
       <span class="wa-tag" onclick="insertWaVar('{{رقم_الفاتورة}}')">{{رقم_الفاتورة}}</span>
       <span class="wa-tag" onclick="insertWaVar('{{تاريخ_الاستحقاق}}')">{{تاريخ_الاستحقاق}}</span>
       <span class="wa-tag" onclick="insertWaVar('{{رابط_المشروع}}')">{{رابط_المشروع}}</span>
-      <span class="wa-tag" onclick="insertWaVar('{{اسم_الاستوديو}}')">{{اسم_الاستوديو}}</span>
-      <span class="wa-tag" onclick="insertWaVar('{{رقم_هاتف_الاستوديو}}')">{{رقم_هاتف_الاستوديو}}</span>
+      <span class="wa-tag" onclick="insertWaVar('{{اسم_العمل}}')">{{اسم_العمل}}</span>
+      <span class="wa-tag" onclick="insertWaVar('{{رقم_هاتف_العمل}}')">{{رقم_هاتف_العمل}}</span>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div class="tpl-card">
@@ -3350,7 +3350,7 @@ setTimeout(window._showApp, 4000);
 
     <!-- ── بريف المشروع (rich editor) ── -->
     <div class="form-group">
-      <label class="form-label">📄 بريف المشروع <span style="font-size:11px;color:var(--text3)">— تفاصيل، صور، لينكات، تنسيق (اختياري)</span></label>
+      <label class="form-label">📄 تفاصيل المشروع <span style="font-size:11px;color:var(--text3)">— تفاصيل، صور، لينكات، تنسيق (اختياري)</span></label>
       <div id="t-brief-editor"></div>
     </div>
 
@@ -3775,7 +3775,7 @@ setTimeout(window._showApp, 4000);
 // CORE STATE
 // ============================================================
 const COLORS=['#7c6ff7','#f7c948','#4fd1a5','#f76f7c','#64b5f6','#ff8a65','#ce93d8','#80cbc4'];
-let S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],teams:[],subscriptions:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:'',taskTypes:['تصميم سوشيال ميديا','برانيدنج','لوجو','فيديو موشن','كونتنت','ويب ديزاين']}};
+let S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],teams:[],subscriptions:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:'',taskTypes:['مهمة عامة','مشروع','استشارة','تقرير','متابعة','أخرى']}};
 
 // ── Time Tracker global state (declared early to avoid TDZ errors) ──
 let _tt={running:false,elapsed:0,startedAt:null,interval:null};
@@ -4250,15 +4250,15 @@ function loadSettings(){
   if(picker) picker.value = color;
   const lp=document.getElementById('logo-preview');
   if(lp)lp.innerHTML=s.logo?`<img src="${s.logo}" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px">`:'<span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span>';
-  const nd=document.getElementById('studio-name-disp');if(nd)nd.textContent=s.name||'المصمم';
+  const nd=document.getElementById('studio-name-disp');if(nd)nd.textContent=s.name||'صاحب العمل';
   renderPoliciesList('policies-list', s.policies||[], 'removePolicy');
   renderSocialsList();
   // قوالب واتساب
   const wt = s.waTemplates||{};
   const defaults = {
-    invoice: `مرحباً {{اسم_العميل}} 👋\nتم إصدار فاتورة رقم {{رقم_الفاتورة}} بقيمة {{قيمة_الفاتورة}}\nموعد السداد: {{تاريخ_الاستحقاق}}\n\nشكراً لتعاملك مع {{اسم_الاستوديو}} 🙏`,
-    task:    `مرحباً {{اسم_العميل}} 👋\nتم استلام طلب «{{اسم_المشروع}}» بنجاح ✅\nسنبدأ العمل فوراً وسنتواصل معك قريباً.\n\n{{اسم_الاستوديو}}`,
-    done:    `مرحباً {{اسم_العميل}} 🎉\nتم الانتهاء من «{{اسم_المشروع}}»!\nرابط الاستلام: {{رابط_المشروع}}\n\nفي انتظار ملاحظاتك 🙏\n{{اسم_الاستوديو}}`,
+    invoice: `مرحباً {{اسم_العميل}} 👋\nتم إصدار فاتورة رقم {{رقم_الفاتورة}} بقيمة {{قيمة_الفاتورة}}\nموعد السداد: {{تاريخ_الاستحقاق}}\n\nشكراً لتعاملك مع {{اسم_العمل}} 🙏`,
+    task:    `مرحباً {{اسم_العميل}} 👋\nتم استلام طلب «{{اسم_المشروع}}» بنجاح ✅\nسنبدأ العمل فوراً وسنتواصل معك قريباً.\n\n{{اسم_العمل}}`,
+    done:    `مرحباً {{اسم_العميل}} 🎉\nتم الانتهاء من «{{اسم_المشروع}}»!\nرابط الاستلام: {{رابط_المشروع}}\n\nفي انتظار ملاحظاتك 🙏\n{{اسم_العمل}}`,
     remind:  `مرحباً {{اسم_العميل}}\nتذكير بفاتورة رقم {{رقم_الفاتورة}} بقيمة {{قيمة_الفاتورة}}\nموعد السداد كان {{تاريخ_الاستحقاق}}\n\nنرجو السداد في أقرب وقت 🙏`,
   };
   ['invoice','task','done','remind'].forEach(k=>{
@@ -4460,8 +4460,8 @@ function openWaModal(tplType, invIdOrNull, taskIdOrNull){
     '{{رقم_الفاتورة}}':          invNum,
     '{{تاريخ_الاستحقاق}}':       invDue,
     '{{رابط_المشروع}}':          projectUrl,
-    '{{اسم_الاستوديو}}':         s.name||'الاستوديو',
-    '{{رقم_هاتف_الاستوديو}}':    s.phone||'',
+    '{{اسم_العمل}}':         s.name||'العمل',
+    '{{رقم_هاتف_العمل}}':    s.phone||'',
   };
 
   // عرض المستلم
@@ -4485,9 +4485,9 @@ function openWaModal(tplType, invIdOrNull, taskIdOrNull){
 function loadWaTpl(key){
   const wt = S.settings?.waTemplates||{};
   const defaults = {
-    invoice: `مرحباً {{اسم_العميل}} 👋\nتم إصدار فاتورة رقم {{رقم_الفاتورة}} بقيمة {{قيمة_الفاتورة}}\nموعد السداد: {{تاريخ_الاستحقاق}}\n\nشكراً لتعاملك مع {{اسم_الاستوديو}} 🙏`,
-    task:    `مرحباً {{اسم_العميل}} 👋\nتم استلام طلب «{{اسم_المشروع}}» بنجاح ✅\nسنبدأ العمل فوراً وسنتواصل معك قريباً.\n\n{{اسم_الاستوديو}}`,
-    done:    `مرحباً {{اسم_العميل}} 🎉\nتم الانتهاء من «{{اسم_المشروع}}»!\nرابط الاستلام: {{رابط_المشروع}}\n\nفي انتظار ملاحظاتك 🙏\n{{اسم_الاستوديو}}`,
+    invoice: `مرحباً {{اسم_العميل}} 👋\nتم إصدار فاتورة رقم {{رقم_الفاتورة}} بقيمة {{قيمة_الفاتورة}}\nموعد السداد: {{تاريخ_الاستحقاق}}\n\nشكراً لتعاملك مع {{اسم_العمل}} 🙏`,
+    task:    `مرحباً {{اسم_العميل}} 👋\nتم استلام طلب «{{اسم_المشروع}}» بنجاح ✅\nسنبدأ العمل فوراً وسنتواصل معك قريباً.\n\n{{اسم_العمل}}`,
+    done:    `مرحباً {{اسم_العميل}} 🎉\nتم الانتهاء من «{{اسم_المشروع}}»!\nرابط الاستلام: {{رابط_المشروع}}\n\nفي انتظار ملاحظاتك 🙏\n{{اسم_العمل}}`,
     remind:  `مرحباً {{اسم_العميل}}\nتذكير بفاتورة رقم {{رقم_الفاتورة}} بقيمة {{قيمة_الفاتورة}}\nموعد السداد كان {{تاريخ_الاستحقاق}}\n\nنرجو السداد في أقرب وقت 🙏`,
   };
   const raw = wt[key] || defaults[key] || '';
@@ -4603,7 +4603,7 @@ const TRANSLATIONS = {
     'البريد الإلكتروني':'Email','كلمة المرور':'Password',
     'نسيت كلمة المرور؟':'Forgot password?','أو':'or',
     'متابعة بـ Google':'Continue with Google',
-    'اسم الاستوديو / المصمم':'Studio name','رقم الهاتف':'Phone',
+    'اسم العمل / المشروع':'Studio name','رقم الهاتف':'Phone',
     // Dashboard
     'نظرة عامة على استوديوك':'Overview of your studio',
     'مهمة نشطة':'Active task','مهمة منتهية':'Done',
@@ -4630,8 +4630,8 @@ const TRANSLATIONS = {
     'عميل جديد':'New Client','اسم العميل':'Client Name',
     'نوع العمل':'Work Type','فري لانس':'Freelance','دوام':'Full-time',
     // Settings
-    'إعدادات الاستوديو':'Studio Settings','خصّص نظامك كما تريد':'Customize your system',
-    'بيانات الاستوديو':'Studio Info','لوجو الاستوديو':'Studio Logo',
+    'إعدادات النظام':'Studio Settings','خصّص النظام كما تريد':'Customize your system',
+    'بيانات العمل':'Studio Info','شعار العمل':'Studio Logo',
     'منصات التواصل':'Social Media','مظهر النظام':'Appearance',
     'وضع العرض':'Display Mode','🌙 ليلي':'🌙 Dark','☀️ نهاري':'☀️ Light',
     'لون هوية النظام':'Accent Color','لون مخصص':'Custom color',
@@ -4956,7 +4956,7 @@ function initTaskQuill(){
   if(taskQuill) return; // already initialized
   taskQuill = new Quill('#t-brief-editor', {
     theme: 'snow',
-    placeholder: 'اكتب بريف المشروع هنا — يمكنك إضافة صور، روابط، قوائم، وتنسيق النص...',
+    placeholder: 'اكتب تفاصيل المهمة هنا — يمكنك إضافة روابط، قوائم، وتنسيق النص...',
     modules: {
       toolbar: [
         ['bold','italic','underline'],
@@ -4988,7 +4988,7 @@ function openTaskDetail(id){
 
   // Brief section
   const briefHTML = t.brief
-    ? `<div class="td-section-label">📄 بريف المشروع</div><div class="td-brief">${t.brief}</div>`
+    ? `<div class="td-section-label">📄 تفاصيل المشروع</div><div class="td-brief">${t.brief}</div>`
     : '';
 
   // Notes
@@ -5645,110 +5645,95 @@ function saveClient(){
 }
 function openClientProfile(id){
   const c=S.clients.find(c=>c.id===id);if(!c)return;
-  const cTasks=S.tasks.filter(t=>t.client===c.name);
-  const cInvs=S.invoices.filter(i=>i.client===c.name);
-  const cTrans=S.transactions.filter(t=>t.source===c.name);
-  const totalInc=cTrans.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
-  const pendingInv=cInvs.filter(i=>i.status==='pending');
-  const paidInv=cInvs.filter(i=>i.status==='paid');
+
+  // Sub-clients of this client (if it's a parent)
+  const subClients = S.clients.filter(sc => String(sc.parentClientId) === String(c.id));
+  const isParent = subClients.length > 0;
+
+  // For parent: aggregate data from sub-clients too
+  const allClientNames = isParent
+    ? [c.name, ...subClients.map(sc=>sc.name)]
+    : [c.name];
+
+  const cTasks = S.tasks.filter(t => allClientNames.includes(t.client));
+  const cInvs  = S.invoices.filter(i => allClientNames.includes(i.client));
+  const cTrans = S.transactions.filter(t => allClientNames.includes(t.source));
+  const totalInc   = cTrans.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const pendingInv = cInvs.filter(i=>i.status==='pending');
+  const paidInv    = cInvs.filter(i=>i.status==='paid');
+
   const statusBadgeLocal={new:'<span class="badge badge-gray">جديد</span>',progress:'<span class="badge badge-yellow">جاري</span>',review:'<span class="badge badge-purple">مراجعة</span>',done:'<span class="badge badge-green">مكتمل</span>'};
-  document.getElementById('profile-title').innerHTML=`<span style="color:${c.color}">${c.name[0]}</span> ملف العميل — ${c.name}`;
+
+  // Sub-clients section HTML
+  const subClientsSection = isParent ? `
+    <div style="margin-bottom:20px">
+      <div class="section-title" style="margin-bottom:10px">🔗 العملاء / الفروع التابعة (${subClients.length})</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+        ${subClients.map(sc=>{
+          const scTasks = S.tasks.filter(t=>t.client===sc.name).length;
+          const scInvs  = S.invoices.filter(i=>i.client===sc.name);
+          const scPending = scInvs.filter(i=>i.status==='pending').reduce((s,i)=>s+i.total,0);
+          return `<div class="card" style="padding:12px;cursor:pointer;transition:.18s" onclick="closeM('modal-client-profile');setTimeout(()=>openClientProfile(${sc.id}),120)"
+            onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor=''">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <div style="width:30px;height:30px;border-radius:50%;background:${sc.color||'var(--accent)'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;flex-shrink:0">${sc.name[0]}</div>
+              <div style="font-weight:700;font-size:13px;flex:1">${sc.name}</div>
+            </div>
+            <div style="display:flex;gap:8px;font-size:11px;color:var(--text3)">
+              <span>📋 ${scTasks} مهمة</span>
+              ${scPending>0?`<span style="color:var(--accent2)">🧾 ${scPending.toLocaleString()} ج معلق</span>`:''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  document.getElementById('profile-title').innerHTML=`<span style="color:${c.color}">${c.name[0]}</span> ملف ${isParent?'الشركة':'العميل'} — ${c.name}${isParent?` <span style="font-size:11px;background:rgba(124,111,247,.15);color:var(--accent);padding:2px 8px;border-radius:10px;margin-right:6px">🏢 شركة</span>`:''}`;
+
   document.getElementById('profile-body').innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">
-      <div class="card" style="padding:14px"><div class="stat-label">إجمالي الدخل</div><div style="font-size:22px;font-weight:900;color:var(--accent3)">${totalInc.toLocaleString()} ج</div></div>
-      <div class="card" style="padding:14px"><div class="stat-label">المشاريع</div><div style="font-size:22px;font-weight:900;color:var(--accent)">${cTasks.length}</div></div>
-      <div class="card" style="padding:14px"><div class="stat-label">فواتير معلقة</div><div style="font-size:22px;font-weight:900;color:var(--accent2)">${pendingInv.reduce((s,i)=>s+i.total,0).toLocaleString()} ج</div></div>
+      <div class="card" style="padding:14px"><div class="stat-label">إجمالي الدخل${isParent?' (مجمّع)':''}</div><div style="font-size:22px;font-weight:900;color:var(--accent3)">${totalInc.toLocaleString()} ج</div></div>
+      <div class="card" style="padding:14px"><div class="stat-label">المشاريع${isParent?' (مجمّع)':''}</div><div style="font-size:22px;font-weight:900;color:var(--accent)">${cTasks.length}</div></div>
+      <div class="card" style="padding:14px"><div class="stat-label">فواتير معلقة${isParent?' (مجمّع)':''}</div><div style="font-size:22px;font-weight:900;color:var(--accent2)">${pendingInv.reduce((s,i)=>s+i.total,0).toLocaleString()} ج</div></div>
     </div>
+    ${subClientsSection}
     <div style="display:flex;gap:8px;margin-bottom:16px;font-size:13px;flex-wrap:wrap;align-items:center">
       ${c.phone?`<span style="background:var(--surface2);padding:5px 12px;border-radius:20px;color:var(--text2)">📞 ${c.phone}</span>`:''}
-      ${c.phone?`<button onclick="window.open('https://wa.me/'+('${c.phone}'.replace(/\\D/g,'')),'_blank')" style="display:flex;align-items:center;gap:6px;background:#25D366;color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer"><svg width='14' height='14' viewBox='0 0 24 24' fill='#fff'><path d='M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z'/></svg> واتساب</button>`:''}
+      ${c.phone?`<button onclick="window.open('https://wa.me/'+('${c.phone}'.replace(/\\D/g,'')),'_blank')" style="display:flex;align-items:center;gap:6px;background:#25D366;color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">💬 واتساب</button>`:''}
       ${c.email?`<span style="background:var(--surface2);padding:5px 12px;border-radius:20px;color:var(--text2)">✉ ${c.email}</span>`:''}
-      ${c.channel?`<span style="background:var(--surface2);padding:5px 12px;border-radius:20px;color:var(--text2)">${c.channel}</span>`:''}
-      ${c.field?`<span style="background:var(--surface2);padding:5px 12px;border-radius:20px;color:var(--text2)">${c.field}</span>`:''}
-      ${(c.socials&&c.socials.length)?c.socials.map(s=>`<a href="${s.url}" target="_blank" style="background:var(--surface2);padding:5px 12px;border-radius:20px;color:var(--accent);font-size:12px;text-decoration:none;font-weight:600">${getSocialIconHTML(s.platform,14)} <span>${(SOCIAL_META[s.platform]||SOCIAL_META.other).label}</span></a>`).join(''):''}
     </div>
-    ${c.notes?`<div class="hlbox" style="margin-bottom:16px;font-size:13px;color:var(--text2)">${c.notes}</div>`:''}
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">المشاريع والمهام (${cTasks.length})</div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <select id="cp-tf-status" onchange="filterClientProfileTasks('${c.name}')" style="height:30px;padding:0 8px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px">
-          <option value="">كل الحالات</option>
-          <option value="new">جديد</option><option value="progress">جاري</option>
-          <option value="review">مراجعة</option><option value="done">مكتمل</option>
-        </select>
-        <select id="cp-tf-month" onchange="filterClientProfileTasks('${c.name}')" style="height:30px;padding:0 8px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px">
-          <option value="">كل الشهور</option>
-          <option value="01">يناير</option><option value="02">فبراير</option><option value="03">مارس</option>
-          <option value="04">أبريل</option><option value="05">مايو</option><option value="06">يونيو</option>
-          <option value="07">يوليو</option><option value="08">أغسطس</option><option value="09">سبتمبر</option>
-          <option value="10">أكتوبر</option><option value="11">نوفمبر</option><option value="12">ديسمبر</option>
-        </select>
-      </div>
-    </div>
-    <div id="cp-tasks-wrap">
-    ${cTasks.length?`<table style="margin-bottom:16px"><thead><tr><th>المشروع</th><th>النوع</th><th>الحالة</th><th>القيمة/الراتب</th><th>التسليم</th><th></th></tr></thead><tbody id="cp-tasks-tbody">
-      ${cTasks.map(t=>{
-        const jt=t.jobType||'freelance';
-        const jtLabel = jt==='fulltime'?'🏢 دوام':jt==='parttime'?'⏰ بارت تايم':'🎯 فري لانس';
-        const valCol = (jt==='fulltime'||jt==='parttime')&&t.salary
-          ? `<span style="color:var(--accent3);font-weight:700">${t.salary.toLocaleString()} ج/شهر</span>`
-          : t.value?t.value.toLocaleString()+' ج':'—';
-        return `<tr class="task-clickable" data-order="${t.orderDate||''}" data-status="${t.status}" onclick="openTaskDetail(${t.id})" title="اضغط لعرض التفاصيل">
-          <td><b>${t.title}</b>${t.brief?'<span style="font-size:10px;color:var(--accent);margin-right:5px">📄</span>':''}</td>
-          <td><span style="font-size:11px">${jtLabel}</span></td>
-          <td>${statusBadgeLocal[t.status]||statusBadgeLocal['done']}</td>
-          <td style="font-size:12px">${valCol}</td>
-          <td style="font-family:var(--mono);font-size:11px">${t.deadline||t.orderDate||'—'}</td>
-          <td onclick="event.stopPropagation()"><button class="btn btn-ghost btn-sm" onclick="openTaskModal(${t.id})">✏</button></td>
-        </tr>`;}).join('')}
-    </tbody></table>` : '<div style="color:var(--text3);font-size:13px;margin-bottom:16px">لا مشاريع</div>'}
-    </div>
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">الفواتير</div>
-    ${cInvs.length?`<table><thead><tr><th>رقم الفاتورة</th><th>التاريخ</th><th>الإجمالي</th><th>الحالة</th><th></th></tr></thead><tbody>
-      ${cInvs.map(inv=>`<tr>
-        <td style="font-family:var(--mono);color:var(--accent);font-size:12px">${inv.num}</td>
-        <td style="font-size:12px;color:var(--text2)">${inv.date||'—'}</td>
-        <td style="font-weight:700;color:var(--accent3)">${inv.total.toLocaleString()} ج</td>
-        <td><span class="badge ${inv.status==='paid'?'badge-green':inv.status==='pending'?'badge-yellow':'badge-red'}">${inv.status==='paid'?'مدفوعة':inv.status==='pending'?'معلقة':'ملغية'}</span></td>
-        <td><button class="btn btn-ghost btn-sm" onclick="closeM('modal-client-profile');showPage('invoices');setTimeout(()=>previewInv(${inv.id}),200)">عرض</button></td>
-      </tr>`).join('')}
-    </tbody></table>` : '<div style="color:var(--text3);font-size:13px">لا فواتير</div>'}
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
-      <button class="btn btn-ghost" onclick="closeM('modal-client-profile');openClientModal(${c.id})">✏ تعديل بيانات العميل</button>
-      <button class="btn btn-ghost" onclick="closeM('modal-client-profile');openClientPortal(${c.id})" style="color:var(--accent3)">🔗 بوابة العميل</button>
-      <button class="btn btn-primary" onclick="closeM('modal-client-profile');openTaskModal()">+ مشروع جديد</button>
-    </div>
-    <!-- Time entries for this client -->
-    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
-      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">⏱ سجل الوقت مع هذا العميل</div>
-      ${(()=>{
-        const cEntries=(S.timeEntries||[]).filter(e=>(e.client_name||'').toLowerCase()===(c.name||'').toLowerCase());
-        const rate=+localStorage.getItem('tt_rate')||150;
-        if(!cEntries.length)return '<div style="color:var(--text3);font-size:13px">لا إدخالات وقت بعد</div>';
-        const totalSecs=cEntries.reduce((s,e)=>s+(e.duration_seconds||0),0);
-        const totalEarn=((totalSecs/3600)*rate).toFixed(0);
-        const fmtS=s=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';};
-        return '<div style="display:flex;gap:10px;margin-bottom:10px"><div class=\"card\" style=\"padding:10px 14px;flex:1;text-align:center\"><div style=\"font-size:11px;color:var(--text3)\">إجمالي الوقت</div><div style=\"font-size:18px;font-weight:900;color:var(--accent)\">' + fmtS(totalSecs) + '</div></div><div class=\"card\" style=\"padding:10px 14px;flex:1;text-align:center\"><div style=\"font-size:11px;color:var(--text3)\">الأرباح الفعلية</div><div style=\"font-size:18px;font-weight:900;color:var(--accent3)\">' + totalEarn + ' ج</div></div></div>'
-        + '<div style="font-size:12px;color:var(--text3)">آخر '+Math.min(5,cEntries.length)+' إدخالات:</div>'
-        + cEntries.slice(0,5).map(e=>'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px">'+e.task_title+'</span><span style="font-family:var(--mono);font-size:12px;color:var(--accent)">'+fmtS(e.duration_seconds||0)+'</span></div>').join('');
-      })()}
-    </div>
-    <!-- Contracts for this client -->
-    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">📝 العقود</div>
-        <button class="btn btn-ghost btn-sm" onclick="closeM('modal-client-profile');openContractModal(null,'${c.name}')">+ عقد جديد</button>
-      </div>
-      ${(()=>{
-        const cContracts=(S.contracts||[]).filter(ct=>(ct.client_name||'').toLowerCase()===(c.name||'').toLowerCase());
-        if(!cContracts.length)return '<div style="color:var(--text3);font-size:13px">لا عقود بعد</div>';
-        const stC={draft:'var(--text3)',sent:'#64b5f6',signed:'var(--accent3)',rejected:'var(--accent4)'};
-        const stL={draft:'مسودة',sent:'أُرسل',signed:'✅ موقّع',rejected:'مرفوض'};
-        return cContracts.map(ct=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:700">'+ct.title+'</div><div style="font-size:11px;color:var(--text3)">'+(ct.value?ct.value.toLocaleString()+' ج':'')+'</div></div><span style="font-size:11px;font-weight:700;color:'+(stC[ct.status]||'var(--text3)')+'">'+( stL[ct.status]||'مسودة')+'</span></div>').join('');
-      })()}
-    </div>`;
+    ${cTasks.length?`
+    <div style="margin-bottom:20px">
+      <div class="section-title" style="margin-bottom:10px">📋 المهام (${cTasks.length})</div>
+      ${cTasks.slice(0,5).map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:600">${t.title}</div>
+          ${isParent && t.client !== c.name ? `<div style="font-size:10px;color:var(--text3)">🔗 ${t.client}</div>` : ''}
+        </div>
+        ${statusBadgeLocal[t.status]||''}
+      </div>`).join('')}
+      ${cTasks.length>5?`<div style="font-size:11px;color:var(--accent);margin-top:6px;cursor:pointer" onclick="closeM('modal-client-profile');showPage('tasks')">+ ${cTasks.length-5} مهام أخرى ←</div>`:''}
+    </div>`:``}
+    ${cInvs.length?`
+    <div style="margin-bottom:20px">
+      <div class="section-title" style="margin-bottom:10px">🧾 الفواتير (${cInvs.length}) — إجمالي: ${cInvs.reduce((s,i)=>s+i.total,0).toLocaleString()} ج</div>
+      ${cInvs.slice(0,5).map(i=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:600">#${i.num||'—'} — ${i.date||''}</div>
+          ${isParent && i.client !== c.name ? `<div style="font-size:10px;color:var(--text3)">🔗 ${i.client}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-weight:700;color:${i.status==='paid'?'var(--accent3)':'var(--accent2)'}">${i.total.toLocaleString()} ج</span>
+          <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${i.status==='paid'?'rgba(79,209,165,.15)':'rgba(247,201,72,.15)'};color:${i.status==='paid'?'var(--accent3)':'var(--accent2)'}">${i.status==='paid'?'✅ مدفوع':'⏳ معلق'}</span>
+        </div>
+      </div>`).join('')}
+      ${cInvs.length>5?`<div style="font-size:11px;color:var(--accent);margin-top:6px;cursor:pointer" onclick="closeM('modal-client-profile');showPage('invoices')">+ ${cInvs.length-5} فواتير أخرى ←</div>`:''}
+    </div>`:``}`;
+
   openM('modal-client-profile');
 }
+
+  
 function delClient(id){confirmDel('هل تريد حذف هذا العميل؟',()=>{S.clients=S.clients.filter(c=>c.id!==id);lsSave();renderAll();});}
 function renderClients(){
   const grid=document.getElementById('clients-grid');if(!grid)return;
@@ -5784,10 +5769,10 @@ function renderClients(){
           <button class="btn btn-danger btn-sm" onclick="delClient(${c.id})">🗑</button>
         </div>
       </div>
-      <div style="font-size:15px;font-weight:700">${c.name}</div>
+      <div style="font-size:15px;font-weight:700">${c.name}${(()=>{const subs=S.clients.filter(sc=>String(sc.parentClientId)===String(c.id));return subs.length?` <span style="font-size:10px;background:rgba(124,111,247,.15);color:var(--accent);padding:1px 7px;border-radius:8px;font-weight:600">🏢 ${subs.length} فرع</span>`:'';})()}</div>
       <div style="font-size:12px;color:var(--text2);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         <span>${c.type} · ${c.channel}${c.field?' · '+c.field:''}</span>
-        ${c.workType==='fulltime'?'<span class="jtype-badge jtype-fulltime">🏢 دوام</span>':c.workType==='parttime'?'<span class="jtype-badge jtype-parttime">⏰ بارت تايم</span>':'<span class="jtype-badge jtype-freelance">🎯 فري لانس</span>'}
+        ${c.workType==='fulltime'?'<span class="jtype-badge jtype-fulltime">🏢 دوام</span>':c.workType==='parttime'?'<span class="jtype-badge jtype-parttime">⏰ بارت تايم</span>':c.workType==='sub'?'<span class="jtype-badge" style="background:rgba(79,209,165,.12);color:var(--accent3)">🔗 تابع</span>':'<span class="jtype-badge jtype-freelance">🎯 فري لانس</span>'}
       </div>
       ${c.salary?`<div style="font-size:12px;color:var(--accent3);margin-top:4px;font-weight:700">💰 ${c.salary.toLocaleString()} ج/شهر · يوم ${c.salaryDay}</div>`:''}
       ${c.phone?`<div style="font-size:12px;color:var(--text3);margin-top:6px;display:flex;align-items:center;gap:8px">📞 ${c.phone}<a href="https://wa.me/${c.phone.replace(/[^\d]/g,'')}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;background:#25D366;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;text-decoration:none">💬 واتساب</a></div>`:''}
@@ -6245,10 +6230,27 @@ function saveInvoice(){
   if(!invItems.some(i=>i.desc.trim()))return alert('أضف بنداً واحداً على الأقل');
   const total=invItems.reduce((s,i)=>s+i.qty*i.price,0);
   const eid=v('inv-eid');
-  const d={client,num:v('inv-num'),date:v('inv-date'),due:v('inv-due'),notes:v('inv-notes'),items:invItems.map(i=>({...i})),total,deposit:+(v('inv-deposit')||0),from:S.settings?.name||'الاستوديو',status:'pending',policies:invPolicies.map(p=>({...p})),projectUrl:(document.getElementById('inv-project-url')?.value||'').trim()};
+
+  // Find parent client - if this client is a sub, link to parent
+  const clientObj = S.clients.find(c=>c.name===client);
+  let parentClientName = null;
+  if(clientObj && clientObj.workType==='sub' && clientObj.parentClientId){
+    const parentObj = S.clients.find(c=>String(c.id)===String(clientObj.parentClientId));
+    if(parentObj) parentClientName = parentObj.name;
+  }
+
+  const d={
+    client,
+    parentClient: parentClientName, // الشركة الأم إن وُجدت
+    num:v('inv-num'),date:v('inv-date'),due:v('inv-due'),notes:v('inv-notes'),
+    items:invItems.map(i=>({...i})),total,deposit:+(v('inv-deposit')||0),
+    from:S.settings?.name||'العمل',status:'pending',
+    policies:invPolicies.map(p=>({...p})),
+    projectUrl:(document.getElementById('inv-project-url')?.value||'').trim()
+  };
   if(eid){const i=S.invoices.findIndex(x=>x.id==eid);if(i>-1){d.id=+eid;d.status=S.invoices[i].status;S.invoices[i]=d;}}
   else{ if(!checkLimit('max_invoices', S.invoices.length)) return; d.id=Date.now();S.invoices.push(d);}
-  lsSave();closeM('modal-invoice');renderAll();previewInv(d.id);
+  lsSave();closeM('modal-invoice');renderInvoices();updateDash();previewInv(d.id);
 }
 function delInvoice(id){
   confirmDel('هل تريد حذف هذه الفاتورة؟',()=>{
@@ -6281,7 +6283,7 @@ function exportReceipt(transId){
 </div>
 <div style="height:3px;background:linear-gradient(to left,#4fd1a5,#7c6ff7)"></div>
 <div style="display:flex;justify-content:space-between;padding:22px 28px;background:#f7fffe">
-  <div><div style="font-size:10px;color:#888;margin-bottom:4px">صادر من</div><div style="font-size:14px;font-weight:700">${s.name||'الاستوديو'}</div>${s.phone?`<div style="font-size:11px;color:#555;margin-top:2px">📞 ${s.phone}</div>`:''}</div>
+  <div><div style="font-size:10px;color:#888;margin-bottom:4px">صادر من</div><div style="font-size:14px;font-weight:700">${s.name||'العمل'}</div>${s.phone?`<div style="font-size:11px;color:#555;margin-top:2px">📞 ${s.phone}</div>`:''}</div>
   <div style="text-align:left"><div style="font-size:10px;color:#888;margin-bottom:4px">بيانات الإيصال</div><div style="font-size:13px;font-weight:700">رقم: ${receiptNum}</div><div style="font-size:11px;color:#555;margin-top:3px">التاريخ: ${dateStr}</div></div>
 </div>
 <div style="margin:0 28px 24px;background:linear-gradient(135deg,#14141e,#1e1e30);border-radius:12px;padding:24px 28px;display:flex;justify-content:space-between;align-items:center">
@@ -6333,7 +6335,7 @@ function renderInvoices(){
   };
   tbody.innerHTML=S.invoices.map(inv=>`<tr>
     <td style="font-family:var(--mono);color:var(--accent);font-size:12px">${inv.num}</td>
-    <td>${inv.client}</td>
+    <td>${inv.client}${inv.parentClient?`<div style="font-size:10px;color:var(--text3);margin-top:1px">🏢 ${inv.parentClient}</div>`:''}</td>
     <td style="font-weight:700;color:var(--accent3)">${inv.total.toLocaleString()} ج</td>
     <td>${sm[inv.status]}</td>
     <td><div class="inv-actions">
@@ -6369,7 +6371,7 @@ function previewInv(id){
     <div class="invoice-print">
       <div style="display:flex;justify-content:space-between;margin-bottom:24px;align-items:flex-start">
         <div>${logo}<div style="font-size:26px;font-weight:900;color:var(--accent)">فاتورة</div><div style="font-size:11px;color:var(--text3);margin-top:4px">${inv.num} · ${inv.date||''}</div>
-          <div style="margin-top:10px;font-size:12px"><strong style="display:block;font-size:14px">${inv.from||s.name||'الاستوديو'}</strong>${s.phone?`📞 ${s.phone} `:''}${s.email?`✉ ${s.email}`:''}${s.address?`<br>${s.address}`:''}</div>
+          <div style="margin-top:10px;font-size:12px"><strong style="display:block;font-size:14px">${inv.from||s.name||'العمل'}</strong>${s.phone?`📞 ${s.phone} `:''}${s.email?`✉ ${s.email}`:''}${s.address?`<br>${s.address}`:''}</div>
         </div>
         <div style="text-align:left">
           <div style="font-size:11px;color:#888">صادرة إلى</div>
@@ -6443,7 +6445,7 @@ function exportPDF(id){
       <div style="display:flex;justify-content:space-between;padding:24px 28px;background:#fafafe">
         <div>
           <div style="font-size:11px;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">صادرة من</div>
-          <div style="font-size:15px;font-weight:700">${s.name||'الاستوديو'}</div>
+          <div style="font-size:15px;font-weight:700">${s.name||'العمل'}</div>
           ${s.phone?`<div style="font-size:12px;color:#555;margin-top:3px">📞 ${s.phone}</div>`:''}
           ${s.email?`<div style="font-size:12px;color:#555">✉ ${s.email}</div>`:''}
           ${s.address?`<div style="font-size:12px;color:#555">${s.address}</div>`:''}
@@ -6497,7 +6499,7 @@ function exportPDF(id){
       <!-- FOOTER -->
       <div style="background:#f5f3ff;padding:14px 28px;display:flex;justify-content:space-between;align-items:center;position:absolute;bottom:0;width:100%">
         <div style="font-size:11px;color:#9090b0">شكراً لتعاملكم معنا 🙏</div>
-        <div style="font-size:11px;color:#9090b0">${s.name||'الاستوديو'}${s.phone?' · '+s.phone:''}</div>
+        <div style="font-size:11px;color:#9090b0">${s.name||'العمل'}${s.phone?' · '+s.phone:''}</div>
       </div>
     </div>
     </body></html>`;
@@ -6980,7 +6982,7 @@ const PAGE_TITLES = {
   schedule:'تنظيم اليوم',  clients:'قاعدة العملاء',
   finance:'المالية',       invoices:'الفواتير والعقود',
   learning:'الأهداف والإنجازات', 'freelancer-goals':'الأهداف والإنجازات',
-  meetings:'الميتنج والاجتماعات', settings:'إعدادات الاستوديو',
+  meetings:'الميتنج والاجتماعات', settings:'إعدادات النظام',
   timetracker:'تتبع الوقت', contracts:'العقود الرقمية'
 };
 const PAGE_CTA = {
@@ -7787,7 +7789,7 @@ function updateUserBadge(user){
     }
   }
   const nd=document.getElementById('studio-name-disp');
-  if(nd) nd.textContent = user.name||'المصمم';
+  if(nd) nd.textContent = user.name||'صاحب العمل';
 }
 
 // initAuth kept for backup restore compat only
@@ -8023,8 +8025,8 @@ function renderProfileBody(user, users, tab='profile'){
           <input id="pe-name" value="${user.name||''}" placeholder="اسمك الكامل">
         </div>
         <div class="profile-field">
-          <label>اسم الاستوديو</label>
-          <input id="pe-studio" value="${user.studio||''}" placeholder="اسم الاستوديو">
+          <label>اسم العمل</label>
+          <input id="pe-studio" value="${user.studio||''}" placeholder="اسم العمل">
         </div>
         <div class="profile-field">
           <label>رقم الهاتف</label>
@@ -8420,7 +8422,7 @@ function doBackupNow(){
   const dateStr  = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
   const name     = (user?.name||'studio').replace(/\s+/g,'_');
   a.href         = url;
-  a.download     = `StudioOS_Backup_${name}_${dateStr}.json`;
+  a.download     = `Ordo_Backup_${name}_${dateStr}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -9064,7 +9066,7 @@ function renderTeamMembersForm(){
   }
   const roleIcon = {
     'كونتنت كريتور':'✍',
-    'مصمم جرافيك':'🎨',
+    'مستقل':'👤',
     'فيديو إديتور':'🎬',
     'مودريتور':'💬',
     'أخرى':'📌'
@@ -9135,7 +9137,7 @@ function renderTeams(){
     const badge = document.getElementById('team-badge'); if(badge) badge.style.display='none';
     return;
   }
-  const roleIcon = {'كونتنت كريتور':'✍','مصمم جرافيك':'🎨','فيديو إديتور':'🎬','مودريتور':'💬','أخرى':'📌'};
+  const roleIcon = {'كونتنت كريتور':'✍','مستقل':'👤','فيديو إديتور':'🎬','مودريتور':'💬','أخرى':'📌'};
   // Count total members
   const totalMembers = S.teams.reduce((s,t)=>s+t.members.length,0);
   const badge = document.getElementById('team-badge');
@@ -11051,7 +11053,7 @@ const CT_TEMPLATES={
 
 1. الخدمات: إنشاء وجدولة المحتوى، تصميم قوالب، الرد على التعليقات
 2. مدة العقد: شهري قابل للتجديد (إشعار 15 يوم للإنهاء)
-3. الالتزامات: العميل يزوّد بالمحتوى والصور في الوقت المناسب`,
+3. الالتزامات: يلتزم الطرف الثاني بتزويد المواد المطلوبة في الوقت المناسب`,
   video:`خدمات مونتاج وإخراج الفيديو:
 
 1. نطاق العمل: مونتاج وإخراج بمواصفات متفق عليها
@@ -12309,7 +12311,7 @@ function openAdminCreateUser(){
     '<input id="_acu-email" class="form-input" type="email" placeholder="user@example.com" dir="ltr"></div>' +
     '<div class="form-group"><label class="form-label">كلمة المرور *</label>' +
     '<input id="_acu-pass" class="form-input" type="password" placeholder="6 أحرف على الأقل"></div>' +
-    '<div class="form-group"><label class="form-label">اسم الاستوديو</label>' +
+    '<div class="form-group"><label class="form-label">اسم العمل</label>' +
     '<input id="_acu-studio" class="form-input" placeholder="اختياري"></div>' +
     '<div id="_acu-msg" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:12px"></div>' +
     '<button onclick="_adminCreateUser()" class="btn btn-primary" style="width:100%">✅ إنشاء الحساب</button>' +
