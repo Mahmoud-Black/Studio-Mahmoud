@@ -3601,8 +3601,12 @@ function savePlatformConfig() {
   _platformConfig.favicon     = document.getElementById('plt-favicon')?.value?.trim()  || '';
   _platformConfig.logo        = document.getElementById('plt-logo')?.value?.trim()     || '';
   _platformConfig.whatsapp    = document.getElementById('plt-whatsapp')?.value?.trim() || '201090412218';
+  _platformConfig._ts         = Date.now();
 
   localStorage.setItem('platform_config', JSON.stringify(_platformConfig));
+
+  // Save to Supabase so ALL users get the config (not just same-browser)
+  _savePlatformConfigToSupabase(_platformConfig);
 
   // Apply to admin UI
   document.title = _platformConfig.name + ' — لوحة الإدارة';
@@ -3616,12 +3620,32 @@ function savePlatformConfig() {
   if(_platformConfig.mode)   document.documentElement.classList.toggle('light-mode', _platformConfig.mode === 'light');
 
   logActivity('إعدادات المنصة', `تم حفظ إعدادات المنصة: ${_platformConfig.name}`, 'var(--accent3)');
+  toast('✅ تم حفظ إعدادات المنصة — يُطبَّق على جميع المستخدمين');
+}
 
-  // أبلّغ أي نافذة مفتوحة لنفس الـ origin (index.html) بالتحديث فوراً
-  // localStorage 'storage' event يُطلَق فقط في النوافذ الأخرى تلقائياً
-  // لكن نضيف timestamp لضمان إعادة القراءة
-  _platformConfig._ts = Date.now();
-  localStorage.setItem('platform_config', JSON.stringify(_platformConfig));
+async function _savePlatformConfigToSupabase(cfg) {
+  try {
+    // Save to a public platform_settings table (one global row)
+    const payload = {
+      id: 1, // always row ID 1 (single global config)
+      config: JSON.stringify(cfg),
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await supa.from('platform_settings').upsert(payload, { onConflict: 'id' });
+    if(error) {
+      // Table might not exist yet — show SQL to create it
+      console.warn('platform_settings save failed:', error.message);
+      if(error.code === '42P01') {
+        toast('⚠ جدول platform_settings غير موجود — راجع التعليمات أدناه', 5000);
+        console.log('Run this SQL in Supabase:\nCREATE TABLE platform_settings (\n  id int PRIMARY KEY DEFAULT 1,\n  config jsonb,\n  updated_at timestamptz\n);\nALTER TABLE platform_settings DISABLE ROW LEVEL SECURITY;');
+      }
+    } else {
+      console.log('✅ Platform config saved to Supabase');
+    }
+  } catch(e) {
+    console.warn('Platform config Supabase save exception:', e.message);
+  }
+}
 
   // حدّث الأدمن نفسه
   if(_platformConfig.name) {
