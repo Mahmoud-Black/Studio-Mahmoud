@@ -3647,15 +3647,6 @@ async function _savePlatformConfigToSupabase(cfg) {
   }
 }
 
-  // حدّث الأدمن نفسه
-  if(_platformConfig.name) {
-    document.title = _platformConfig.name + ' — لوحة الإدارة';
-    document.querySelectorAll('[data-platform-name]').forEach(el => { el.textContent = _platformConfig.name; });
-  }
-
-  toast('✅ تم حفظ إعدادات المنصة — يُطبَّق على الموقع فور فتحه أو بعد ثانيتين');
-}
-
 // Apply saved config on load
 (function applyAdminConfig() {
   const cfg = _platformConfig;
