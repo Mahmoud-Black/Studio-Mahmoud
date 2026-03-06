@@ -43,7 +43,7 @@ function applyPlatformConfig() {
   if(_isEmail(cfgName)) cfgName = '';
   const name = cfgName || 'Ordo - Tasks';
 
-  // PLATFORM logo = admin-set cfg.logo (sidebar), favicon = cfg.favicon
+  // PLATFORM logo = admin-set
   let _rawLogo = cfg.logo || ''; let _rawFav = cfg.favicon || '';
   if(_rawLogo === '__b64_logo__') _rawLogo = localStorage.getItem('platform_logo_b64') || '';
   if(_rawFav === '__b64_favicon__') _rawFav = localStorage.getItem('platform_favicon_b64') || '';
@@ -59,7 +59,6 @@ function applyPlatformConfig() {
     const wrap = document.getElementById('_logo-mark-wrap');
     if(wrap){ wrap.style.width='auto'; wrap.style.height='auto'; wrap.style.maxWidth='150px'; wrap.style.background='transparent'; wrap.style.borderRadius='0'; }
     // Name text stays visible beside logo
-    // const logoText = document.querySelector('.logo-text'); logoText hidden removed
   } else if(imgEl){
     imgEl.style.display = 'none';
     if(hexEl) hexEl.style.display = 'flex';
@@ -69,7 +68,7 @@ function applyPlatformConfig() {
     if(logoText) logoText.style.display = '';
   }
 
-  // Auth screen: platform logo (same as sidebar)
+  // Auth screen: platform logo
   const authLogoMark = document.querySelector('.auth-logo-mark');
   const _authSrc = platformLogo || favicon;
   if(authLogoMark && _authSrc){
@@ -7149,7 +7148,7 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     id       : supaUser.id,
     supaId   : supaUser.id,
     email    : supaUser.email || '',
-    name     : userMeta?.name  || meta.full_name || meta.name || (typeof S!=='undefined'&&S.settings?.name)||localStorage.getItem('studioName')||supaUser?.email?.split('@')[0]||data?.user?.email?.split('@')[0]||'',
+    name     : userMeta?.name  || meta.full_name || meta.name || (typeof S!=='undefined'&&S.settings?.name)||localStorage.getItem('studioName')||'Ordo - Tasks',
     phone    : userMeta?.phone || meta.phone || '',
     studio   : userMeta?.studio || meta.studio || '',
     avatarUrl: meta.avatarUrl || meta.avatar_url || meta.picture || ''
@@ -7165,12 +7164,23 @@ async function loginWithSupaSession(supaUser, session, userMeta){
   if(cloudData){
     S = cloudData;
     migrateSFields();
+    // Apply admin-set name/studio/phone if admin updated the user
+    if(S._admin_updated && S._admin_name) {
+      S.settings = S.settings || {};
+      S.settings.name   = S._admin_name;
+      S.settings.studio = S._admin_studio || S._admin_name;
+      S.settings.phone  = S._admin_phone  || S.settings.phone || '';
+      // Update userObj too so badge shows correct name
+      userObj.name   = S._admin_name;
+      userObj.studio = S._admin_studio || S._admin_name;
+      // Clear flags after applying
+      delete S._admin_updated; delete S._admin_name;
+      delete S._admin_studio;  delete S._admin_phone;
+    }
     localStorage.setItem('studioOS_v3_'+supaUser.id, JSON.stringify(S));
-    // Apply studio name immediately after S loads
     applyPlatformConfig();
   } else {
     lsLoad(); // fallback: local
-    // إذا مفيش بيانات محلية كمان، ابدأ بيانات جديدة
   }
 
   if(!S.settings.name && userObj.name){
@@ -7178,7 +7188,6 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     S.settings.phone = userObj.phone;
     cloudSave(S);
   } else if(S.settings.name) {
-    // حفظ الإيميل في الإعدادات علشان الأدمن يشوفه
     if(!S.settings.email && userObj.email) {
       S.settings.email = userObj.email;
       cloudSave(S);
@@ -10299,7 +10308,7 @@ supa.auth.onAuthStateChange(async (event, session) => {
       id    : session.user.id,
       supaId: session.user.id,
       email : session.user.email || '',
-      name  : meta.full_name || meta.name || (typeof S!=='undefined'&&S.settings?.name)||localStorage.getItem('studioName')||supaUser?.email?.split('@')[0]||data?.user?.email?.split('@')[0]||'',
+      name  : meta.full_name || meta.name || (typeof S!=='undefined'&&S.settings?.name)||localStorage.getItem('studioName')||'Ordo - Tasks',
       phone : meta.phone  || '',
       studio: meta.studio || (meta.full_name ? meta.full_name + ' Studio' : ''),
       avatarUrl: meta.avatarUrl || meta.avatar_url || meta.picture || ''
