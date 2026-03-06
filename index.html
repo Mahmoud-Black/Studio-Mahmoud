@@ -34,6 +34,11 @@ let _syncTimer = null;
 
 // ── Platform Name Sync ──
 function applyPlatformConfig() {
+  // Clear any stored email from display name
+  const storedDN = localStorage.getItem('_studioDisplayName')||'';
+  if(storedDN && (storedDN.includes('@') || storedDN.match(/^[0-9]/))) {
+    localStorage.removeItem('_studioDisplayName');
+  }
   // Update sidebar logo with studio logo if available
   const studioLogo = (typeof S !== 'undefined' && S.settings?.logo) ? S.settings.logo : '';
   const imgEl = document.getElementById('_sidebar-logo-img');
@@ -59,8 +64,19 @@ function applyPlatformConfig() {
 
   const cfg = JSON.parse(localStorage.getItem('platform_config') || '{}');
   // Priority: S.settings.name (from cloud) > platform_config > default
-  const cloudStudioName = (typeof S !== 'undefined' && S?.settings?.name) ? S.settings.name : '';
-  const name = cloudStudioName || cfg.name || 'Studio OS';
+  // Never show an email address as the studio name
+  let cloudStudioName = (typeof S !== 'undefined' && S?.settings?.name) ? S.settings.name : '';
+  // Never show email addresses as studio name
+  const _isEmail = v => v && (v.includes('@') || /^[^@]+@[^@]+\.[^@]+$/.test(v));
+  if(_isEmail(cloudStudioName)) cloudStudioName = '';
+  let cfgName = cfg.name || '';
+  if(_isEmail(cfgName)) cfgName = '';
+  const savedName = localStorage.getItem('_studioDisplayName') || '';
+  let studioField = (typeof S !== 'undefined' && S?.settings?.studio) || '';
+  if(_isEmail(studioField)) studioField = '';
+  const name = cloudStudioName || cfgName || savedName || studioField || 'Studio OS';
+  // Persist the best name we have so auth page shows it even before S loads
+  if(cloudStudioName || cfgName) localStorage.setItem('_studioDisplayName', cloudStudioName || cfgName);
   const favicon = cfg.favicon || '';
   // Update title
   document.title = name + ' — نظام الاستوديو';
@@ -1702,6 +1718,11 @@ setTimeout(window._showApp, 4000);
   </button>
   <div class="header-page-title" id="header-page-title">لوحة التحكم</div>
   <div class="header-actions">
+    <!-- Notifications Bell -->
+    <button id="_notif-bell-btn" onclick="_toggleNotifPanel(this)" style="position:relative;width:34px;height:34px;border-radius:10px;background:var(--surface2);border:1.5px solid var(--border);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s" title="الإشعارات">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span id="_notif-dot" style="display:none;position:absolute;top:5px;right:5px;width:8px;height:8px;background:var(--accent4);border-radius:50%;border:2px solid var(--surface)"></span>
+    </button>
     <button class="btn btn-primary btn-sm" id="header-cta" onclick="openTaskModal()" style="display: inline-flex;">+ مهمة جديدة</button>
     <!-- Profile Avatar Button -->
     <button id="_header-avatar-btn" onclick="_toggleProfileMenu(this)" style="width:34px;height:34px;border-radius:50%;overflow:hidden;border:2px solid var(--border);background:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;padding:0;transition:.18s;position:relative" title="الملف الشخصي">
@@ -4040,8 +4061,14 @@ function openM(id){document.getElementById(id).classList.add('open');}
 function closeM(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 function confirmDel(msg,cb){
-  document.getElementById('confirm-msg').textContent=msg;
-  document.getElementById('confirm-btn').onclick=()=>{cb();closeM('modal-confirm');};
+  const msgEl = document.getElementById('confirm-msg');
+  const btnEl = document.getElementById('confirm-btn');
+  if(!msgEl||!btnEl){ if(window.confirm(msg)) cb(); return; }
+  msgEl.textContent=msg;
+  // Replace button to remove old event listeners
+  const newBtn = btnEl.cloneNode(true);
+  btnEl.parentNode.replaceChild(newBtn, btnEl);
+  newBtn.onclick = function(){ cb(); closeM('modal-confirm'); };
   openM('modal-confirm');
 }
 
@@ -4856,13 +4883,21 @@ function openTaskDetail(id){
         : `<button class="btn btn-ghost btn-sm" onclick="closeM('modal-task-detail');completeTask(${t.id})">↩ إلغاء الإكمال</button>`
       }
       ${!t.done ? `
-      <select onchange="if(this.value){changeTaskStatus(${t.id},this.value);closeM('modal-task-detail')}" style="height:36px;padding:0 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font);font-size:12px;cursor:pointer" title="تغيير الحالة">
+      <select id="td-status-sel" onchange="if(this.value){changeTaskStatus(${t.id},this.value);closeM('modal-task-detail')}" style="height:36px;padding:0 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font);font-size:12px;cursor:pointer" title="تغيير الحالة">
         <option value="">⚡ تغيير الحالة</option>
-        ${t.status!=='new'?'<option value="new">جديد</option>':''}
-        ${t.status!=='progress'?'<option value="progress">قيد التنفيذ</option>':''}
-        ${t.status!=='review'?'<option value="review">مراجعة</option>':''}
-        ${t.status!=='paused'?'<option value="paused">⏸ موقوف مؤقتاً</option>':''}
-      </select>` : ''}
+        ${(()=>{
+          const hidden=S.hiddenStatuses||[];
+          const custom=S.customStatuses||[];
+          const defaults=[
+            {id:'new',label:'📋 جديد'},{id:'progress',label:'⚡ قيد التنفيذ'},
+            {id:'review',label:'🔍 مراجعة'},{id:'paused',label:'⏸ موقوف مؤقتاً'}
+          ];
+          const defOpts=defaults.filter(x=>!hidden.includes(x.id)&&x.id!==t.status).map(x=>`<option value="${x.id}">${x.label}</option>`).join('');
+          const cusOpts=custom.filter(x=>x.id!==t.status).map(x=>`<option value="${x.id}">${x.icon||''} ${x.label}</option>`).join('');
+          return defOpts+cusOpts+'<option value="done">✅ تحديد كمكتملة</option>';
+        })()}
+      </select>` : `
+      <button onclick="changeTaskStatus(${t.id},'progress');closeM('modal-task-detail')" class="btn btn-ghost btn-sm">↺ إعادة فتح المهمة</button>`}
       <button class="btn btn-ghost" onclick="closeM('modal-task-detail');openInvoiceFromTask(${JSON.stringify(t).replace(/"/g,'&quot;')})">◻ إصدار فاتورة</button>
       <button class="btn btn-sm" style="background:#25D366;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:var(--font)" onclick="openWaModal('task',null,${t.id})">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
@@ -4986,7 +5021,8 @@ function saveTask(){
   };
   if(eid){const i=S.tasks.findIndex(t=>t.id==eid);if(i>-1){d.id=+eid;d.done=S.tasks[i].done;d.paymentCollected=S.tasks[i].paymentCollected||false;d.steps=mergeSteps(S.tasks[i].steps||[],steps);S.tasks[i]=d;}}
   else{ if(!checkLimit('max_tasks', S.tasks.length)) return; d.id=Date.now();S.tasks.push(d);}
-  lsSave();closeM('modal-task');renderAll();
+  lsSave(); cloudSave(S); closeM('modal-task');
+  setTimeout(()=>{ renderAll(); buildDynamicStatusDropdowns(); }, 30);
   // Prompt to register deposit as income for new tasks with deposit
   const payVal = v('t-pay');
   const depositVal = +(v('t-deposit'))||0;
@@ -5157,9 +5193,18 @@ function renderTasks(){
     el.dataset.priority = p;
     const items=filtered.filter(t=>t.priority===p&&!t.done);
     el.innerHTML=items.length?items.map(t=>{
-      const stMap={new:'📋 جديد',progress:'⚡ جاري',review:'🔍 مراجعة',paused:'⏸ موقوف',done:'✅ مكتمل'};
-      const stColor={new:'var(--text3)',progress:'var(--accent2)',review:'var(--accent)',paused:'#64b5f6',done:'var(--accent3)'};
       const st=t.status||'new';
+      const _ov=S.statusOverrides||{};
+      const stMap={
+        new: '📋 '+(_ov.new?.label||'جديد'),
+        progress:'⚡ '+(_ov.progress?.label||'جاري'),
+        review:'🔍 '+(_ov.review?.label||'مراجعة'),
+        paused:'⏸ '+(_ov.paused?.label||'موقوف'),
+        done:'✅ مكتمل'
+      };
+      (S.customStatuses||[]).forEach(cs=>{ stMap[cs.id]=(cs.icon||'')+(cs.icon?' ':'')+cs.label; });
+      const stColor={new:'var(--text3)',progress:'var(--accent2)',review:'var(--accent)',paused:'#64b5f6',done:'var(--accent3)'};
+      (S.customStatuses||[]).forEach(cs=>{ stColor[cs.id]=cs.color||'var(--accent)'; });
       const stepsTotal=t.steps?t.steps.length:0;
       const stepsDone=t.steps?t.steps.filter(s=>s.done).length:0;
       const pct=stepsTotal?Math.round(stepsDone/stepsTotal*100):0;
@@ -6287,7 +6332,10 @@ function saveGoal(){
   const d={title,cat:v('g-cat'),deadline:v('g-deadline'),progress,done:progress===100};
   if(eid){const i=S.goals.findIndex(g=>g.id==eid);if(i>-1){d.id=+eid;d.done=S.goals[i].done||progress===100;S.goals[i]=d;}}
   else{d.id=Date.now();S.goals.push(d);}
-  lsSave();closeM('modal-goal');renderAll();
+  lsSave(); cloudSave(S); closeM('modal-goal');
+  renderGoals();
+  if(document.getElementById('page-freelancer-goals')?.classList.contains('active')) renderFgLearning();
+  updateDash();
 }
 function delGoal(id){confirmDel('هل تريد حذف هذا الهدف؟',()=>{S.goals=S.goals.filter(g=>g.id!==id);lsSave();renderAll();});}
 function toggleGoalDone(id){
@@ -6696,6 +6744,10 @@ function renderAll(){
   renderMeetings();renderCourses();renderDashTeamPay();renderDashKanbanMini();renderDashMeetings();
   renderSalaryReminders();renderFollowupReminders();
   renderTimeTracker();renderContractsList();
+  // Refresh freelancer goals page if active
+  if(document.getElementById('page-freelancer-goals')?.classList.contains('active')){
+    renderFreelancerGoalsPage();
+  }
 }
 
 // ============================================================
@@ -6939,7 +6991,7 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     id       : supaUser.id,
     supaId   : supaUser.id,
     email    : supaUser.email || '',
-    name     : userMeta?.name  || meta.full_name || meta.name || supaUser.email || '',
+    name     : userMeta?.name  || meta.full_name || meta.name || (typeof S!=='undefined'&&S.settings?.name)||localStorage.getItem('studioName')||'Studio OS',
     phone    : userMeta?.phone || meta.phone || '',
     studio   : userMeta?.studio || meta.studio || '',
     avatarUrl: meta.avatarUrl || meta.avatar_url || meta.picture || ''
@@ -9378,38 +9430,69 @@ function addCustomStatus(){
   if(!S.customStatuses) S.customStatuses=[];
   S.customStatuses.push({id,label,color,icon});
   lsSave();
+  cloudSave(S);
   renderTaskStatusesSettings();
   buildDynamicStatusDropdowns();
-  document.getElementById('new-status-label').value='';
-  document.getElementById('new-status-icon').value='';
-  showMiniNotif('✅ تمت إضافة الحالة: '+label);
+  renderAll();
+  const lbl=document.getElementById('new-status-label'); if(lbl) lbl.value='';
+  const ico=document.getElementById('new-status-icon');  if(ico) ico.value='';
+  if(typeof showMiniNotif==='function') showMiniNotif('✅ تمت إضافة الحالة: '+label);
+  else if(typeof toast==='function') toast('✅ تمت إضافة الحالة: '+label);
 }
 
 function delCustomStatus(i){
   confirmDel('هل تريد حذف هذه الحالة؟',()=>{
+    if(!S.customStatuses||!S.customStatuses[i]) return;
     S.customStatuses.splice(i,1);
-    lsSave(); renderTaskStatusesSettings(); buildDynamicStatusDropdowns();
+    lsSave(); cloudSave(S);
+    renderTaskStatusesSettings();
+    buildDynamicStatusDropdowns();
+    renderAll();
   });
 }
 
 function buildDynamicStatusDropdowns(){
   const hidden = S.hiddenStatuses||[];
   const custom = S.customStatuses||[];
+  const overrides = S.statusOverrides||{};
+  // Use override labels if set
   const defaultMap = {
-    new:'📋 جديد', progress:'⚡ قيد التنفيذ', review:'🔍 مراجعة', paused:'⏸ موقوف'
+    new:      (overrides.new?.label      || '📋 جديد'),
+    progress: (overrides.progress?.label || '⚡ قيد التنفيذ'),
+    review:   (overrides.review?.label   || '🔍 مراجعة'),
+    paused:   (overrides.paused?.label   || '⏸ موقوف'),
   };
-  ['t-status','tf-status'].forEach(selId=>{
-    const sel = document.getElementById(selId); if(!sel) return;
-    const cur = sel.value;
-    // Rebuild options: defaults (filtered) + custom
-    const filterPrefix = selId==='tf-status' ? '<option value="">كل الحالات</option>' : '';
-    const defaultOpts = Object.entries(defaultMap)
-      .filter(([id])=>!hidden.includes(id))
-      .map(([id,lbl])=>`<option value="${id}">${lbl}</option>`).join('');
-    const customOpts = custom.map(s=>`<option value="${s.id}">${s.icon||''} ${s.label}</option>`).join('');
-    sel.innerHTML = filterPrefix + defaultOpts + customOpts;
-    if(cur) sel.value = cur;
+  // Build options strings
+  const defaultOpts = Object.entries(defaultMap)
+    .filter(([id])=>!hidden.includes(id))
+    .map(([id,lbl])=>`<option value="${id}">${lbl}</option>`).join('');
+  const customOpts = custom.map(s=>`<option value="${s.id}">${s.icon||''} ${s.label}</option>`).join('');
+  const doneOpt = '<option value="done">✅ مكتمل</option>';
+  const allOpts = defaultOpts + customOpts + doneOpt;
+
+  // Update task create/edit modal status (t-status)
+  const tSel = document.getElementById('t-status');
+  if(tSel){ const cur=tSel.value; tSel.innerHTML=allOpts; if(cur) tSel.value=cur; }
+
+  // Update task filter status (tf-status)
+  const tfSel = document.getElementById('tf-status');
+  if(tfSel){ const cur=tfSel.value; tfSel.innerHTML='<option value="">كل الحالات</option>'+allOpts; if(cur)tfSel.value=cur; }
+
+  // Update task detail status select if open
+  const tdSel = document.getElementById('td-status-sel');
+  if(tdSel){ const cur=tdSel.value; tdSel.innerHTML=allOpts; if(cur) tdSel.value=cur; }
+
+  // Update any other status selects in modals
+  document.querySelectorAll('select[data-status-sel]').forEach(sel=>{
+    const cur=sel.value;
+    sel.innerHTML=allOpts;
+    if(cur) sel.value=cur;
   });
+
+  // Rebuild kanban columns
+  if(typeof renderTasks==='function') setTimeout(function(){ renderTasks(); }, 60);
+  // Also rebuild custom kanban columns
+  if(typeof _renderCustomKanbanCols==='function') setTimeout(_renderCustomKanbanCols, 80);
 }
 
 // ============================================================
@@ -10025,17 +10108,34 @@ supa.auth.onAuthStateChange(async (event, session) => {
     return;
   }
 
-  // INITIAL_SESSION أو SIGNED_IN — نفس المعاملة
+  // SIGNED_IN أو INITIAL_SESSION — نفس المعاملة
   if((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session && session.user){
-    // لو بالفعل initialized بالكامل — مش محتاج نعمل حاجة
+    // لو بالفعل initialized بنفس المستخدم — مش محتاج نعمل حاجة
     if(_supaUserId === session.user.id && _authInitialized) return;
+    // لو فيه مستخدم تاني logged in في tab تاني — ignore
+    const existingSession = getSession();
+    if(existingSession && existingSession.id && existingSession.id !== session.user.id && _authInitialized){
+      console.warn('Session conflict: ignoring auth change for different user');
+      return;
+    }
+
+    // FIX: Check if this login was manually triggered by the user
+    // If admin is logged into admin dashboard in another tab and this tab isn't the source, skip auto-login
+    const storedAdminSession = localStorage.getItem('_admin_active_session');
+    const isAdminTabSession  = (session.user.user_metadata?.role === 'admin' || session.user.user_metadata?.is_admin === true);
+    if(isAdminTabSession && event === 'INITIAL_SESSION' && storedAdminSession === 'admin_dash_only'){
+      // Admin session from another tab — show auth screen instead of auto-login
+      const authScreen = document.getElementById('auth-screen');
+      if(authScreen && !_supaUserId){ authScreen.classList.remove('hidden'); }
+      return;
+    }
 
     const meta = session.user.user_metadata || {};
     const userObj = {
       id    : session.user.id,
       supaId: session.user.id,
       email : session.user.email || '',
-      name  : meta.full_name || meta.name || session.user.email || '',
+      name  : meta.full_name || meta.name || (typeof S!=='undefined'&&S.settings?.name)||localStorage.getItem('studioName')||'Studio OS',
       phone : meta.phone  || '',
       studio: meta.studio || (meta.full_name ? meta.full_name + ' Studio' : ''),
       avatarUrl: meta.avatarUrl || meta.avatar_url || meta.picture || ''
@@ -11040,7 +11140,16 @@ window.addEventListener('load', function(){
   renderAll = function(){
     _ra();
     renderDashWidgets();
-    if(document.getElementById('page-freelancer-goals')?.classList.contains('active')) renderFgBanner();
+    var fgPage = document.getElementById('page-freelancer-goals');
+    if(fgPage && fgPage.classList.contains('active')){
+      renderFgBanner();
+      // refresh active fg tab
+      var activeChip = fgPage.querySelector('.filter-chip.active');
+      var activeTab = activeChip ? activeChip.id.replace('fg-tab-','').replace('fin','financial').replace('tasks','tasks').replace('learn','learning') : 'financial';
+      if(activeTab==='fin') activeTab='financial';
+      if(activeTab==='learn') activeTab='learning';
+      setTimeout(function(){ switchFgTab(activeTab); }, 30);
+    }
   };
 });
 
@@ -11357,9 +11466,238 @@ window.addEventListener('load', function(){
 });
 
 // ═══════════════════════════════════════════════════
-// Timer fixed in original ttStop function above
+// DASHBOARD PRESET LAYOUTS
 // ═══════════════════════════════════════════════════
-// DASHBOARD CUSTOMIZABLE WIDGETS SYSTEM - CLEAN REWRITE
+var _DASH_PRESETS_MAP = {
+  default: [
+    {id:'stats',       visible:true,  row:0, full:true},
+    {id:'overdue',     visible:true,  row:1, full:false},
+    {id:'subs',        visible:true,  row:1, full:false},
+    {id:'kanban',      visible:true,  row:2, full:false},
+    {id:'uncollected', visible:true,  row:2, full:false},
+    {id:'team',        visible:true,  row:3, full:false},
+    {id:'teampay',     visible:true,  row:3, full:false},
+    {id:'tasks',       visible:true,  row:4, full:false},
+    {id:'schedule',    visible:true,  row:4, full:false},
+    {id:'invoices',    visible:true,  row:5, full:false},
+    {id:'goals',       visible:true,  row:5, full:false},
+    {id:'meetings',    visible:true,  row:6, full:true},
+  ],
+  compact: [
+    {id:'stats',       visible:true,  row:0, full:true},
+    {id:'kanban',      visible:true,  row:1, full:false},
+    {id:'overdue',     visible:true,  row:1, full:false},
+    {id:'tasks',       visible:true,  row:2, full:true},
+    {id:'schedule',    visible:false, row:3, full:false},
+    {id:'subs',        visible:false, row:3, full:false},
+    {id:'uncollected', visible:false, row:4, full:false},
+    {id:'team',        visible:false, row:4, full:false},
+    {id:'teampay',     visible:false, row:5, full:false},
+    {id:'invoices',    visible:false, row:5, full:false},
+    {id:'goals',       visible:false, row:6, full:false},
+    {id:'meetings',    visible:false, row:6, full:true},
+  ],
+  finance: [
+    {id:'stats',       visible:true,  row:0, full:true},
+    {id:'invoices',    visible:true,  row:1, full:false},
+    {id:'uncollected', visible:true,  row:1, full:false},
+    {id:'teampay',     visible:true,  row:2, full:false},
+    {id:'subs',        visible:true,  row:2, full:false},
+    {id:'kanban',      visible:false, row:3, full:false},
+    {id:'overdue',     visible:false, row:3, full:false},
+    {id:'tasks',       visible:false, row:4, full:false},
+    {id:'schedule',    visible:false, row:4, full:false},
+    {id:'team',        visible:false, row:5, full:false},
+    {id:'goals',       visible:false, row:5, full:false},
+    {id:'meetings',    visible:false, row:6, full:true},
+  ],
+  team: [
+    {id:'stats',       visible:true,  row:0, full:true},
+    {id:'team',        visible:true,  row:1, full:false},
+    {id:'teampay',     visible:true,  row:1, full:false},
+    {id:'kanban',      visible:true,  row:2, full:true},
+    {id:'meetings',    visible:true,  row:3, full:true},
+    {id:'overdue',     visible:false, row:4, full:false},
+    {id:'subs',        visible:false, row:4, full:false},
+    {id:'uncollected', visible:false, row:5, full:false},
+    {id:'tasks',       visible:false, row:5, full:false},
+    {id:'schedule',    visible:false, row:6, full:false},
+    {id:'invoices',    visible:false, row:6, full:false},
+    {id:'goals',       visible:false, row:7, full:false},
+  ],
+};
+
+function _applyDashPreset(name) {
+  var preset = _DASH_PRESETS_MAP[name] || _DASH_PRESETS_MAP.default;
+  _saveDashLayout(preset.map(function(w){ return {id:w.id,visible:w.visible,row:w.row,full:w.full}; }));
+  _dashEditMode = false;
+  var btn    = document.getElementById('_dash-edit-btn');
+  var banner = document.getElementById('_dash-edit-banner');
+  if(btn){ btn.style.borderColor='var(--border)'; btn.style.color='var(--text3)'; btn.style.background='var(--surface2)'; }
+  if(banner) banner.style.display='none';
+  _renderDashGrid();
+  if(typeof toast === 'function') toast('✅ تم تطبيق القالب');
+}
+
+// ═══════════════════════════════════════════════════
+// ADMIN: Create user account from admin dashboard
+// ═══════════════════════════════════════════════════
+function openAdminCreateUser(){
+  var modal = document.getElementById('_modal-admin-create-user');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = '_modal-admin-create-user';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = '<div class="modal" style="width:420px" id="_modal-admin-cu-inner"></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click',function(e){ if(e.target===modal) closeM('_modal-admin-create-user'); });
+  }
+  document.getElementById('_modal-admin-cu-inner').innerHTML =
+    '<div class="modal-header"><div class="modal-title">👤 إنشاء حساب مستخدم جديد</div>' +
+    '<button class="close-btn" onclick="closeM(\'_modal-admin-create-user\')">✕</button></div>' +
+    '<div style="padding:20px">' +
+    '<div class="form-group"><label class="form-label">الاسم الكامل *</label>' +
+    '<input id="_acu-name" class="form-input" placeholder="اسم المستخدم"></div>' +
+    '<div class="form-group"><label class="form-label">البريد الإلكتروني *</label>' +
+    '<input id="_acu-email" class="form-input" type="email" placeholder="user@example.com" dir="ltr"></div>' +
+    '<div class="form-group"><label class="form-label">كلمة المرور *</label>' +
+    '<input id="_acu-pass" class="form-input" type="password" placeholder="6 أحرف على الأقل"></div>' +
+    '<div class="form-group"><label class="form-label">اسم الاستوديو</label>' +
+    '<input id="_acu-studio" class="form-input" placeholder="اختياري"></div>' +
+    '<div id="_acu-msg" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:12px"></div>' +
+    '<button onclick="_adminCreateUser()" class="btn btn-primary" style="width:100%">✅ إنشاء الحساب</button>' +
+    '</div>';
+  openM('_modal-admin-create-user');
+}
+
+async function _adminCreateUser(){
+  var name   = document.getElementById('_acu-name')?.value.trim();
+  var email  = document.getElementById('_acu-email')?.value.trim();
+  var pass   = document.getElementById('_acu-pass')?.value;
+  var studio = document.getElementById('_acu-studio')?.value.trim();
+  var msg    = document.getElementById('_acu-msg');
+
+  if(!name||!email||!pass){ if(msg){msg.style.display='block';msg.style.background='rgba(247,111,124,.15)';msg.style.color='var(--accent4)';msg.textContent='⚠ يرجى ملء جميع الحقول المطلوبة';} return; }
+  if(pass.length < 6){ if(msg){msg.style.display='block';msg.style.background='rgba(247,111,124,.15)';msg.style.color='var(--accent4)';msg.textContent='⚠ كلمة المرور يجب أن تكون 6 أحرف على الأقل';} return; }
+
+  if(msg){msg.style.display='block';msg.style.background='rgba(124,111,247,.15)';msg.style.color='var(--accent)';msg.textContent='⏳ جاري إنشاء الحساب...';}
+
+  try {
+    // Use admin API if available, otherwise use regular signup
+    var result;
+    if(typeof supa !== 'undefined' && supa.auth.admin){
+      result = await supa.auth.admin.createUser({
+        email, password: pass,
+        user_metadata: { full_name: name, name, studio: studio||name+' Studio' },
+        email_confirm: true
+      });
+    } else {
+      // Fallback: create via regular signup
+      result = await supa.auth.signUp({
+        email, password: pass,
+        options: { data: { full_name: name, name, studio: studio||name+' Studio' } }
+      });
+    }
+
+    if(result.error){
+      if(msg){msg.style.background='rgba(247,111,124,.15)';msg.style.color='var(--accent4)';msg.textContent='❌ '+result.error.message;}
+      return;
+    }
+    if(msg){msg.style.background='rgba(79,209,165,.15)';msg.style.color='var(--accent3)';msg.textContent='✅ تم إنشاء الحساب بنجاح! الإيميل: '+email;}
+    setTimeout(function(){ closeM('_modal-admin-create-user'); }, 2000);
+    if(typeof toast === 'function') toast('✅ تم إنشاء حساب: '+name);
+  } catch(e){
+    if(msg){msg.style.background='rgba(247,111,124,.15)';msg.style.color='var(--accent4)';msg.textContent='❌ '+e.message;}
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// ADMIN: Send message to user
+// ═══════════════════════════════════════════════════
+function openAdminSendMessage(userId, userName){
+  var modal = document.getElementById('_modal-admin-msg');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = '_modal-admin-msg';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = '<div class="modal" style="width:420px" id="_modal-admin-msg-inner"></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click',function(e){ if(e.target===modal) closeM('_modal-admin-msg'); });
+  }
+  document.getElementById('_modal-admin-msg-inner').innerHTML =
+    '<div class="modal-header"><div class="modal-title">💬 رسالة إلى ' + (userName||'المستخدم') + '</div>' +
+    '<button class="close-btn" onclick="closeM(\'_modal-admin-msg\')">✕</button></div>' +
+    '<div style="padding:20px">' +
+    '<div class="form-group"><label class="form-label">العنوان</label>' +
+    '<input id="_amsg-title" class="form-input" placeholder="مثال: تحديث مهم"></div>' +
+    '<div class="form-group"><label class="form-label">نص الرسالة *</label>' +
+    '<textarea id="_amsg-body" class="form-input" rows="4" placeholder="اكتب رسالتك هنا..."></textarea></div>' +
+    '<div class="form-group"><label class="form-label">النوع</label>' +
+    '<select id="_amsg-type" class="form-select">' +
+    '<option value="info">ℹ معلومة</option>' +
+    '<option value="success">✅ إيجابي</option>' +
+    '<option value="warning">⚠ تحذير</option>' +
+    '<option value="message">💬 رسالة</option>' +
+    '</select></div>' +
+    '<button onclick="_adminSendMessage(\'' + (userId||'') + '\')" class="btn btn-primary" style="width:100%">💬 إرسال</button>' +
+    '</div>';
+  openM('_modal-admin-msg');
+}
+
+async function _adminSendMessage(userId){
+  var title = document.getElementById('_amsg-title')?.value.trim() || 'رسالة من الإدارة';
+  var body  = document.getElementById('_amsg-body')?.value.trim();
+  var type  = document.getElementById('_amsg-type')?.value || 'message';
+  if(!body){ toast('⚠ أدخل نص الرسالة'); return; }
+
+  try {
+    // Store notification in Supabase for the user to receive
+    if(typeof supa !== 'undefined'){
+      var notif = {
+        user_id: userId || null,
+        title, body, type,
+        created_at: new Date().toISOString(),
+        read: false
+      };
+      await supa.from('user_notifications').insert([notif]);
+    }
+    closeM('_modal-admin-msg');
+    if(typeof toast === 'function') toast('✅ تم إرسال الرسالة');
+  } catch(e){
+    if(typeof toast === 'function') toast('❌ '+e.message);
+  }
+}
+
+// Load notifications from Supabase (admin messages)
+async function _loadServerNotifications(){
+  if(!_supaUserId || typeof supa === 'undefined') return;
+  try {
+    var res = await supa.from('user_notifications')
+      .select('*')
+      .or('user_id.eq.'+_supaUserId+',user_id.is.null')
+      .order('created_at', {ascending:false})
+      .limit(30);
+    if(res.data && res.data.length){
+      res.data.forEach(function(n){
+        var exists = _notifications.find(function(x){ return x.id === 'srv_'+n.id; });
+        if(!exists){
+          _notifications.unshift({
+            id: 'srv_'+n.id, msg: (n.title ? n.title+': ' : '')+n.body,
+            type: n.type||'message', time: n.created_at, read: n.read||false
+          });
+        }
+      });
+      _saveNotifications();
+      _updateNotifBell();
+    }
+  } catch(e){ /* silent fail if table doesn't exist */ }
+}
+
+// Poll for new server notifications every 60s
+window.addEventListener('load', function(){
+  setTimeout(_loadServerNotifications, 3000);
+  setInterval(_loadServerNotifications, 60000);
+});
 // ═══════════════════════════════════════════════════
 
 var _dashEditMode = false;
@@ -11827,7 +12165,137 @@ function _toggleProfileMenu(triggerEl){
 window.addEventListener('load', function(){
   setTimeout(_updateHeaderAvatar, 1000);
   setInterval(_updateHeaderAvatar, 3000);
+  setTimeout(_initNotifications, 1500);
 });
+
+// ═══════════════════════════════════════════════════
+// NOTIFICATIONS SYSTEM
+// ═══════════════════════════════════════════════════
+var _notifications = [];
+
+function _loadNotifications(){
+  try{ _notifications = JSON.parse(localStorage.getItem('_notifs_v1')||'[]'); }catch(e){ _notifications=[]; }
+}
+
+function _saveNotifications(){
+  localStorage.setItem('_notifs_v1', JSON.stringify(_notifications.slice(0,50)));
+}
+
+function addNotification(msg, type, link){
+  _loadNotifications();
+  _notifications.unshift({
+    id: Date.now(),
+    msg: msg,
+    type: type||'info', // info, success, warning, error, message
+    link: link||'',
+    time: new Date().toISOString(),
+    read: false
+  });
+  _saveNotifications();
+  _updateNotifBell();
+}
+
+function _initNotifications(){
+  _loadNotifications();
+  _updateNotifBell();
+  // Check for auto-notifications (overdue tasks, subscriptions)
+  setTimeout(_checkAutoNotifications, 2000);
+  setInterval(_checkAutoNotifications, 5*60*1000); // every 5 min
+}
+
+function _checkAutoNotifications(){
+  if(typeof S === 'undefined') return;
+  var today = new Date().toISOString().split('T')[0];
+  var todayKey = 'notif_check_'+today;
+  if(localStorage.getItem(todayKey)) return;
+  localStorage.setItem(todayKey, '1');
+  // Overdue tasks
+  var overdue = (S.tasks||[]).filter(function(t){ return !t.done && t.deadline && t.deadline < today; });
+  if(overdue.length > 0){
+    addNotification('⚠ لديك ' + overdue.length + ' مهمة متأخرة عن موعدها', 'warning');
+  }
+  // Subscriptions expiring in 7 days
+  var soon = new Date(); soon.setDate(soon.getDate()+7);
+  var soonStr = soon.toISOString().split('T')[0];
+  var expiring = (S.subscriptions||[]).filter(function(s){ return s.nextDate && s.nextDate <= soonStr && s.nextDate >= today; });
+  if(expiring.length > 0){
+    addNotification('🔔 ' + expiring.length + ' اشتراك قريب من التجديد', 'info');
+  }
+}
+
+function _updateNotifBell(){
+  var unread = _notifications.filter(function(n){ return !n.read; }).length;
+  var dot = document.getElementById('_notif-dot');
+  if(dot) dot.style.display = unread > 0 ? 'block' : 'none';
+}
+
+function _toggleNotifPanel(triggerEl){
+  var existing = document.getElementById('_notif-panel');
+  if(existing){ existing.remove(); return; }
+  _loadNotifications();
+  // Mark all as read
+  _notifications.forEach(function(n){ n.read=true; });
+  _saveNotifications();
+  _updateNotifBell();
+
+  var ICONS = {info:'ℹ', success:'✅', warning:'⚠', error:'❌', message:'💬'};
+  var COLORS = {info:'var(--accent)', success:'var(--accent3)', warning:'var(--accent2)', error:'var(--accent4)', message:'#64b5f6'};
+
+  var panel = document.createElement('div');
+  panel.id = '_notif-panel';
+  panel.style.cssText = 'position:fixed;z-index:9998;background:var(--surface2);border:1px solid var(--border);border-radius:16px;width:320px;max-height:480px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 36px rgba(0,0,0,.35)';
+  var rect = triggerEl.getBoundingClientRect();
+  panel.style.top = (rect.bottom+8)+'px';
+  panel.style.left = Math.max(8, rect.left-260)+'px';
+
+  var listHtml = _notifications.length === 0
+    ? '<div style="text-align:center;padding:40px;color:var(--text3);font-size:13px">🔔<br>لا إشعارات جديدة</div>'
+    : _notifications.slice(0,20).map(function(n){
+        var ago = _timeAgo(n.time);
+        var icon = ICONS[n.type]||'ℹ';
+        var color = COLORS[n.type]||'var(--accent)';
+        return '<div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start">' +
+          '<span style="font-size:16px;margin-top:1px;flex-shrink:0">' + icon + '</span>' +
+          '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:12px;font-weight:600;color:var(--text)">' + n.msg + '</div>' +
+          '<div style="font-size:10px;color:var(--text3);margin-top:3px">' + ago + '</div></div></div>';
+      }).join('');
+
+  panel.innerHTML =
+    '<div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">' +
+    '<div style="font-size:13px;font-weight:800">🔔 الإشعارات</div>' +
+    '<button onclick="_clearAllNotifications()" style="font-size:10px;color:var(--accent);background:none;border:none;cursor:pointer;font-family:var(--font)">مسح الكل</button>' +
+    '</div>' +
+    '<div style="overflow-y:auto;flex:1">' + listHtml + '</div>';
+
+  document.body.appendChild(panel);
+  setTimeout(function(){
+    document.addEventListener('click', function _nc(e){
+      var p2 = document.getElementById('_notif-panel');
+      if(p2 && !p2.contains(e.target) && !triggerEl.contains(e.target)){
+        p2.remove(); document.removeEventListener('click',_nc);
+      }
+    });
+  }, 100);
+}
+
+function _clearAllNotifications(){
+  _notifications = [];
+  _saveNotifications();
+  _updateNotifBell();
+  var p = document.getElementById('_notif-panel'); if(p) p.remove();
+}
+
+function _timeAgo(isoStr){
+  var diff = Date.now() - new Date(isoStr).getTime();
+  var mins = Math.floor(diff/60000);
+  if(mins < 1) return 'الآن';
+  if(mins < 60) return 'منذ ' + mins + ' دقيقة';
+  var hrs = Math.floor(mins/60);
+  if(hrs < 24) return 'منذ ' + hrs + ' ساعة';
+  var days = Math.floor(hrs/24);
+  return 'منذ ' + days + ' يوم';
+}
 
 // ═══════════════════════════════════════════════════
 (function(){
@@ -12716,12 +13184,13 @@ function _smgrToggleHide(id){
 }
 function _smgrDelete(id){
   const count=(S.tasks||[]).filter(t=>t.status===id).length;
-  const msg=count>0?`هذه الحالة مستخدمة في ${count} مهمة — ستنتقل لحالة "جديد"`:'هل تريد حذف هذه الحالة؟';
-  confirmDel(msg,()=>{
-    if(count>0)(S.tasks||[]).forEach(t=>{if(t.status===id)t.status='new';});
-    S.customStatuses=(S.customStatuses||[]).filter(s=>s.id!==id);
-    lsSave();_renderStatusMgrModal();buildDynamicStatusDropdowns();renderAll();
-  });
+  const msg=count>0?`هذه الحالة مستخدمة في ${count} مهمة. ستنتقل لحالة "جديد". هل تريد الحذف؟`:'هل تريد حذف هذه الحالة؟';
+  // Use window.confirm as direct dialog to avoid modal blocking
+  if(!window.confirm(msg)) return;
+  if(count>0)(S.tasks||[]).forEach(t=>{if(t.status===id)t.status='new';});
+  S.customStatuses=(S.customStatuses||[]).filter(s=>s.id!==id);
+  lsSave(); cloudSave(S); _renderStatusMgrModal(); buildDynamicStatusDropdowns(); renderAll();
+  if(typeof toast==='function') toast('🗑 تم حذف الحالة');
 }
 function _smgrAddNew(){
   const icon=document.getElementById('_smgr-new-icon')?.value.trim()||'';
@@ -12730,10 +13199,9 @@ function _smgrAddNew(){
   if(!label){toast('أدخل اسم الحالة');return;}
   if(!S.customStatuses)S.customStatuses=[];
   S.customStatuses.push({id:'custom_'+Date.now(),label,color,icon});
-  lsSave();_renderStatusMgrModal();buildDynamicStatusDropdowns();
+  lsSave(); cloudSave(S); _renderStatusMgrModal(); buildDynamicStatusDropdowns();
   toast('✅ تمت إضافة الحالة: '+(icon?icon+' ':'')+label);
-  // Also add new kanban column
-  setTimeout(()=>{renderAll();},100);
+  setTimeout(()=>{ renderTasks(); _renderCustomKanbanCols(); },80);
 }
 
 // Patch renderKanban/applyTaskFilters to also render custom status columns
