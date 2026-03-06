@@ -1713,8 +1713,9 @@ setTimeout(window._showApp, 4000);
 
 <!-- TOP HEADER -->
 <header class="app-header">
-  <button class="header-toggle" id="sidebar-toggle" onclick="toggleSidebar()" aria-label="فتح القائمة">
-    <span id="toggle-icon">☰</span>
+  <button class="header-toggle" id="sidebar-toggle" onclick="toggleSidebar()" aria-label="فتح القائمة" style="display:flex;align-items:center;gap:8px;padding:6px 12px 6px 8px;border-radius:10px;min-width:0;max-width:180px">
+    <span id="toggle-icon" style="font-size:18px;flex-shrink:0">☰</span>
+    <span id="_header-studio-name" data-platform-name style="font-size:13px;font-weight:800;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px">Studio OS</span>
   </button>
   <div class="header-page-title" id="header-page-title">لوحة التحكم</div>
   <div class="header-actions">
@@ -6688,6 +6689,33 @@ function showToast(msg,dur=3000){
 // ============================================================
 // DASHBOARD
 // ============================================================
+var _WIDGET_DEFS = [
+  {id:'stats',       label:'📊 الإحصائيات',      full:true,  visible:true,  row:0},
+  {id:'overdue',     label:'⚠ مهام متأخرة',       full:false, visible:true,  row:1},
+  {id:'subs',        label:'🔔 اشتراكات قريبة',   full:false, visible:true,  row:1},
+  {id:'kanban',      label:'⚡ المهام النشطة',     full:false, visible:true,  row:2},
+  {id:'uncollected', label:'💸 مبالغ لم تُحصَّل', full:false, visible:true,  row:2},
+  {id:'team',        label:'👥 مهام الفريق',       full:false, visible:true,  row:3},
+  {id:'teampay',     label:'💰 مستحقات الفريق',   full:false, visible:true,  row:3},
+  {id:'tasks',       label:'📋 آخر المهام',        full:false, visible:true,  row:4},
+  {id:'schedule',    label:'🗓 جدول اليوم',        full:false, visible:true,  row:4},
+  {id:'invoices',    label:'🧾 فواتير معلقة',      full:false, visible:true,  row:5},
+  {id:'goals',       label:'🎯 أهداف التطوير',    full:false, visible:true,  row:5},
+  {id:'meetings',    label:'📅 الميتنجات',         full:true,  visible:true,  row:6},
+];
+
+function _getDashLayout(){
+  try{
+    var s = localStorage.getItem('_dLayout_v4');
+    if(s){ var p=JSON.parse(s); if(p&&p.length) return p; }
+  }catch(e){}
+  return _WIDGET_DEFS.map(function(w){ return {id:w.id,visible:w.visible,row:w.row,full:w.full}; });
+}
+
+function _saveDashLayout(layout){ localStorage.setItem('_dLayout_v4',JSON.stringify(layout)); }
+
+function _getDef(id){ return _WIDGET_DEFS.find(function(w){ return w.id===id; })||{id:id,label:id,full:false}; }
+
 function updateDash(){
   // Ensure dashboard grid is initialized
   const grid = document.getElementById('_dash-grid');
@@ -11036,21 +11064,11 @@ function renderDashWidgets(){
 }
 
 function _renderDashGoals(){
-  const pg = document.getElementById('page-dashboard');
-  if(!pg) return;
-  let el = document.getElementById('_dash-goals-wgt');
-  if(!el){
-    el = document.createElement('div');
-    el.id = '_dash-goals-wgt';
-    el.className = 'card';
-    el.style.cssText = 'margin-bottom:16px;border-color:rgba(124,111,247,.3)';
-    const meetings = pg.querySelector('#dash-meetings-shortcut');
-    const parent   = meetings ? meetings.closest('.card') : null;
-    if(parent) pg.insertBefore(el, parent);
-    else pg.appendChild(el);
-  }
+  // In the new dashboard system, goals widget is rendered inside _dash-grid
+  // Just update the goals list if it exists
+  const dgl = document.getElementById('dash-goals-list');
+  if(!dgl) return;
   const fg = S.freelancerGoals||{};
-  const now = new Date();
   let rows = '';
   if(fg.financial){
     const {target,month,year}=fg.financial;
@@ -11063,42 +11081,19 @@ function _renderDashGoals(){
       <div style="background:var(--surface3);border-radius:20px;height:7px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${col};border-radius:20px;transition:.5s"></div></div>
       <div style="font-size:11px;color:var(--text3);margin-top:2px">${actual.toLocaleString()} / ${target.toLocaleString()} ج</div>
     </div>`;
-  } else {
-    rows+=`<div style="font-size:12px;color:var(--text3);margin-bottom:8px">💰 <span style="color:var(--accent);cursor:pointer" onclick="openFreelancerGoalModal('financial')">حدد هدفك المالي</span></div>`;
   }
-  if(fg.tasks){
-    const {target,startDate,endDate}=fg.tasks;
-    const done=(S.tasks||[]).filter(t=>t.done&&t.doneAt>=startDate&&t.doneAt<=endDate).length;
-    const pct=Math.min(100,Math.round(done/(target||1)*100));
-    const col=pct>=100?'var(--accent3)':pct>=75?'var(--accent2)':'var(--accent)';
-    rows+=`<div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>📋 هدف الأوردرات</span><span style="font-weight:700;color:${col}">${pct}%</span></div>
-      <div style="background:var(--surface3);border-radius:20px;height:7px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${col};border-radius:20px;transition:.5s"></div></div>
-      <div style="font-size:11px;color:var(--text3);margin-top:2px">${done} / ${target} أوردر</div>
-    </div>`;
-  } else {
-    rows+=`<div style="font-size:12px;color:var(--text3)">📋 <span style="color:var(--accent);cursor:pointer" onclick="openFreelancerGoalModal('tasks')">حدد هدف الأوردرات</span></div>`;
+  const lt=(S.goals||[]).length, ld=(S.goals||[]).filter(g=>g.done||(g.progress||0)===100).length;
+  if(lt>0){
+    rows+=`<div style="font-size:12px;color:var(--text2)">◆ التعليمية: <span style="font-weight:700;color:var(--accent2)">${ld}/${lt}</span> مكتمل</div>`;
   }
-  el.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div class="section-title" style="margin:0;color:var(--accent)">🎯 أهدافي هذا الشهر</div>
-      <button onclick="showPage('freelancer-goals')" class="btn btn-ghost btn-sm" style="font-size:11px">تفاصيل ←</button>
-    </div>${rows}`;
+  if(!rows) rows = `<div style="font-size:12px;color:var(--text3)"><span style="color:var(--accent);cursor:pointer" onclick="showPage('freelancer-goals')">← حدد أهدافك</span></div>`;
+  dgl.innerHTML = rows;
 }
 
 function _renderDashTimer(){
-  const pg = document.getElementById('page-dashboard');
-  if(!pg) return;
+  // Timer widget - only update if the element already exists in the dash grid
   let el = document.getElementById('_dash-timer-wgt');
-  if(!el){
-    el = document.createElement('div');
-    el.id = '_dash-timer-wgt';
-    el.className = 'card';
-    el.style.cssText = 'margin-bottom:16px;border-color:rgba(79,209,165,.3)';
-    const gWgt = document.getElementById('_dash-goals-wgt');
-    if(gWgt) pg.insertBefore(el, gWgt);
-    else pg.appendChild(el);
-  }
+  if(!el) return; // timer widget not in current layout
   const running = _tt&&_tt.running;
   const elaps   = _tt ? _tt.elapsed+(_tt.startedAt?Date.now()-_tt.startedAt:0) : 0;
   const curTask = document.getElementById('tt-task-input')?.value||'';
@@ -11723,33 +11718,6 @@ window.addEventListener('load', function(){
 
 var _dashEditMode = false;
 var _dashDragSrc = null;
-
-var _WIDGET_DEFS = [
-  {id:'stats',       label:'📊 الإحصائيات',      full:true,  visible:true,  row:0},
-  {id:'overdue',     label:'⚠ مهام متأخرة',       full:false, visible:true,  row:1},
-  {id:'subs',        label:'🔔 اشتراكات قريبة',   full:false, visible:true,  row:1},
-  {id:'kanban',      label:'⚡ المهام النشطة',     full:false, visible:true,  row:2},
-  {id:'uncollected', label:'💸 مبالغ لم تُحصَّل', full:false, visible:true,  row:2},
-  {id:'team',        label:'👥 مهام الفريق',       full:false, visible:true,  row:3},
-  {id:'teampay',     label:'💰 مستحقات الفريق',   full:false, visible:true,  row:3},
-  {id:'tasks',       label:'📋 آخر المهام',        full:false, visible:true,  row:4},
-  {id:'schedule',    label:'🗓 جدول اليوم',        full:false, visible:true,  row:4},
-  {id:'invoices',    label:'🧾 فواتير معلقة',      full:false, visible:true,  row:5},
-  {id:'goals',       label:'🎯 أهداف التطوير',    full:false, visible:true,  row:5},
-  {id:'meetings',    label:'📅 الميتنجات',         full:true,  visible:true,  row:6},
-];
-
-function _getDashLayout(){
-  try{
-    var s = localStorage.getItem('_dLayout_v4');
-    if(s){ var p=JSON.parse(s); if(p&&p.length) return p; }
-  }catch(e){}
-  return _WIDGET_DEFS.map(function(w){ return {id:w.id,visible:w.visible,row:w.row,full:w.full}; });
-}
-
-function _saveDashLayout(layout){ localStorage.setItem('_dLayout_v4',JSON.stringify(layout)); }
-
-function _getDef(id){ return _WIDGET_DEFS.find(function(w){ return w.id===id; })||{id:id,label:id,full:false}; }
 
 function _toggleDashEdit(){
   _dashEditMode = !_dashEditMode;
