@@ -850,6 +850,8 @@ select.filter-sel:focus { outline:none; border-color:var(--accent); }
       <!-- Tabs -->
       <div class="detail-tabs">
         <button class="detail-tab active" onclick="switchDetailTab('overview')">📊 نظرة عامة</button>
+        <button class="detail-tab" onclick="switchDetailTab('contracts')">📝 العقود</button>
+        <button class="detail-tab" onclick="switchDetailTab('timetracker')">⏱ الوقت</button>
         <button class="detail-tab" onclick="switchDetailTab('subscription')">📦 الاشتراك</button>
       </div>
 
@@ -903,6 +905,31 @@ select.filter-sel:focus { outline:none; border-color:var(--accent); }
             <table>
               <thead><tr><th>المهمة</th><th>العميل</th><th>الحالة</th><th>القيمة</th><th>الموعد</th><th>نوع العمل</th></tr></thead>
               <tbody id="udp-tasks-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Contracts -->
+      <div class="detail-tab-panel" id="dtab-contracts">
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>عنوان العقد</th><th>العميل</th><th>القيمة</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+              <tbody id="udp-contracts-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Time Tracker -->
+      <div class="detail-tab-panel" id="dtab-timetracker">
+        <div class="grid grid-3" style="gap:12px;margin-bottom:14px" id="udp-tt-stats"></div>
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>المهمة</th><th>العميل</th><th>المدة</th><th>الأرباح</th><th>التاريخ</th></tr></thead>
+              <tbody id="udp-tt-tbody"></tbody>
             </table>
           </div>
         </div>
@@ -1368,6 +1395,18 @@ select.filter-sel:focus { outline:none; border-color:var(--accent); }
           <div class="acc-row acc-check"><label>فريق العمل</label><input type="checkbox" id="feat-team"></div>
           <div class="acc-row"><label>حد أعضاء الفريق</label><input type="number" class="form-input acc-num" id="feat-max-team" placeholder="0=∞" min="0"></div>
           <div class="acc-row acc-check"><label>مزامنة السحابة</label><input type="checkbox" id="feat-cloud" checked></div>
+        </div>
+      </div>
+
+      <!-- أدوات الفريلانسر -->
+      <div class="accordion-section">
+        <div class="accordion-header" onclick="toggleAcc(this)">
+          <span>⚡ أدوات الفريلانسر</span><span class="acc-arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+          <div class="acc-row acc-check"><label>⏱ تتبع الوقت</label><input type="checkbox" id="feat-timetracker" checked></div>
+          <div class="acc-row acc-check"><label>📝 العقود الرقمية</label><input type="checkbox" id="feat-contracts" checked></div>
+          <div class="acc-row acc-check"><label>🔗 بوابة العميل</label><input type="checkbox" id="feat-client-portal" checked></div>
         </div>
       </div>
 
@@ -2760,7 +2799,8 @@ function editPlan(id) {
     'fin-income','fin-expense','fin-profit','fin-receipt','fin-charts',
     'pay-cash','pay-instapay','pay-vodafone',
     'inv-create','inv-pdf','inv-whatsapp','inv-policies',
-    'rep-monthly','rep-clients','other-on'
+    'rep-monthly','rep-clients','other-on',
+    'timetracker','contracts','client-portal'
   ]);
 
   const allChecks = [
@@ -2770,7 +2810,8 @@ function editPlan(id) {
     'fin-income','fin-expense','fin-profit','fin-receipt','fin-subscriptions','fin-charts',
     'pay-cash','pay-instapay','pay-vodafone','pay-etisalat','pay-bank','pay-card',
     'inv-create','inv-pdf','inv-whatsapp','inv-contracts','inv-policies',
-    'schedule-day','schedule-export','rep-monthly','rep-clients','rep-export','other-on'
+    'schedule-day','schedule-export','rep-monthly','rep-clients','rep-export','other-on',
+    'timetracker','contracts','client-portal'
   ];
 
   allChecks.forEach(k => {
@@ -2881,6 +2922,10 @@ function savePlan() {
     team:               _chk('feat-team'),
     max_team:           _num('feat-max-team'),
     cloud:              _chk('feat-cloud'),
+    // أدوات الفريلانسر
+    timetracker:        _chk('feat-timetracker'),
+    contracts:          _chk('feat-contracts'),
+    client_portal:      _chk('feat-client-portal'),
   };
 
   const mc = features.max_clients_feat || 0;
@@ -3510,12 +3555,19 @@ function openUserDetailPage(uid) {
     const tasks    = p.tasks?.length || 0;
     const clients  = p.clients?.length || 0;
     const invoices = p.invoices?.length || 0;
+    const contracts = p.contracts?.length || 0;
+    const signedContracts = (p.contracts||[]).filter(ct=>ct.status==='signed').length;
+    const timeEntries = p.timeEntries?.length || 0;
     const income   = (p.transactions||[]).filter(t=>t.type==='income').reduce((s,t)=>s+(+t.amount||0),0);
+    const ttSecs   = (p.timeEntries||[]).reduce((s,e)=>s+(e.duration_seconds||0),0);
+    const ttHours  = (ttSecs/3600).toFixed(1);
     statsEl.innerHTML = [
       {v:clients, l:'عميل', c:'purple'},
       {v:tasks,   l:'مهمة', c:'green'},
       {v:invoices,l:'فاتورة',c:'yellow'},
-      {v:income.toLocaleString()+' ج', l:'إجمالي الدخل',c:'green'}
+      {v:income.toLocaleString()+' ج', l:'إجمالي الدخل',c:'green'},
+      {v:contracts+(signedContracts?` (${signedContracts}✅)`:''), l:'عقد', c:''},
+      {v:ttHours+'h', l:'ساعات عمل', c:''}
     ].map(s=>`<div class="stat-mini"><div class="stat-mini-val" style="color:var(--accent${s.c==='green'?'3':s.c==='yellow'?'2':''})">${s.v}</div><div class="stat-mini-lbl">${s.l}</div></div>`).join('');
   }
 
@@ -3548,6 +3600,8 @@ function openUserDetailPage(uid) {
   // Load tab panels
   loadDetailOverview(uid, p, sub, plan);
   loadDetailSubscription(uid, sub, plan);
+  loadDetailContracts(p);
+  loadDetailTimeTracker(p);
 
   // Switch tabs back to first
   switchDetailTab('overview');
@@ -3556,12 +3610,16 @@ function openUserDetailPage(uid) {
 
 function switchDetailTab(tab) {
   document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
-  const activeTab = document.querySelector('.detail-tab[data-tab="'+tab+'"]');
+  // Support both data-tab and onclick-based tab buttons
+  const activeTab = document.querySelector('.detail-tab[data-tab="'+tab+'"]') ||
+    [...document.querySelectorAll('.detail-tab')].find(b=>b.getAttribute('onclick')&&b.getAttribute('onclick').includes("'"+tab+"'"));
   if(activeTab) activeTab.classList.add('active');
   document.querySelectorAll('.detail-tab-panel').forEach(p => p.classList.remove('active'));
   const panel = document.getElementById('dtab-'+tab);
   if(panel) panel.classList.add('active');
   if(tab === 'activity') renderUserActivityLog(_currentDetailUid);
+  if(tab === 'contracts') loadDetailContracts((ALL_STUDIO_DATA[_currentDetailUid]?.parsed)||{});
+  if(tab === 'timetracker') loadDetailTimeTracker((ALL_STUDIO_DATA[_currentDetailUid]?.parsed)||{});
 }
 
 function loadDetailOverview(uid, p, sub, plan) {
@@ -3700,6 +3758,62 @@ function loadDetailTasks(p) {
       <td style="font-size:12px;color:var(--text3)">${t.deadline||'—'}</td>
       <td style="font-size:11px">${t.jobType==='fulltime'?'🏢 دوام':'🎯 فري لانس'}</td>
     </tr>`).join('');
+}
+
+function loadDetailContracts(p) {
+  const tbody = document.getElementById('udp-contracts-tbody');
+  if(!tbody) return;
+  const contracts = (p.contracts||[]).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  if(!contracts.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text3)">لا توجد عقود</td></tr>`;
+    return;
+  }
+  const stMap = {
+    draft: '<span class="badge badge-gray">مسودة</span>',
+    sent:  '<span class="badge" style="background:rgba(100,181,246,.15);color:#64b5f6">أُرسل</span>',
+    signed:'<span class="badge badge-green">✅ موقّع</span>',
+    rejected:'<span class="badge badge-red">مرفوض</span>'
+  };
+  tbody.innerHTML = contracts.map(ct => `
+    <tr>
+      <td style="font-size:13px;font-weight:700;padding:10px 12px">${ct.title||'—'}</td>
+      <td style="font-size:12px;padding:10px 12px">${ct.client_name||'—'}</td>
+      <td style="font-size:12px;font-weight:700;color:var(--accent3);padding:10px 12px">${ct.value?Number(ct.value).toLocaleString()+' ج':'—'}</td>
+      <td style="padding:10px 12px">${stMap[ct.status]||stMap.draft}</td>
+      <td style="font-size:11px;color:var(--text3);padding:10px 12px">${ct.created_at?new Date(ct.created_at).toLocaleDateString('ar-EG'):'—'}</td>
+    </tr>`).join('');
+}
+
+function loadDetailTimeTracker(p) {
+  const tbody = document.getElementById('udp-tt-tbody');
+  const statsEl = document.getElementById('udp-tt-stats');
+  if(!tbody) return;
+  const entries = (p.timeEntries||[]).sort((a,b)=>new Date(b.started_at||0)-new Date(a.started_at||0));
+  const rate = entries[0]?.hourly_rate || 150;
+  const fmtS = s => { const h=Math.floor(s/3600),m=Math.floor((s%3600)/60); return h>0?h+'h '+m+'m':m+'m'; };
+  const totalSecs = entries.reduce((s,e)=>s+(e.duration_seconds||0),0);
+  const totalEarn = ((totalSecs/3600)*rate).toFixed(0);
+  if(statsEl) {
+    statsEl.innerHTML = [
+      {v: fmtS(totalSecs), l: 'إجمالي الوقت', c: 'var(--accent)'},
+      {v: totalEarn+' ج', l: 'الأرباح الفعلية', c: 'var(--accent3)'},
+      {v: entries.length, l: 'إدخال', c: 'var(--accent2)'}
+    ].map(s=>`<div class="stat-mini"><div class="stat-mini-val" style="color:${s.c};font-size:18px">${s.v}</div><div class="stat-mini-lbl">${s.l}</div></div>`).join('');
+  }
+  if(!entries.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text3)">لا توجد إدخالات وقت</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = entries.slice(0,50).map(e => {
+    const earn = ((e.duration_seconds||0)/3600*(e.hourly_rate||rate)).toFixed(0);
+    return `<tr>
+      <td style="font-size:13px;font-weight:700;padding:10px 12px">${e.task_title||'—'}</td>
+      <td style="font-size:12px;padding:10px 12px">${e.client_name||'—'}</td>
+      <td style="font-family:monospace;font-size:12px;padding:10px 12px;color:var(--accent)">${fmtS(e.duration_seconds||0)}</td>
+      <td style="font-size:12px;font-weight:700;color:var(--accent3);padding:10px 12px">${earn} ج</td>
+      <td style="font-size:11px;color:var(--text3);padding:10px 12px">${e.started_at?new Date(e.started_at).toLocaleDateString('ar-EG'):'—'}</td>
+    </tr>`;
+  }).join('');
 }
 
 function loadDetailSubscription(uid, sub, plan) {
