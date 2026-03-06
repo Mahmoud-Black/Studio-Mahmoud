@@ -3603,7 +3603,23 @@ function savePlatformConfig() {
   _platformConfig.whatsapp    = document.getElementById('plt-whatsapp')?.value?.trim() || '201090412218';
   _platformConfig._ts         = Date.now();
 
-  localStorage.setItem('platform_config', JSON.stringify(_platformConfig));
+  // Save to localStorage — skip base64 images to avoid size limit
+  try {
+    const cfgForStorage = { ..._platformConfig };
+    // If values are base64 (very long), store them separately with a key reference
+    if(cfgForStorage.logo && cfgForStorage.logo.startsWith('data:')) {
+      localStorage.setItem('platform_logo_b64', cfgForStorage.logo);
+      cfgForStorage.logo = '__b64_logo__';
+    }
+    if(cfgForStorage.favicon && cfgForStorage.favicon.startsWith('data:')) {
+      localStorage.setItem('platform_favicon_b64', cfgForStorage.favicon);
+      cfgForStorage.favicon = '__b64_favicon__';
+    }
+    localStorage.setItem('platform_config', JSON.stringify(cfgForStorage));
+  } catch(e) {
+    console.warn('localStorage save failed (quota?):', e.message);
+    // Still continue — Supabase is the source of truth
+  }
 
   // Save to Supabase so ALL users get the config (not just same-browser)
   _savePlatformConfigToSupabase(_platformConfig);
@@ -4536,31 +4552,62 @@ function updateLogoPreview(url) {
   }
 }
 
-function uploadFaviconFile(input) {
+async function uploadFaviconFile(input) {
   const file = input.files[0];
   if(!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const dataUrl = e.target.result;
-    document.getElementById('plt-favicon').value = dataUrl;
-    updateFaviconPreview(dataUrl);
+  if(file.size > 500*1024) { toast('⚠ الحجم كبير — استخدم صورة أقل من 500KB'); return; }
+  toast('⏳ جاري الرفع...');
+  try {
+    // Upload to Supabase Storage
+    const ext = file.name.split('.').pop() || 'png';
+    const path = `platform/favicon.${ext}`;
+    const { error: upErr } = await supa.storage.from('platform-assets').upload(path, file, { upsert: true, contentType: file.type });
+    if(upErr) throw upErr;
+    const { data: urlData } = supa.storage.from('platform-assets').getPublicUrl(path);
+    const url = urlData.publicUrl + '?t=' + Date.now();
+    document.getElementById('plt-favicon').value = url;
+    updateFaviconPreview(url);
     toast('✅ تم رفع الأيقونة — اضغط حفظ التغييرات');
-  };
-  reader.readAsDataURL(file);
+  } catch(e) {
+    // Fallback to base64 if storage not available
+    console.warn('Storage upload failed, using base64:', e.message);
+    const reader = new FileReader();
+    reader.onload = ev => {
+      document.getElementById('plt-favicon').value = ev.target.result;
+      updateFaviconPreview(ev.target.result);
+      toast('✅ تم رفع الأيقونة (base64) — اضغط حفظ التغييرات');
+    };
+    reader.readAsDataURL(file);
+  }
 }
 
-function uploadLogoFile(input) {
+async function uploadLogoFile(input) {
   const file = input.files[0];
   if(!file) return;
-  if(file.size > 200*1024) { toast('⚠ الحجم كبير — استخدم صورة أقل من 200KB'); return; }
-  const reader = new FileReader();
-  reader.onload = e => {
-    const dataUrl = e.target.result;
-    document.getElementById('plt-logo').value = dataUrl;
-    updateLogoPreview(dataUrl);
+  if(file.size > 500*1024) { toast('⚠ الحجم كبير — استخدم صورة أقل من 500KB'); return; }
+  toast('⏳ جاري الرفع...');
+  try {
+    // Upload to Supabase Storage
+    const ext = file.name.split('.').pop() || 'png';
+    const path = `platform/sidebar-logo.${ext}`;
+    const { error: upErr } = await supa.storage.from('platform-assets').upload(path, file, { upsert: true, contentType: file.type });
+    if(upErr) throw upErr;
+    const { data: urlData } = supa.storage.from('platform-assets').getPublicUrl(path);
+    const url = urlData.publicUrl + '?t=' + Date.now();
+    document.getElementById('plt-logo').value = url;
+    updateLogoPreview(url);
     toast('✅ تم رفع الشعار — اضغط حفظ التغييرات');
-  };
-  reader.readAsDataURL(file);
+  } catch(e) {
+    // Fallback to base64 if storage not available
+    console.warn('Storage upload failed, using base64:', e.message);
+    const reader = new FileReader();
+    reader.onload = ev => {
+      document.getElementById('plt-logo').value = ev.target.result;
+      updateLogoPreview(ev.target.result);
+      toast('✅ تم رفع الشعار (base64) — اضغط حفظ التغييرات');
+    };
+    reader.readAsDataURL(file);
+  }
 }
 
 // Update previews when platform page loads
