@@ -2725,6 +2725,14 @@ setTimeout(window._showApp, 4000);
         </div>
         <button class="btn btn-primary" onclick="saveSettings()">💾 حفظ الإعدادات</button>
         <button class="btn btn-ghost" style="margin-right:8px" onclick="forceCloudReload()" title="إعادة تحميل البيانات من السحابة">☁️ تحديث من السحابة</button>
+        <button class="btn btn-ghost" style="margin-right:8px;color:var(--accent2)" onclick="forcePushToCloud()" title="رفع البيانات المحلية للسحابة">⬆ رفع للسحابة</button>
+      </div>
+
+      <div class="card" id="cloud-diag-card" style="border-color:rgba(108,99,255,.3)">
+        <div class="section-title" style="color:var(--accent)">☁️ حالة المزامنة</div>
+        <div id="cloud-diag-info" style="font-size:12px;color:var(--text2);line-height:1.8">
+          <div>جاري التحقق...</div>
+        </div>
       </div>
 
       <div class="card">
@@ -4257,19 +4265,82 @@ async function forceCloudReload(){
       applyPlatformConfig();
       showSyncIndicator('✅ تم التحديث من السحابة', '#4fd1a5');
       toast('✅ تم تحميل البيانات من السحابة');
+      _updateCloudDiag();
     } else {
       showSyncIndicator('⚠ لا بيانات في السحابة', '#f7c948');
-      // Check what the raw error is
       const { data, error } = await supa.from('studio_data').select('user_id, updated_at').eq('user_id', _supaUserId).maybeSingle();
       if(error) toast('❌ خطأ RLS: ' + error.message);
       else if(!data) toast('⚠ لا يوجد سجل لهذا المستخدم في studio_data');
       else toast('⚠ السجل موجود بس البيانات فارغة');
+      _updateCloudDiag();
     }
   } catch(e) {
     showSyncIndicator('❌ فشل', '#f76f7c');
     toast('❌ ' + e.message);
   }
 }
+
+async function forcePushToCloud(){
+  if(!_supaUserId){ toast('⚠ غير مسجل دخول'); return; }
+  // Count local data
+  const tasks = S.tasks?.length||0, clients = S.clients?.length||0;
+  const invoices = S.invoices?.length||0;
+  if(!tasks && !clients && !invoices){
+    if(!confirm('البيانات المحلية تبدو فارغة. هل تريد الرفع على أي حال؟')) return;
+  } else {
+    if(!confirm(`رفع البيانات المحلية للسحابة؟\n(${tasks} مهمة، ${clients} عميل، ${invoices} فاتورة)`)) return;
+  }
+  showSyncIndicator('⬆ جاري الرفع...', 'var(--accent)');
+  try {
+    const payload = { user_id: _supaUserId, data: JSON.stringify(S), updated_at: new Date().toISOString() };
+    const { error } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
+    if(error) throw error;
+    showSyncIndicator('✅ تم الرفع', '#4fd1a5');
+    toast('✅ تم رفع البيانات للسحابة بنجاح');
+    _updateCloudDiag();
+  } catch(e) {
+    showSyncIndicator('❌ فشل الرفع', '#f76f7c');
+    toast('❌ ' + e.message);
+  }
+}
+
+async function _updateCloudDiag(){
+  const el = document.getElementById('cloud-diag-info');
+  if(!el) return;
+  const uid = _supaUserId || '(غير مسجل)';
+  const tasks = S.tasks?.length||0, clients = S.clients?.length||0;
+  const invoices = S.invoices?.length||0, trans = S.transactions?.length||0;
+  let cloudInfo = '⏳ جاري الفحص...';
+  try {
+    const { data, error } = await supa.from('studio_data')
+      .select('updated_at, data')
+      .eq('user_id', _supaUserId)
+      .maybeSingle();
+    if(error) cloudInfo = '❌ خطأ: ' + error.message;
+    else if(!data) cloudInfo = '⚠ لا يوجد سجل في السحابة لهذا المستخدم';
+    else {
+      const size = (JSON.stringify(data.data).length/1024).toFixed(1);
+      const updated = new Date(data.updated_at).toLocaleString('ar-EG');
+      cloudInfo = `✅ موجود في السحابة — ${size} KB — آخر تحديث: ${updated}`;
+    }
+  } catch(e) { cloudInfo = '❌ ' + e.message; }
+
+  el.innerHTML = `
+    <div>🆔 <b>User ID:</b> <span style="font-family:monospace;font-size:11px;color:var(--accent)">${uid}</span></div>
+    <div>☁️ <b>السحابة:</b> ${cloudInfo}</div>
+    <div>💾 <b>محلياً:</b> ${tasks} مهمة · ${clients} عميل · ${invoices} فاتورة · ${trans} معاملة</div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text3)">
+      إذا كانت البيانات موجودة محلياً وفارغة في السحابة → اضغط ⬆ رفع للسحابة
+    </div>`;
+}
+
+// Run diag when settings page opens
+// Show cloud diagnostic when settings page opens
+const _origLoadSettings = loadSettings;
+loadSettings = function(){
+  _origLoadSettings();
+  if(_supaUserId) setTimeout(_updateCloudDiag, 500);
+};
 
 /* ── WhatsApp Templates ── */
 let waActiveTpl = 'wa-tpl-invoice';
