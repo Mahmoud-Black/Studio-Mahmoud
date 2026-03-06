@@ -3544,7 +3544,11 @@ function _getPlanFeatures(){
 function hasPageFeature(pageId){
   if(!_supaUserId || !hasActiveSub()) return false;
   if(_isAdminUser) return true;  // المشرف يوصل لكل الأقسام
+  // لو الباقة مش محملة — افتح كل الصفحات (الاشتراك شغال لكن الباقة مش اتجابت)
+  if(!_userSubscription?.plan) return true;
   const f = _getPlanFeatures();
+  // لو features فاضية — افتح كل الصفحات
+  if(!f || Object.keys(f).length === 0) return true;
   const map = { tasks:'tasks', clients:'clients', finance:'finance',
     invoices:'invoices', schedule:'schedule', team:'team',
     reports:'reports', meetings:'meetings', learning:'learning' };
@@ -3779,6 +3783,7 @@ async function _activateCode(inputId, msgId, onSuccess){
     setTimeout(()=>{
       _hideLock();
       renderAll();
+      updateSubscriptionBar();
       showPage('dashboard');
       if(onSuccess) onSuccess();
     }, 800);
@@ -6713,6 +6718,9 @@ async function loginWithSupaSession(supaUser, session, userMeta){
 
   // إخفاء اللوجين وإظهار التطبيق
   if(window._showApp) window._showApp();
+  // ── إظهار App Shell لو كان مخفياً (بعد logout) ──
+  const shell = document.getElementById('app-body') || document.querySelector('.app-shell');
+  if(shell && shell.style.display === 'none') shell.style.display = '';
   const screen = document.getElementById('auth-screen');
   screen.style.transition='opacity .4s ease';
   screen.style.opacity='0';
@@ -6789,9 +6797,16 @@ async function loadUserSubscription(uid) {
           const as = typeof parsed.admin_subscription === 'string'
             ? JSON.parse(parsed.admin_subscription) : parsed.admin_subscription;
           if(as?.status === 'active') {
-            // Get plan details
-            const lsPlans = JSON.parse(localStorage.getItem('admin_plans') || localStorage.getItem('plans') || '[]');
-            const plan = lsPlans.find(p => p.id === as.planId) || null;
+            // حاول تجيب الباقة من Supabase أولاً، ثم localStorage
+            let plan = null;
+            try {
+              const { data: planRow } = await supa.from('subscription_plans').select('*').eq('id', as.planId).maybeSingle();
+              if(planRow) plan = planRow;
+            } catch(pe) {}
+            if(!plan) {
+              const lsPlans = JSON.parse(localStorage.getItem('admin_plans') || localStorage.getItem('plans') || '[]');
+              plan = lsPlans.find(p => p.id === as.planId) || null;
+            }
             _userSubscription = { ...as, plan, _fromAdminOverride: true };
           }
         }
