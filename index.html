@@ -11795,9 +11795,26 @@ async function _adminSendMessage(userId){
 
 // Load notifications from Supabase (admin messages)
 var _notifTableExists = null; // null=unknown, true=exists, false=missing
+
+// Check if user_notifications table exists (silent — no console errors)
+async function _checkNotifTableExists(){
+  if(_notifTableExists !== null) return _notifTableExists;
+  try {
+    // Use a count query with limit 0 — faster and if table missing returns error silently
+    const { error } = await supa.from('user_notifications').select('id', { count: 'exact', head: true });
+    _notifTableExists = !error;
+  } catch(e) { _notifTableExists = false; }
+  return _notifTableExists;
+}
+
 async function _loadServerNotifications(){
   if(!_supaUserId || typeof supa === 'undefined') return;
-  if(_notifTableExists === false) return; // skip if known missing
+  if(_notifTableExists === false) return;
+  // Check table exists first (silent)
+  if(_notifTableExists === null) {
+    const exists = await _checkNotifTableExists();
+    if(!exists) return;
+  }
   try {
     var res = await supa.from('user_notifications')
       .select('*')
@@ -11805,7 +11822,6 @@ async function _loadServerNotifications(){
       .order('created_at', {ascending:false})
       .limit(30);
     if(res.error){
-      // Table doesn't exist — disable future calls
       _notifTableExists = false;
       return;
     }
