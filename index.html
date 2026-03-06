@@ -782,14 +782,14 @@ body {
   #tasks-cols{grid-template-columns:repeat(2,1fr)}
 }
 @media(max-width:540px){
-  /* On mobile: vertical stack — each column full width */
-  #kanban-view{overflow-x:unset !important;padding-bottom:8px}
+  /* On mobile: horizontal scroll so each column is visible as a card */
+  #kanban-view{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px}
   #status-cols{
-    display:flex !important;flex-direction:column !important;flex-wrap:nowrap !important;
-    gap:10px !important;grid-template-columns:unset !important;
-    min-width:unset !important;padding-bottom:4px
+    display:flex;flex-direction:row;flex-wrap:nowrap;gap:10px;
+    grid-template-columns:unset;
+    min-width:max-content;padding-bottom:4px
   }
-  #status-cols .kb-col{min-width:unset !important;max-width:100% !important;width:100% !important;flex-shrink:unset !important}
+  #status-cols .kb-col{min-width:220px;max-width:220px;flex-shrink:0}
   #tasks-cols{grid-template-columns:1fr}
 }
 .kb-col{background:var(--surface2);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
@@ -803,6 +803,27 @@ body {
 .kb-card:active{cursor:grabbing}
 .kb-card.dragging{opacity:.4;transform:scale(.97)}
 @media(max-width:540px){.kb-card{cursor:default}}
+
+/* ── Rich Text Editor ── */
+._rtb-btn{background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;font-weight:700;padding:4px 9px;cursor:pointer;font-family:var(--font);transition:.15s;min-width:28px}
+._rtb-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+#step-rich-editor:empty:before{content:attr(placeholder);color:var(--text3);pointer-events:none}
+#step-rich-editor h2{font-size:20px;font-weight:800;color:var(--text);margin:12px 0 6px;border-bottom:2px solid var(--border);padding-bottom:6px}
+#step-rich-editor h3{font-size:16px;font-weight:700;color:var(--accent);margin:10px 0 4px}
+#step-rich-editor blockquote{border-right:3px solid var(--accent);padding:8px 14px;margin:8px 0;background:var(--surface2);border-radius:0 8px 8px 0;color:var(--text2);font-style:italic}
+#step-rich-editor pre{background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--mono);font-size:12px;overflow-x:auto;margin:8px 0}
+#step-rich-editor a{color:var(--accent3);text-decoration:underline}
+#step-rich-editor img{max-width:100%;border-radius:8px;margin:6px 0}
+#step-rich-editor ul,#step-rich-editor ol{padding-right:20px;margin:6px 0}
+#step-rich-editor li{margin:3px 0}
+#step-detail-overlay.visible{display:flex !important}
+
+/* ── Course step items ── */
+._cs-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;transition:.18s}
+._cs-item:hover{border-color:var(--accent)}
+._cs-item.done{border-color:var(--accent3);opacity:.75}
+._cs-item-check{width:20px;height:20px;border-radius:6px;border:2px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:.18s}
+._cs-item-check.checked{background:var(--accent3);border-color:var(--accent3)}
 /* ── Invoices ── */
 #inv-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media(max-width:768px){#inv-layout{grid-template-columns:1fr} #inv-preview-card{display:none} #inv-preview-card.active{display:block}}
@@ -2640,57 +2661,134 @@ setTimeout(window._showApp, 4000);
 
 <!-- COURSE MODAL -->
 <div class="modal-overlay" id="modal-course">
-  <div class="modal" style="width:560px">
-    <div class="modal-header">
+  <div class="modal" style="width:580px;max-height:88vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="flex-shrink:0">
       <div class="modal-title" id="course-modal-title">🎓 إضافة كورس / مادة تعليمية</div>
       <button class="close-btn" onclick="closeM('modal-course')">✕</button>
     </div>
-    <input type="hidden" id="course-eid">
-    <div class="form-group"><label class="form-label">عنوان الكورس *</label><input class="form-input" id="course-title" placeholder="مثال: كورس After Effects الكامل"></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">نوع المحتوى</label>
-        <select class="form-select" id="course-type">
-          <option value="video">🎬 فيديو يوتيوب</option>
-          <option value="course">🎓 كورس (Udemy/Coursera)</option>
-          <option value="playlist">▶ قائمة تشغيل</option>
-          <option value="link">🔗 رابط عام</option>
-          <option value="book">📚 كتاب/مقال</option>
-        </select>
+    <div style="overflow-y:auto;flex:1;padding-bottom:4px">
+      <input type="hidden" id="course-eid">
+      <div class="form-group"><label class="form-label">عنوان الكورس *</label><input class="form-input" id="course-title" placeholder="مثال: كورس After Effects الكامل"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">نوع المحتوى</label>
+          <select class="form-select" id="course-type">
+            <option value="video">🎬 فيديو يوتيوب</option>
+            <option value="course">🎓 كورس (Udemy/Coursera)</option>
+            <option value="playlist">▶ قائمة تشغيل</option>
+            <option value="link">🔗 رابط عام</option>
+            <option value="book">📚 كتاب/مقال</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">الحالة</label>
+          <select class="form-select" id="course-status">
+            <option value="todo">📋 لم أبدأ</option>
+            <option value="inprogress">⚡ جاري</option>
+            <option value="done">✅ مكتمل</option>
+          </select>
+        </div>
       </div>
-      <div class="form-group"><label class="form-label">الحالة</label>
-        <select class="form-select" id="course-status">
-          <option value="todo">📋 لم أبدأ</option>
-          <option value="inprogress">⚡ جاري</option>
-          <option value="done">✅ مكتمل</option>
-        </select>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">الرابط الرئيسي</label><input class="form-input" id="course-url" placeholder="https://youtube.com/watch?v=..." oninput="previewCourseEmbed()"></div>
+        <div class="form-group"><label class="form-label">المصدر / المنصة</label><input class="form-input" id="course-platform" placeholder="Udemy, YouTube..."></div>
+      </div>
+      <div id="course-embed-preview" style="margin-bottom:10px;border-radius:8px;overflow:hidden;display:none"></div>
+      <div class="form-group"><label class="form-label">ملاحظات عامة</label><textarea class="form-textarea" id="course-notes" placeholder="ملاحظاتك، أهم النقاط..." style="min-height:60px"></textarea></div>
+
+      <!-- ══ خطوات المنهج ══ -->
+      <div style="margin-top:4px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div>
+            <div style="font-size:13px;font-weight:800;color:var(--accent)">📋 خطوات المنهج</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">كل خطوة ليها رابط + ملاحظات مفصلة تفتحها كصفحة كاملة</div>
+          </div>
+          <button onclick="addCourseStep()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--accent);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>خطوة جديدة
+          </button>
+        </div>
+        <div id="course-steps-list" style="display:flex;flex-direction:column;gap:6px"></div>
       </div>
     </div>
-    <div class="form-group"><label class="form-label">الرابط الرئيسي</label><input class="form-input" id="course-url" placeholder="https://youtube.com/watch?v=..." oninput="previewCourseEmbed()"></div>
-    <div id="course-embed-preview" style="margin-bottom:10px;border-radius:8px;overflow:hidden;display:none"></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">المصدر / المنصة</label><input class="form-input" id="course-platform" placeholder="Udemy, YouTube, Skillshare..."></div>
-      <div class="form-group"><label class="form-label">التقدم % <span style="font-size:10px;color:var(--text3)">(يُحسب تلقائياً من الخطوات)</span></label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input class="form-input" type="range" id="course-progress" min="0" max="100" value="0" oninput="document.getElementById('course-pct-disp').textContent=this.value+'%'" style="flex:1">
-          <span id="course-pct-disp" style="font-size:12px;font-weight:700;color:var(--accent);width:35px">0%</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid var(--border);flex-shrink:0;margin-top:10px">
+      <div style="font-size:11px;color:var(--text3)" id="course-steps-progress-info"></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" onclick="closeM('modal-course')">إلغاء</button>
+        <button class="btn btn-primary" onclick="saveCourse()">💾 حفظ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Step Detail Page (full overlay) ══ -->
+<div id="step-detail-overlay" style="display:none;position:fixed;inset:0;z-index:9500;background:var(--bg);flex-direction:column">
+  <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">
+    <button onclick="closeStepDetail()" style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 14px;color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">
+      ← رجوع
+    </button>
+    <div style="flex:1">
+      <div id="step-detail-course-name" style="font-size:11px;color:var(--text3)"></div>
+      <div id="step-detail-title" style="font-size:15px;font-weight:800;color:var(--text)"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:var(--text2)">
+        <div id="step-done-toggle" onclick="toggleStepDoneFromDetail()" style="width:22px;height:22px;border-radius:6px;border:2px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.18s"></div>
+        مكتملة
+      </label>
+      <button onclick="saveStepDetail()" style="display:flex;align-items:center;gap:6px;background:var(--accent);color:#fff;border:none;border-radius:9px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">
+        💾 حفظ
+      </button>
+    </div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:24px;max-width:900px;margin:0 auto;width:100%">
+    <div style="margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap">
+      <div class="form-group" style="flex:2;min-width:200px">
+        <label class="form-label">عنوان الخطوة</label>
+        <input class="form-input" id="step-detail-title-input" placeholder="عنوان الخطوة أو الحلقة">
+      </div>
+      <div class="form-group" style="flex:3;min-width:200px">
+        <label class="form-label">رابط الخطوة</label>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="step-detail-url" placeholder="https://..." style="flex:1">
+          <button onclick="window.open(document.getElementById('step-detail-url').value,'_blank')" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0 12px;color:var(--accent3);cursor:pointer;font-size:14px;flex-shrink:0" title="فتح الرابط">↗</button>
         </div>
       </div>
     </div>
 
-    <!-- ── خطوات / حلقات ── -->
-    <div style="margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-size:12px;font-weight:700;color:var(--accent)">📋 الخطوات / الحلقات <span style="font-size:10px;font-weight:400;color:var(--text3)">(اختياري)</span></div>
-        <button onclick="addCourseStep()" style="padding:4px 12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font)">+ خطوة</button>
-      </div>
-      <div id="course-steps-list" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto"></div>
+    <!-- Rich Text Editor Toolbar -->
+    <div id="step-editor-toolbar" style="display:flex;flex-wrap:wrap;gap:4px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px 10px 0 0;border-bottom:none">
+      <button onclick="execRich('bold')" title="عريض" class="_rtb-btn"><b>B</b></button>
+      <button onclick="execRich('italic')" title="مائل" class="_rtb-btn"><i>I</i></button>
+      <button onclick="execRich('underline')" title="تسطير" class="_rtb-btn"><u>U</u></button>
+      <button onclick="execRich('strikeThrough')" title="شطب" class="_rtb-btn"><s>S</s></button>
+      <div style="width:1px;background:var(--border);margin:0 3px"></div>
+      <button onclick="execRich('insertUnorderedList')" title="قائمة نقطية" class="_rtb-btn">• —</button>
+      <button onclick="execRich('insertOrderedList')" title="قائمة مرقمة" class="_rtb-btn">1.</button>
+      <div style="width:1px;background:var(--border);margin:0 3px"></div>
+      <button onclick="execRich('formatBlock','h2')" title="عنوان كبير" class="_rtb-btn" style="font-size:11px;font-weight:800">H2</button>
+      <button onclick="execRich('formatBlock','h3')" title="عنوان متوسط" class="_rtb-btn" style="font-size:11px;font-weight:800">H3</button>
+      <button onclick="execRich('formatBlock','blockquote')" title="اقتباس" class="_rtb-btn">"</button>
+      <button onclick="execRich('formatBlock','pre')" title="كود" class="_rtb-btn" style="font-family:monospace">{ }</button>
+      <div style="width:1px;background:var(--border);margin:0 3px"></div>
+      <button onclick="_insertRichLink()" title="إضافة رابط" class="_rtb-btn">🔗</button>
+      <button onclick="_insertRichImage()" title="إدراج صورة" class="_rtb-btn">🖼</button>
+      <div style="width:1px;background:var(--border);margin:0 3px"></div>
+      <button onclick="execRich('justifyRight')" title="محاذاة يمين" class="_rtb-btn">⇒</button>
+      <button onclick="execRich('justifyCenter')" title="توسيط" class="_rtb-btn">≡</button>
+      <button onclick="execRich('justifyLeft')" title="محاذاة يسار" class="_rtb-btn">⇐</button>
+      <div style="width:1px;background:var(--border);margin:0 3px"></div>
+      <select onchange="execRich('foreColor',this.value);this.value=''" style="background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;padding:0 6px;cursor:pointer" title="لون النص">
+        <option value="">🎨 لون</option>
+        <option value="#7c6ff7">بنفسجي</option><option value="#4fd1a5">أخضر</option>
+        <option value="#f7c948">ذهبي</option><option value="#f76f7c">أحمر</option>
+        <option value="#64b5f6">أزرق</option><option value="#e8e8f0">أبيض</option>
+      </select>
+      <button onclick="execRich('removeFormat')" title="مسح التنسيق" class="_rtb-btn" style="color:var(--accent4)">✕</button>
     </div>
-
-    <div class="form-group"><label class="form-label">ملاحظات / مواد إضافية</label><textarea class="form-textarea" id="course-notes" placeholder="ملاحظاتك، أهم النقاط..." style="min-height:70px"></textarea></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeM('modal-course')">إلغاء</button>
-      <button class="btn btn-primary" onclick="saveCourse()">💾 حفظ</button>
-    </div>
+    <div id="step-rich-editor"
+      contenteditable="true"
+      dir="rtl"
+      style="min-height:380px;padding:18px;background:var(--surface);border:1px solid var(--border);border-radius:0 0 10px 10px;color:var(--text);font-family:var(--font);font-size:14px;line-height:1.8;outline:none;caret-color:var(--accent)"
+      placeholder="اكتب ملاحظاتك، ما تعلمته، روابط إضافية..."
+    ></div>
   </div>
 </div>
 
@@ -7232,18 +7330,8 @@ async function loginWithSupaSession(supaUser, session, userMeta){
 
   // ── حمّل من السحابة أولاً ──
   showSyncIndicator('☁️ جاري تحميل بياناتك...', 'var(--accent)');
-
-  // احفظ نسخة احتياطية من اللوكال ستوريج قبل أي overwrite
-  const _backupKey = 'studioOS_v3_backup_'+supaUser.id;
-  const _currentLocal = localStorage.getItem('studioOS_v3_'+supaUser.id);
-  if(_currentLocal && _currentLocal.length > 100) {
-    localStorage.setItem(_backupKey, _currentLocal);
-  }
-
   const cloudData = await cloudLoad();
-  // تحقق إن الـ cloud data فعلاً فيها بيانات حقيقية (مش object فاضي)
-  const _cloudValid = cloudData && (cloudData.tasks !== undefined || cloudData.clients !== undefined || cloudData.settings !== undefined);
-  if(_cloudValid){
+  if(cloudData){
     S = cloudData;
     migrateSFields();
     if(S._admin_updated && S._admin_name) {
@@ -7259,21 +7347,7 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     }
     localStorage.setItem('studioOS_v3_'+supaUser.id, JSON.stringify(S));
     applyPlatformConfig();
-  } else {
-    // Cloud فاشل أو فاضي — جرّب اللوكال أولاً
-    const localRaw = localStorage.getItem('studioOS_v3_'+supaUser.id);
-    if(localRaw && localRaw.length > 100) {
-      try { S = JSON.parse(localRaw); migrateSFields(); }
-      catch(e2) {
-        // جرّب الـ backup
-        const backupRaw = localStorage.getItem(_backupKey);
-        if(backupRaw) try { S = JSON.parse(backupRaw); migrateSFields(); } catch(e3){ lsLoad(); }
-        else lsLoad();
-      }
-    } else {
-      lsLoad();
-    }
-  }
+  } else { lsLoad(); }
 
   if(!S.settings.name && userObj.name){
     S.settings.name  = userObj.studio || userObj.name;
@@ -10216,145 +10290,317 @@ function previewCourseEmbed(){
     prev.innerHTML=`<div style="position:relative;padding-top:56.25%"><iframe src="https://www.youtube.com/embed/videoseries?list=${ytPlaylist[1]}" style="position:absolute;inset:0;width:100%;height:100%;border:none;border-radius:8px" allowfullscreen></iframe></div>`;
   } else { prev.style.display='none'; prev.innerHTML=''; }
 }
+// ═══════════════════════════════════════════════════════
+// COURSES — with steps + rich text editor
+// ═══════════════════════════════════════════════════════
+var _editingCourseSteps = []; // steps being edited in modal
+var _stepDetailCourseId = null;
+var _stepDetailStepIdx  = null;
+
 function openCourseModal(id){
-  document.getElementById('course-modal-title').textContent=id?'✏ تعديل الكورس':'🎓 إضافة كورس / مادة تعليمية';
-  document.getElementById('course-eid').value=id||'';
-  window._courseSteps = [];
+  document.getElementById('course-modal-title').textContent = id ? '✏ تعديل الكورس' : '🎓 إضافة كورس / مادة تعليمية';
+  document.getElementById('course-eid').value = id || '';
+  _editingCourseSteps = [];
   if(id){
-    const c=S.courses.find(x=>x.id===id); if(!c) return;
-    document.getElementById('course-title').value=c.title||'';
-    document.getElementById('course-type').value=c.type||'video';
-    document.getElementById('course-status').value=c.status||'todo';
-    document.getElementById('course-url').value=c.url||'';
-    document.getElementById('course-progress').value=c.progress||0;
-    document.getElementById('course-pct-disp').textContent=(c.progress||0)+'%';
-    document.getElementById('course-platform').value=c.platform||'';
-    document.getElementById('course-notes').value=c.notes||'';
-    window._courseSteps = (c.steps||[]).map(s=>({...s}));
+    const c = S.courses.find(x => x.id === id); if(!c) return;
+    document.getElementById('course-title').value    = c.title || '';
+    document.getElementById('course-type').value     = c.type || 'video';
+    document.getElementById('course-status').value   = c.status || 'todo';
+    document.getElementById('course-url').value      = c.url || '';
+    document.getElementById('course-platform').value = c.platform || '';
+    document.getElementById('course-notes').value    = c.notes || '';
+    _editingCourseSteps = (c.steps || []).map(s => ({...s}));
     previewCourseEmbed();
   } else {
-    ['course-title','course-url','course-platform','course-notes'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
-    document.getElementById('course-progress').value=0;
-    document.getElementById('course-pct-disp').textContent='0%';
-    document.getElementById('course-embed-preview').style.display='none';
+    ['course-title','course-url','course-platform','course-notes'].forEach(f => {
+      const e = document.getElementById(f); if(e) e.value = '';
+    });
+    const ep = document.getElementById('course-embed-preview');
+    if(ep) ep.style.display = 'none';
   }
-  _renderCourseSteps();
+  _renderModalSteps();
   openM('modal-course');
 }
 
-function _renderCourseSteps(){
+function _renderModalSteps(){
   const el = document.getElementById('course-steps-list'); if(!el) return;
-  const steps = window._courseSteps || [];
+  const steps = _editingCourseSteps;
+  const info  = document.getElementById('course-steps-progress-info');
   if(!steps.length){
-    el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:10px 0">لا خطوات بعد — اضغط "+ خطوة" لإضافة</div>';
+    el.innerHTML = '<div style="text-align:center;padding:16px 0;color:var(--text3);font-size:13px;border:1.5px dashed var(--border);border-radius:10px">لا خطوات بعد — اضغط "خطوة جديدة" للبدء</div>';
+    if(info) info.textContent = '';
     return;
   }
-  el.innerHTML = steps.map((s,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:8px;border:1px solid ${s.done?'var(--accent3)':'var(--border)'}">
-      <input type="checkbox" ${s.done?'checked':''} onchange="toggleCourseStep(${i})" style="width:16px;height:16px;accent-color:var(--accent3);flex-shrink:0">
-      <div style="flex:1;display:flex;flex-direction:column;gap:4px">
-        <input type="text" value="${(s.title||'').replace(/"/g,'&quot;')}" oninput="window._courseSteps[${i}].title=this.value" placeholder="عنوان الخطوة / الحلقة" style="background:transparent;border:none;color:var(--text);font-size:13px;font-family:var(--font);width:100%;outline:none;${s.done?'text-decoration:line-through;color:var(--text3)':''}">
-        <input type="text" value="${(s.url||'').replace(/"/g,'&quot;')}" oninput="window._courseSteps[${i}].url=this.value" placeholder="رابط الحلقة (اختياري)" style="background:transparent;border:none;color:var(--accent);font-size:11px;font-family:var(--mono);width:100%;outline:none">
+  const doneCount = steps.filter(s => s.done).length;
+  const pct = Math.round((doneCount / steps.length) * 100);
+  if(info) info.innerHTML = `<span style="color:var(--accent3);font-weight:700">${doneCount}</span>/<span style="font-weight:700">${steps.length}</span> مكتملة — <span style="color:var(--accent);font-weight:700">${pct}%</span>`;
+
+  el.innerHTML = steps.map((s, i) => `
+    <div class="_cs-item${s.done?' done':''}" id="_csm-${i}">
+      <div class="_cs-item-check${s.done?' checked':''}" onclick="_toggleModalStep(${i})" title="${s.done?'اضغط للإلغاء':'اضغط للتعليم كمكتملة'}">
+        ${s.done ? '<svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
       </div>
-      <button onclick="removeCourseStep(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 4px" title="حذف">✕</button>
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="_toggleModalStep(${i})">
+        <div style="font-size:13px;font-weight:600;${s.done?'text-decoration:line-through;color:var(--text3)':'color:var(--text)'}">${s.title||'<span style="color:var(--text3)">بدون عنوان</span>'}</div>
+        ${s.url ? `<div style="font-size:11px;color:var(--accent3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px">🔗 ${s.url}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button onclick="editCourseStep(${i})" style="background:var(--surface3);border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;color:var(--text2);cursor:pointer;font-family:var(--font)" title="تعديل">✏</button>
+        <button onclick="_moveStep(${i},-1)" style="background:var(--surface3);border:1px solid var(--border);border-radius:7px;padding:4px 7px;font-size:11px;color:var(--text2);cursor:pointer" title="أعلى">${i===0?'':'↑'}</button>
+        <button onclick="_moveStep(${i},1)" style="background:var(--surface3);border:1px solid var(--border);border-radius:7px;padding:4px 7px;font-size:11px;color:var(--text2);cursor:pointer" title="أسفل">${i===steps.length-1?'':'↓'}</button>
+        <button onclick="_removeModalStep(${i})" style="background:transparent;border:none;color:var(--accent4);font-size:13px;cursor:pointer;padding:4px 6px" title="حذف">✕</button>
+      </div>
     </div>`).join('');
-  // Update progress bar based on steps
-  const doneCount = steps.filter(s=>s.done).length;
-  const pct = steps.length ? Math.round((doneCount/steps.length)*100) : 0;
-  document.getElementById('course-progress').value = pct;
-  document.getElementById('course-pct-disp').textContent = pct+'%';
+}
+
+function _toggleModalStep(i){
+  _editingCourseSteps[i].done = !_editingCourseSteps[i].done;
+  _renderModalSteps();
+}
+function _removeModalStep(i){
+  _editingCourseSteps.splice(i, 1);
+  _renderModalSteps();
+}
+function _moveStep(i, dir){
+  const j = i + dir;
+  if(j < 0 || j >= _editingCourseSteps.length) return;
+  [_editingCourseSteps[i], _editingCourseSteps[j]] = [_editingCourseSteps[j], _editingCourseSteps[i]];
+  _renderModalSteps();
 }
 
 function addCourseStep(){
-  if(!window._courseSteps) window._courseSteps=[];
-  window._courseSteps.push({id:Date.now(),title:'',url:'',done:false});
-  _renderCourseSteps();
+  // Quick-add: prompt for title
+  const title = prompt('عنوان الخطوة / الحلقة:','');
+  if(title === null) return;
+  const url = prompt('رابط الخطوة (اختياري):','');
+  _editingCourseSteps.push({ id: Date.now(), title: title.trim(), url: (url||'').trim(), done: false, notes: '' });
+  _renderModalSteps();
 }
-function removeCourseStep(i){
-  window._courseSteps.splice(i,1);
-  _renderCourseSteps();
+
+function editCourseStep(i){
+  // Save any pending modal data first, then open step detail
+  const courseId = document.getElementById('course-eid')?.value;
+  // Create a temp course obj so step editor can save back to _editingCourseSteps
+  _stepDetailCourseId = '__modal__'; // special flag
+  _stepDetailStepIdx  = i;
+  _openStepDetailFromModal(i);
 }
-function toggleCourseStep(i){
-  window._courseSteps[i].done = !window._courseSteps[i].done;
-  _renderCourseSteps();
-}
+
 function saveCourse(){
-  const title=document.getElementById('course-title')?.value.trim(); if(!title) return alert('أدخل عنوان الكورس');
-  const eid=document.getElementById('course-eid')?.value;
-  const steps = (window._courseSteps||[]).map(s=>({...s}));
-  const doneCount = steps.filter(s=>s.done).length;
-  const autoProgress = steps.length ? Math.round((doneCount/steps.length)*100) : +(document.getElementById('course-progress')?.value)||0;
-  const d={id:eid?+eid:Date.now(),title,type:document.getElementById('course-type')?.value||'video',status:document.getElementById('course-status')?.value||'todo',url:document.getElementById('course-url')?.value||'',progress:autoProgress,platform:document.getElementById('course-platform')?.value||'',notes:document.getElementById('course-notes')?.value||'',steps};
-  if(eid){const i=S.courses.findIndex(c=>c.id===+eid);if(i>-1)S.courses[i]=d;}
+  const title = document.getElementById('course-title')?.value.trim();
+  if(!title) return alert('أدخل عنوان الكورس');
+  const eid = document.getElementById('course-eid')?.value;
+  const steps = _editingCourseSteps.map(s => ({...s}));
+  const doneCount = steps.filter(s => s.done).length;
+  const progress = steps.length ? Math.round((doneCount / steps.length) * 100) : 0;
+  const status   = document.getElementById('course-status')?.value || 'todo';
+  const d = {
+    id:       eid ? +eid : Date.now(),
+    title,
+    type:     document.getElementById('course-type')?.value || 'video',
+    status,
+    url:      document.getElementById('course-url')?.value || '',
+    progress,
+    platform: document.getElementById('course-platform')?.value || '',
+    notes:    document.getElementById('course-notes')?.value || '',
+    steps
+  };
+  if(eid){ const idx = S.courses.findIndex(c => c.id === +eid); if(idx > -1) S.courses[idx] = d; }
   else S.courses.push(d);
   lsSave(); closeM('modal-course'); renderCourses();
-  showMiniNotif('✅ تم حفظ الكورس: '+title);
+  typeof showMiniNotif === 'function' && showMiniNotif('✅ تم حفظ الكورس: ' + title);
 }
-function delCourse(id){ confirmDel('حذف هذا الكورس؟',()=>{ S.courses=S.courses.filter(c=>c.id!==id); lsSave(); renderCourses(); }); }
+
+function delCourse(id){
+  confirmDel('حذف هذا الكورس؟', () => {
+    S.courses = S.courses.filter(c => c.id !== id);
+    lsSave(); renderCourses();
+  });
+}
+
+// ── Open step detail from saved course ──
+function openStepDetail(courseId, stepIdx){
+  const c = S.courses.find(x => x.id === courseId); if(!c) return;
+  const s = c.steps && c.steps[stepIdx]; if(!s) return;
+  _stepDetailCourseId = courseId;
+  _stepDetailStepIdx  = stepIdx;
+  document.getElementById('step-detail-course-name').textContent = '📚 ' + c.title;
+  document.getElementById('step-detail-title').textContent       = s.title || 'خطوة ' + (stepIdx + 1);
+  document.getElementById('step-detail-title-input').value       = s.title || '';
+  document.getElementById('step-detail-url').value               = s.url || '';
+  document.getElementById('step-rich-editor').innerHTML           = s.notes || '';
+  _updateStepDoneToggle(s.done);
+  const ov = document.getElementById('step-detail-overlay');
+  ov.style.display = 'flex'; ov.classList.add('visible');
+}
+
+// ── Open step detail while modal is open (from editCourseStep) ──
+function _openStepDetailFromModal(i){
+  const s = _editingCourseSteps[i];
+  const courseTitle = document.getElementById('course-title')?.value || 'الكورس';
+  document.getElementById('step-detail-course-name').textContent = '📚 ' + courseTitle;
+  document.getElementById('step-detail-title').textContent       = s.title || 'خطوة ' + (i + 1);
+  document.getElementById('step-detail-title-input').value       = s.title || '';
+  document.getElementById('step-detail-url').value               = s.url || '';
+  document.getElementById('step-rich-editor').innerHTML           = s.notes || '';
+  _updateStepDoneToggle(s.done);
+  const ov = document.getElementById('step-detail-overlay');
+  ov.style.display = 'flex'; ov.classList.add('visible');
+}
+
+function _updateStepDoneToggle(done){
+  const t = document.getElementById('step-done-toggle');
+  if(!t) return;
+  t.style.background    = done ? 'var(--accent3)' : 'transparent';
+  t.style.borderColor   = done ? 'var(--accent3)' : 'var(--border)';
+  t.innerHTML = done ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '';
+}
+
+function toggleStepDoneFromDetail(){
+  if(_stepDetailCourseId === '__modal__'){
+    const s = _editingCourseSteps[_stepDetailStepIdx];
+    s.done = !s.done;
+    _updateStepDoneToggle(s.done);
+  } else {
+    const c = S.courses.find(x => x.id === _stepDetailCourseId); if(!c) return;
+    const s = c.steps[_stepDetailStepIdx];
+    s.done = !s.done;
+    const dc = c.steps.filter(x => x.done).length;
+    c.progress = Math.round((dc / c.steps.length) * 100);
+    _updateStepDoneToggle(s.done);
+    lsSave(); renderCourses();
+  }
+}
+
+function saveStepDetail(){
+  const newTitle = document.getElementById('step-detail-title-input')?.value.trim() || '';
+  const newUrl   = document.getElementById('step-detail-url')?.value.trim() || '';
+  const newNotes = document.getElementById('step-rich-editor')?.innerHTML || '';
+  if(_stepDetailCourseId === '__modal__'){
+    const s = _editingCourseSteps[_stepDetailStepIdx];
+    s.title = newTitle; s.url = newUrl; s.notes = newNotes;
+    document.getElementById('step-detail-title').textContent = newTitle || 'خطوة ' + (_stepDetailStepIdx + 1);
+    closeStepDetail();
+    _renderModalSteps();
+  } else {
+    const c = S.courses.find(x => x.id === _stepDetailCourseId); if(!c) return;
+    const s = c.steps[_stepDetailStepIdx];
+    s.title = newTitle; s.url = newUrl; s.notes = newNotes;
+    const dc = c.steps.filter(x => x.done).length;
+    c.progress = Math.round((dc / c.steps.length) * 100);
+    lsSave(); renderCourses();
+    typeof showMiniNotif === 'function' && showMiniNotif('✅ تم حفظ الخطوة');
+    closeStepDetail();
+  }
+}
+
+function closeStepDetail(){
+  const ov = document.getElementById('step-detail-overlay');
+  ov.classList.remove('visible'); ov.style.display = 'none';
+}
+
+// ── Rich text execCommand helper ──
+function execRich(cmd, val){
+  document.getElementById('step-rich-editor')?.focus();
+  document.execCommand(cmd, false, val || null);
+}
+function _insertRichLink(){
+  const url = prompt('الرابط:','https://');
+  if(!url) return;
+  const text = prompt('نص الرابط:','اضغط هنا');
+  execRich('insertHTML', `<a href="${url}" target="_blank">${text||url}</a>`);
+}
+function _insertRichImage(){
+  const url = prompt('رابط الصورة:','https://');
+  if(!url) return;
+  execRich('insertHTML', `<img src="${url}" style="max-width:100%;border-radius:8px">`);
+}
+
 function renderCourses(){
-  const el=document.getElementById('courses-grid'); if(!el) return;
-  if(!S.courses||!S.courses.length){ el.innerHTML='<div class="empty card" style="padding:20px"><div class="empty-icon">🎓</div>أضف كورس أو فيديو تعليمي</div>'; return; }
-  const stColor={todo:'var(--text3)',inprogress:'var(--accent2)',done:'var(--accent3)'};
-  const stLabel={todo:'📋 لم أبدأ',inprogress:'⚡ جاري',done:'✅ مكتمل'};
-  el.innerHTML=S.courses.map(c=>{
-    const ytMatch=c.url&&c.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?]+)/);
-    const thumb=ytMatch?`<div style="position:relative;padding-top:42%;overflow:hidden;border-radius:8px;margin-bottom:10px;background:var(--surface3);cursor:pointer" onclick="toggleCourseEmbed(${c.id})">
+  const el = document.getElementById('courses-grid'); if(!el) return;
+  if(!S.courses || !S.courses.length){
+    el.innerHTML = '<div class="empty card" style="padding:20px"><div class="empty-icon">🎓</div>أضف كورس أو فيديو تعليمي</div>';
+    return;
+  }
+  const stColor = {todo:'var(--text3)', inprogress:'var(--accent2)', done:'var(--accent3)'};
+  const stLabel = {todo:'📋 لم أبدأ', inprogress:'⚡ جاري', done:'✅ مكتمل'};
+  el.innerHTML = S.courses.map(c => {
+    const ytMatch = c.url && c.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?]+)/);
+    const thumb = ytMatch ? `<div style="position:relative;padding-top:42%;overflow:hidden;border-radius:8px;margin-bottom:10px;background:var(--surface3);cursor:pointer" onclick="toggleCourseEmbed(${c.id})">
       <img src="https://i.ytimg.com/vi/${ytMatch[1]}/hqdefault.jpg"
            onerror="this.style.display='none';this.parentElement.querySelector('.yt-thumb-fallback').style.display='flex'"
            style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:8px" loading="lazy">
       <div class="yt-thumb-fallback" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:6px">
-        <div style="font-size:28px">▶</div>
-        <div style="font-size:11px;color:var(--text3)">اضغط للمعاينة</div>
+        <div style="font-size:28px">▶</div><div style="font-size:11px;color:var(--text3)">اضغط للمعاينة</div>
       </div>
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;background:rgba(0,0,0,.3)" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">
         <div style="width:44px;height:44px;background:rgba(255,0,0,.85);border-radius:50%;display:flex;align-items:center;justify-content:center">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
         </div>
       </div>
-    </div>`:'';
+    </div>` : '';
+
+    const steps = c.steps || [];
+    const doneSteps = steps.filter(s => s.done).length;
+    const progress  = c.progress || 0;
+
+    const stepsHtml = steps.length ? `
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:600">خطوات المنهج (${doneSteps}/${steps.length})</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          ${steps.map((s, i) => `
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:8px;border:1px solid ${s.done?'rgba(79,209,165,.3)':'var(--border)'}">
+              <div class="_cs-item-check${s.done?' checked':''}" onclick="event.stopPropagation();quickToggleStep(${c.id},${i})" style="cursor:pointer">
+                ${s.done?'<svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
+              </div>
+              <div style="flex:1;cursor:pointer;font-size:12px;${s.done?'text-decoration:line-through;color:var(--text3)':'color:var(--text)'}" onclick="openStepDetail(${c.id},${i})">${s.title||'خطوة '+(i+1)}</div>
+              <div style="display:flex;gap:4px">
+                ${s.url?`<a href="${s.url}" target="_blank" onclick="event.stopPropagation()" style="font-size:11px;color:var(--accent3)" title="فتح الرابط">↗</a>`:''}
+                <button onclick="event.stopPropagation();openStepDetail(${c.id},${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0 4px" title="فتح الصفحة">📝</button>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>` : '';
+
     return `<div class="card" style="position:relative">
       ${thumb}
       <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;margin-bottom:8px">
-        <div style="font-size:13px;font-weight:700;flex:1">${c.title}</div>
+        <div style="font-size:14px;font-weight:800;flex:1;color:var(--text)">${c.title}</div>
         <div style="display:flex;gap:4px;flex-shrink:0">
-          <button onclick="openCourseModal(${c.id})" class="btn btn-ghost btn-sm">✏</button>
-          <button onclick="delCourse(${c.id})" class="btn btn-danger btn-sm">🗑</button>
+          <button onclick="openCourseModal(${c.id})" class="btn btn-ghost btn-sm" title="تعديل">✏</button>
+          <button onclick="delCourse(${c.id})" class="btn btn-danger btn-sm" title="حذف">🗑</button>
         </div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-        <span style="font-size:11px;font-weight:700;color:${stColor[c.status]};background:${stColor[c.status]}18;padding:2px 8px;border-radius:10px">${stLabel[c.status]||c.status}</span>
-        ${c.platform?`<span style="font-size:11px;color:var(--text3);background:var(--surface3);padding:2px 8px;border-radius:10px">${c.platform}</span>`:''}
-        ${(c.steps&&c.steps.length)?`<span style="font-size:11px;color:var(--accent);background:rgba(124,111,247,.12);padding:2px 8px;border-radius:10px">${c.steps.filter(s=>s.done).length}/${c.steps.length} خطوة</span>`:''}
+        <span style="font-size:11px;font-weight:700;color:${stColor[c.status]};background:${stColor[c.status]}18;padding:2px 9px;border-radius:10px">${stLabel[c.status]||c.status}</span>
+        ${c.platform?`<span style="font-size:11px;color:var(--text3);background:var(--surface3);padding:2px 9px;border-radius:10px">${c.platform}</span>`:''}
+        ${steps.length?`<span style="font-size:11px;color:var(--accent);background:rgba(124,111,247,.12);padding:2px 9px;border-radius:10px">📋 ${steps.length} خطوة</span>`:''}
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <div style="flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden">
-          <div style="height:100%;width:${c.progress||0}%;background:${c.progress>=100?'var(--accent3)':'var(--accent)'};border-radius:3px;transition:width .3s"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="flex:1;height:7px;background:var(--surface3);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${progress}%;background:${progress>=100?'var(--accent3)':'var(--accent)'};border-radius:4px;transition:width .4s"></div>
         </div>
-        <span style="font-size:11px;font-weight:700;color:var(--accent);width:32px">${c.progress||0}%</span>
+        <span style="font-size:12px;font-weight:800;color:${progress>=100?'var(--accent3)':'var(--accent)'};min-width:32px;text-align:left">${progress}%</span>
       </div>
-      ${(c.steps&&c.steps.length)?`<div style="margin-bottom:10px;display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto">
-        ${c.steps.map((s,si)=>`<div style="display:flex;align-items:center;gap:7px;padding:5px 8px;background:var(--surface2);border-radius:7px;cursor:pointer" onclick="quickToggleCourseStep(${c.id},${si})">
-          <div style="width:15px;height:15px;border-radius:4px;border:1.5px solid ${s.done?'var(--accent3)':'var(--border)'};background:${s.done?'var(--accent3)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            ${s.done?'<svg width="9" height="9" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/></svg>':''}
-          </div>
-          <div style="flex:1;font-size:12px;${s.done?'text-decoration:line-through;color:var(--text3)':'color:var(--text)'}">${s.title||'بدون عنوان'}</div>
-          ${s.url?`<a href="${s.url}" target="_blank" onclick="event.stopPropagation()" style="font-size:10px;color:var(--accent3);flex-shrink:0">🔗</a>`:''}
-        </div>`).join('')}
-      </div>`:''}
-      ${c.url?`<a href="${c.url}" target="_blank" style="font-size:11px;color:var(--accent3);display:block;margin-bottom:4px">🔗 فتح الكورس</a>`:''}
-      ${ytMatch?`<button onclick="toggleCourseEmbed(${c.id})" class="btn btn-ghost btn-sm" style="width:100%;font-size:11px">▶ معاينة داخل التطبيق</button><div id="cembed-${c.id}" style="display:none;margin-top:8px;border-radius:8px;overflow:hidden"><iframe src="https://www.youtube.com/embed/${ytMatch[1]}" style="width:100%;height:180px;border:none;border-radius:8px" allowfullscreen></iframe></div>`:''}
-    </div>`;}).join('');
+      ${stepsHtml}
+      ${c.url&&!ytMatch?`<a href="${c.url}" target="_blank" style="font-size:11px;color:var(--accent3);display:flex;align-items:center;gap:5px;margin-top:6px">↗ فتح الكورس</a>`:''}
+      ${ytMatch?`<button onclick="toggleCourseEmbed(${c.id})" class="btn btn-ghost btn-sm" style="width:100%;font-size:11px;margin-top:4px">▶ معاينة داخل التطبيق</button><div id="cembed-${c.id}" style="display:none;margin-top:8px;border-radius:8px;overflow:hidden"><iframe src="https://www.youtube.com/embed/${ytMatch[1]}" style="width:100%;height:180px;border:none;border-radius:8px" allowfullscreen></iframe></div>`:''}
+    </div>`;
+  }).join('');
 }
+
 function toggleCourseEmbed(id){
-  const el=document.getElementById('cembed-'+id); if(el) el.style.display=el.style.display==='none'?'block':'none';
+  const el = document.getElementById('cembed-' + id);
+  if(el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
-function quickToggleCourseStep(courseId, stepIdx){
-  const c = S.courses.find(x=>x.id===courseId); if(!c||!c.steps) return;
+
+function quickToggleStep(courseId, stepIdx){
+  const c = S.courses.find(x => x.id === courseId); if(!c || !c.steps) return;
   c.steps[stepIdx].done = !c.steps[stepIdx].done;
-  const doneCount = c.steps.filter(s=>s.done).length;
-  c.progress = Math.round((doneCount/c.steps.length)*100);
-  if(c.progress===100) c.status='done';
-  else if(doneCount>0) c.status='inprogress';
+  const dc = c.steps.filter(s => s.done).length;
+  c.progress = Math.round((dc / c.steps.length) * 100);
+  if(c.progress === 100) c.status = 'done';
+  else if(dc > 0)        c.status = 'inprogress';
   lsSave(); renderCourses();
 }
 
@@ -10430,13 +10676,6 @@ supa.auth.onAuthStateChange(async (event, session) => {
     _supaUserId = session.user.id;
     const existing = getSession();
     if(existing) saveSession({...existing, supaId:session.user.id, id:session.user.id});
-    // لو مفيش بيانات تانية في S (مثلاً بعد فترة طويلة)، نعمل sync خفيف
-    if(_authInitialized && S && (S.tasks||[]).length === 0 && (S.clients||[]).length === 0) {
-      const localRaw = localStorage.getItem('studioOS_v3_'+session.user.id);
-      if(localRaw && localRaw.length > 100) {
-        try { S = JSON.parse(localRaw); migrateSFields && migrateSFields(); renderAll && renderAll(); } catch(e){}
-      }
-    }
     return;
   }
 
@@ -13045,17 +13284,6 @@ function renderArchivedTasksLog(){
 
 // Add archive tab to tasks page
 window.addEventListener('load', function(){
-  // ── Periodic local backup every 10 min (safety net against data loss) ──
-  setInterval(function(){
-    if(_supaUserId && typeof S !== 'undefined' && S && (S.tasks||[]).length + (S.clients||[]).length > 0) {
-      try {
-        const key = 'studioOS_v3_'+_supaUserId;
-        localStorage.setItem(key, JSON.stringify(S));
-        localStorage.setItem(key+'_backup', JSON.stringify(S));
-      } catch(e){}
-    }
-  }, 10 * 60 * 1000); // 10 minutes
-
   setTimeout(function(){
     // Add "📦 الأرشيف" tab to task tabs
     const tabsWrap = document.querySelector('[id="ttab-active"]')?.parentElement;
