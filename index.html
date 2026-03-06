@@ -9869,19 +9869,16 @@ supa.auth.onAuthStateChange(async (event, session) => {
 
   // TOKEN_REFRESHED = الـ session اتجدد تلقائياً — مش محتاج login جديد
   if(event === 'TOKEN_REFRESHED' && session && session.user){
-    _supaUserId = session.user.id; // تأكد إن الـ ID محفوظ
-    const meta = session.user.user_metadata||{};
+    _supaUserId = session.user.id;
     const existing = getSession();
-    if(existing){
-      // حدّث الـ session المحفوظ بدون تأثير على البيانات
-      saveSession({...existing, supaId:session.user.id, id:session.user.id});
-    }
-    return; // مش محتاج نعمل أي حاجة تانية
+    if(existing) saveSession({...existing, supaId:session.user.id, id:session.user.id});
+    return;
   }
 
-  if(event === 'SIGNED_IN' && session && session.user){
-    // لو already logged in (منعاً للـ double login)
-    if(_supaUserId === session.user.id) return;
+  // INITIAL_SESSION أو SIGNED_IN — نفس المعاملة
+  if((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session && session.user){
+    // لو بالفعل initialized بالكامل — مش محتاج نعمل حاجة
+    if(_supaUserId === session.user.id && _authInitialized) return;
 
     const meta = session.user.user_metadata || {};
     const userObj = {
@@ -9893,6 +9890,7 @@ supa.auth.onAuthStateChange(async (event, session) => {
       studio: meta.studio || (meta.full_name ? meta.full_name + ' Studio' : ''),
       avatarUrl: meta.avatarUrl || meta.avatar_url || meta.picture || ''
     };
+    // دايما نعمل loginWithSupaSession علشان نجيب البيانات من السحابة
     await loginWithSupaSession(session.user, session, userObj);
     _authInitialized = true;
   }
@@ -9906,7 +9904,7 @@ supa.auth.onAuthStateChange(async (event, session) => {
     _authInitialized = false;
   }
 
-  // لو مفيش session — اعرض شاشة اللوجين (بس لو مش logged in)
+  // لو مفيش session — اعرض شاشة اللوجين
   if(!session && !_supaUserId && !_authInitialized){
     const authScreen = document.getElementById('auth-screen');
     if(authScreen) authScreen.classList.remove('hidden');
@@ -9916,60 +9914,25 @@ supa.auth.onAuthStateChange(async (event, session) => {
 
 // initAuth — render UI and set fallback timeout
 async function initAuthFallback(){
-  loadThemePreferences(); // Load saved theme/color/language
+  loadThemePreferences();
   renderAll();
   updateHeader('dashboard');
   checkPasswordResetFlow();
 
-  // Clean up the # from URL after Google OAuth redirect
   if(window.location.hash === '#' || window.location.hash === ''){
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  // ── Check for existing Supabase session first (handles mobile refresh) ──
-  try {
-    const { data: { session } } = await supa.auth.getSession();
-    if(session && session.user){
-      if(!_supaUserId){
-        const meta = session.user.user_metadata||{};
-        const existing = getSession();
-        // If we have local session data, restore silently without full reload
-        if(existing && existing.id === session.user.id){
-          _supaUserId = session.user.id;
-          _authInitialized = true;
-          // Silently sync in background without showing loading screen
-          setTimeout(async()=>{
-            const cloudData = await cloudLoad();
-            if(cloudData){ S=cloudData; migrateSFields(); }
-            renderAll();
-            const authScreen=document.getElementById('auth-screen');
-            if(authScreen)authScreen.classList.add('hidden');
-          }, 100);
-          return;
-        }
-        // No local session — do full login
-        const userObj = {
-          id: session.user.id, supaId: session.user.id,
-          email: session.user.email||'',
-          name: meta.full_name||meta.name||session.user.email||'',
-          phone: meta.phone||'', studio: meta.studio||'',
-          avatarUrl: meta.avatarUrl||meta.avatar_url||meta.picture||''
-        };
-        await loginWithSupaSession(session.user, session, userObj);
-        _authInitialized = true;
-        return;
-      }
-    }
-  } catch(e){ console.warn('getSession error:', e); }
-
-  // Fallback: show auth screen if no session after 4 seconds
+  // Fallback: show auth screen if no session after 5 seconds
+  // (onAuthStateChange handles INITIAL_SESSION — this is just a safety net)
   setTimeout(()=>{
-    if(!_supaUserId){
+    if(!_authInitialized){
       const authScreen = document.getElementById('auth-screen');
       if(authScreen) authScreen.classList.remove('hidden');
       if(window._showApp) window._showApp();
+      _authInitialized = true;
     }
-  }, 4000);
+  }, 5000);
 }
 
 initAuthFallback();
