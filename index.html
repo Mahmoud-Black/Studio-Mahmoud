@@ -7370,6 +7370,7 @@ function migrateSFields(){
     if(!S.settings) S.settings={};
     if(!S.settings.taskTypes) S.settings.taskTypes=['تصميم سوشيال ميديا','برانيدنج','لوجو','فيديو موشن','كونتنت','ويب ديزاين'];
     ['schedule','teams','subscriptions','customStatuses','paymentAccounts','hiddenPayMethods','hiddenStatuses','meetings','courses','timeEntries','contracts'].forEach(k=>{ if(!S[k]) S[k]=[]; });
+    if(!S.archivedTasks) S.archivedTasks=[];
     if(!S.tasks) S.tasks=[];
     if(!S.clients) S.clients=[];
     if(!S.transactions) S.transactions=[];
@@ -11357,6 +11358,252 @@ function _spAddNew(){
   document.getElementById('_status-popover')?.remove(); _spCurrentId=null;
   toast('✅ تمت إضافة الحالة: '+(icon?icon+' ':'')+label);
 }
+
+// ═══════════════════════════════════════════════════
+// AUTO-ARCHIVE: completed tasks hide next day
+// ═══════════════════════════════════════════════════
+function runDailyArchive(){
+  const today = new Date().toISOString().split('T')[0];
+  const lastRun = localStorage.getItem('_studioArchiveDate');
+  if(lastRun === today) return; // already ran today
+  localStorage.setItem('_studioArchiveDate', today);
+
+  if(!S.archivedTasks) S.archivedTasks = [];
+  const toArchive = (S.tasks||[]).filter(t => {
+    if(!t.done) return false;
+    const doneDate = t.doneAt || t.completedAt || '';
+    // Archive if completed before today
+    return doneDate && doneDate < today;
+  });
+  if(!toArchive.length) return;
+
+  toArchive.forEach(t => {
+    S.archivedTasks.push({...t, archivedAt: today});
+  });
+  S.tasks = S.tasks.filter(t => !toArchive.find(a=>a.id===t.id));
+  lsSave();
+  showMotivationalNotif(`📦 تم أرشفة ${toArchive.length} مهمة مكتملة من أمس`, 'var(--accent3)');
+}
+
+function restoreArchivedTask(taskId){
+  if(!S.archivedTasks) return;
+  const t = S.archivedTasks.find(x=>x.id===taskId);
+  if(!t) return;
+  S.archivedTasks = S.archivedTasks.filter(x=>x.id!==taskId);
+  const {archivedAt, ...task} = t;
+  S.tasks.push(task);
+  lsSave(); renderAll();
+  toast('↩ تم استعادة: '+t.title);
+}
+
+function renderArchivedTasksLog(){
+  const el = document.getElementById('tasks-archive-log'); if(!el) return;
+  const arch = (S.archivedTasks||[]).slice().sort((a,b)=>b.archivedAt?.localeCompare(a.archivedAt||'')||0);
+  if(!arch.length){
+    el.innerHTML='<div class="empty" style="padding:32px"><div class="empty-icon">📦</div>لا مهام مؤرشفة</div>';
+    return;
+  }
+  // Group by archivedAt date
+  const byDate={};
+  arch.forEach(t=>{const d=t.archivedAt||'غير محدد';if(!byDate[d])byDate[d]=[];byDate[d].push(t);});
+  el.innerHTML = Object.entries(byDate).map(([date,tasks])=>`
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;color:var(--text3);font-weight:700;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:8px">📅 أُرشف بتاريخ: ${date}</div>
+      ${tasks.map(t=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:10px;margin-bottom:6px;border:1px solid var(--border)">
+          <span style="font-size:18px">✅</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.title||''}</div>
+            <div style="font-size:11px;color:var(--text3)">${t.client||''} ${t.value?'· '+t.value.toLocaleString()+' ج':''} ${t.doneAt?'· اكتمل '+t.doneAt:''}</div>
+          </div>
+          <button onclick="restoreArchivedTask(${t.id})" class="btn btn-ghost btn-sm" style="flex-shrink:0;color:var(--accent)">↩ استعادة</button>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+// Add archive tab to tasks page
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    // Add "📦 الأرشيف" tab to task tabs
+    const tabsWrap = document.querySelector('[id="ttab-active"]')?.parentElement;
+    if(tabsWrap && !document.getElementById('ttab-archive')){
+      const archBtn = document.createElement('button');
+      archBtn.id = 'ttab-archive';
+      archBtn.style.cssText = 'padding:7px 18px;font-size:12px;font-weight:700;border:none;background:transparent;color:var(--text3);border-radius:9px;cursor:pointer;transition:.18s';
+      archBtn.textContent = '📦 الأرشيف';
+      archBtn.onclick = ()=>switchTasksTab('archive');
+      tabsWrap.appendChild(archBtn);
+    }
+    // Add archive view container after tasks-log-view
+    const logView = document.getElementById('tasks-log-view');
+    if(logView && !document.getElementById('tasks-archive-view')){
+      const div = document.createElement('div');
+      div.id = 'tasks-archive-view';
+      div.style.display = 'none';
+      div.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="section-title" style="margin:0">📦 المهام المؤرشفة</div>
+          <div style="font-size:11px;color:var(--text3)" id="arch-count"></div>
+        </div>
+        <div id="tasks-archive-log"></div>`;
+      logView.parentNode.insertBefore(div, logView.nextSibling);
+    }
+    // Run archive check
+    runDailyArchive();
+  }, 800);
+});
+
+// Patch switchTasksTab to handle 'archive'
+(function(){
+  const _origSwitch = switchTasksTab;
+  switchTasksTab = function(tab){
+    if(tab==='archive'){
+      // Hide all other views
+      ['tasks-active-view','tasks-log-view'].forEach(id=>{
+        const el=document.getElementById(id);if(el)el.style.display='none';
+      });
+      const archView = document.getElementById('tasks-archive-view');
+      if(archView) archView.style.display='block';
+      // Update tab styles
+      ['active','log-day','log-month','log-year','archive'].forEach(t=>{
+        const btn=document.getElementById('ttab-'+t);
+        if(btn){
+          btn.style.color=t==='archive'?'var(--accent)':'var(--text3)';
+          btn.style.background=t==='archive'?'rgba(124,111,247,.18)':'transparent';
+        }
+      });
+      const cnt=document.getElementById('arch-count');
+      if(cnt)cnt.textContent=(S.archivedTasks||[]).length+' مهمة';
+      renderArchivedTasksLog();
+      return;
+    }
+    // Hide archive view when switching away
+    const archView=document.getElementById('tasks-archive-view');
+    if(archView)archView.style.display='none';
+    _origSwitch(tab);
+  };
+})();
+
+// ═══════════════════════════════════════════════════
+// TRACKING PAGE — branded with system colors + logo
+// ═══════════════════════════════════════════════════
+// Override _buildTrackingPageHTML with branded version
+_buildTrackingPageHTML = function(t){
+  const steps=t.steps||[];
+  const stepsTotal=steps.length, stepsDone=steps.filter(s=>s.done).length;
+  const pct=stepsTotal?Math.round(stepsDone/stepsTotal*100):(t.done?100:0);
+
+  // Pull live system settings
+  const studio   = S.settings?.name||'Studio OS';
+  const phone    = S.settings?.phone||'';
+  const email    = S.settings?.email||'';
+  const logo     = S.settings?.logo||'';  // base64 or URL
+  const socials  = S.settings?.socials||[];
+  const accentColor = localStorage.getItem('studioAccentColor')||'#7c6ff7';
+  const displayMode = localStorage.getItem('studioDisplayMode')||'dark';
+
+  // Derive palette from accent
+  const isDark = displayMode==='dark';
+  const bg     = isDark?'#0f0f1a':'#f5f6fb';
+  const bg2    = isDark?'#1a1a2e':'#ffffff';
+  const bg3    = isDark?'#12122a':'#f0f0f8';
+  const border = isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)';
+  const text   = isDark?'#e8e8f0':'#1a1a2e';
+  const text2  = isDark?'#aaa':'#555';
+  const text3  = isDark?'#666':'#999';
+
+  // Accent-derived gradient
+  const accentHex = accentColor;
+  function hexToRgb(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `${r},${g},${b}`;}
+  const accentRgb = accentHex.startsWith('#') ? hexToRgb(accentHex) : '124,111,247';
+
+  const status={new:'جديد',progress:'قيد التنفيذ',review:'مراجعة',done:'مكتمل ✅'}[t.status]||t.status;
+  const statusColor={new:text3,progress:'#f7c948',review:accentHex,done:'#4fd1a5'}[t.status]||text3;
+  const daysLeft=t.deadline?Math.max(0,Math.ceil((new Date(t.deadline)-new Date())/(1000*60*60*24))):null;
+
+  const socialIcons={instagram:'📸',facebook:'📘',behance:'🎨',linkedin:'💼',twitter:'🐦',youtube:'📺',tiktok:'🎵',website:'🌐'};
+
+  return `<!DOCTYPE html><html dir="rtl" lang="ar"><head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>متابعة: ${t.title} — ${studio}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root{--accent:${accentHex};--accent-rgb:${accentRgb};--bg:${bg};--bg2:${bg2};--bg3:${bg3};--border:${border};--text:${text};--text2:${text2};--text3:${text3}}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Cairo,sans-serif;background:var(--bg);color:var(--text);direction:rtl;min-height:100vh}
+    .hdr{background:linear-gradient(135deg,rgba(var(--accent-rgb),.9),rgba(var(--accent-rgb),.5));padding:28px 24px;text-align:center;position:relative;overflow:hidden;border-bottom:1px solid rgba(var(--accent-rgb),.2)}
+    .hdr::before{content:'';position:absolute;inset:0;background:${isDark?'rgba(0,0,0,.45)':'rgba(255,255,255,.15)'};}
+    .hdr-inner{position:relative;z-index:1}
+    .studio-logo{width:64px;height:64px;border-radius:16px;object-fit:cover;margin-bottom:10px;border:2px solid rgba(255,255,255,.3);box-shadow:0 4px 16px rgba(0,0,0,.3)}
+    .studio-logo-fallback{width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 10px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+    .studio-name{font-size:13px;font-weight:700;color:rgba(255,255,255,.9);letter-spacing:.5px;margin-bottom:10px}
+    .proj-title{font-size:22px;font-weight:900;color:#fff;margin-bottom:5px;text-shadow:0 2px 8px rgba(0,0,0,.3)}
+    .proj-meta{font-size:12px;color:rgba(255,255,255,.75)}
+    .con{max-width:700px;margin:0 auto;padding:20px 16px}
+    .card{background:var(--bg2);border-radius:16px;padding:20px;margin-bottom:16px;border:1px solid var(--border);box-shadow:0 2px 12px rgba(0,0,0,.06)}
+    .ct{font-size:14px;font-weight:800;margin-bottom:14px;color:var(--text)}
+    .pct-big{font-size:52px;font-weight:900;color:var(--accent);line-height:1;margin-bottom:4px}
+    .pw{height:14px;background:var(--bg3);border-radius:7px;overflow:hidden;margin:12px 0}
+    .pf{height:100%;background:linear-gradient(90deg,var(--accent),rgba(var(--accent-rgb),.6));border-radius:7px;transition:width .8s}
+    .step-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+    .step-row:last-child{border:none}
+    .sn{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:var(--text3)}
+    .sn.done{background:#4fd1a5;border-color:#4fd1a5;color:#fff}
+    .sn.cur{background:var(--accent);border-color:var(--accent);color:#fff;animation:pulse 1.5s infinite}
+    @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(var(--accent-rgb),.5)}50%{box-shadow:0 0 0 8px rgba(var(--accent-rgb),0)}}
+    .sl{font-size:13px;flex:1;color:var(--text)}
+    .sl.done{text-decoration:line-through;color:var(--text3)}
+    .sl.cur{color:var(--text);font-weight:700}
+    .ig{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .ic{background:var(--bg3);border-radius:10px;padding:12px 14px;border:1px solid var(--border)}
+    .il{font-size:10px;color:var(--text3);font-weight:600;margin-bottom:4px}
+    .iv{font-size:13px;font-weight:700;color:var(--text)}
+    .social-link{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;font-size:12px;font-weight:600;text-decoration:none;color:var(--accent);margin:3px}
+    .social-link:hover{border-color:var(--accent)}
+    .contact-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2)}
+    .contact-row:last-child{border:none}
+    .ftr{text-align:center;padding:24px;font-size:11px;color:var(--text3);border-top:1px solid var(--border);margin-top:8px}
+    @media(max-width:480px){.ig{grid-template-columns:1fr}.hdr{padding:24px 16px}.pct-big{font-size:38px}}
+  </style></head><body>
+  <div class="hdr">
+    <div class="hdr-inner">
+      ${logo
+        ? `<img src="${logo}" class="studio-logo" alt="${studio}">`
+        : `<div class="studio-logo-fallback">🎨</div>`}
+      <div class="studio-name">${studio}</div>
+      <div class="proj-title">${t.title}</div>
+      <div class="proj-meta">${t.client?'👤 '+t.client+'  ·  ':''}<span style="color:${statusColor==='#f7c948'?'#ffe082':statusColor}">${status}</span></div>
+    </div>
+  </div>
+  <div class="con">
+    <div class="card" style="text-align:center">
+      <div class="pct-big">${pct}%</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:4px">نسبة الإنجاز</div>
+      <div class="pw"><div class="pf" style="width:${pct}%"></div></div>
+      <div class="ig" style="margin-top:12px">
+        ${t.orderDate?`<div class="ic"><div class="il">📅 تاريخ البدء</div><div class="iv">${t.orderDate}</div></div>`:''}
+        ${t.deadline?`<div class="ic"><div class="il">⏰ موعد التسليم</div><div class="iv" style="color:${daysLeft!==null&&daysLeft<=3?'#f76f7c':daysLeft!==null&&daysLeft<=7?'#f7c948':'#4fd1a5'}">${t.deadline}${daysLeft!==null?' ('+daysLeft+' يوم)':''}</div></div>`:''}
+      </div>
+    </div>
+    ${steps.length?`<div class="card"><div class="ct">🗂 مراحل التنفيذ — ${stepsDone}/${stepsTotal}</div>
+      ${steps.map((s,i)=>{const dn=s.done,cr=!dn&&steps.slice(0,i).every(x=>x.done);return `<div class="step-row"><div class="sn ${dn?'done':cr?'cur':''}">${dn?'✓':cr?'▶':i+1}</div><span class="sl ${dn?'done':cr?'cur':''}">${s.text}</span><span style="font-size:10px;color:${dn?'#4fd1a5':cr?'var(--accent)':'var(--text3)'};font-weight:700">${dn?'مكتمل ✓':cr?'جاري الآن ▶':''}</span></div>`;}).join('')}
+    </div>`:''}
+    ${t.brief?`<div class="card"><div class="ct">📄 وصف المشروع</div><p style="font-size:13px;color:var(--text2);line-height:1.9">${t.brief}</p></div>`:''}
+    ${(phone||email||socials.length)?`<div class="card">
+      <div class="ct">📞 تواصل مع ${studio}</div>
+      ${phone?`<div class="contact-row">📱 <a href="https://wa.me/${phone.replace(/\D/g,'')}" style="color:var(--accent);text-decoration:none;font-weight:600">${phone}</a></div>`:''}
+      ${email?`<div class="contact-row">✉️ <a href="mailto:${email}" style="color:var(--accent);text-decoration:none;font-weight:600">${email}</a></div>`:''}
+      ${socials.length?`<div style="margin-top:10px;display:flex;flex-wrap:wrap">
+        ${socials.map(s=>`<a href="${s.url}" target="_blank" class="social-link">${socialIcons[s.platform]||'🔗'} ${s.platform}</a>`).join('')}
+      </div>`:''}
+    </div>`:''}
+    <div class="ftr">
+      <div style="margin-bottom:4px;font-weight:600;color:var(--text2)">${studio}</div>
+      <div>آخر تحديث: ${new Date().toLocaleDateString('ar-EG',{year:'numeric',month:'long',day:'numeric'})}</div>
+    </div>
+  </div>
+  </body></html>`;
+};
 
 // ═══════════════════════════════════════════════════
 // GOALS REDESIGN — Full featured goals system
