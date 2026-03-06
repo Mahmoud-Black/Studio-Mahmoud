@@ -512,6 +512,7 @@ function showSyncIndicator(msg, color){
   --mono:      'JetBrains Mono', monospace;
   --radius:    12px;
   --radius-sm: 8px;
+  --r2:        8px;
   --sidebar-w: 240px;
   --header-h:  60px;
   --space-xs:  8px;
@@ -6959,7 +6960,10 @@ function updateDash(){
 function renderAll(){
   renderTasks();renderClients();renderFinance();renderInvoices();
   renderGoals();renderSchedule();updateDash();loadSettings();renderTeams();
-  renderMeetings();renderCourses();renderDashTeamPay();renderDashKanbanMini();renderDashMeetings();
+  renderMeetings();
+  // renderCourses only if the grid exists in DOM (inside fg-panel-courses when active)
+  if(document.getElementById('courses-grid')) renderCourses();
+  renderDashTeamPay();renderDashKanbanMini();renderDashMeetings();
   renderSalaryReminders();renderFollowupReminders();
   renderTimeTracker();renderContractsList();
   // Refresh freelancer goals page if active
@@ -7715,6 +7719,10 @@ function migrateSFields(){
     if(!S.transactions) S.transactions=[];
     if(!S.invoices) S.invoices=[];
     if(!S.goals) S.goals=[];
+    if(!S.freelancerGoals) S.freelancerGoals={};
+    if(!S.freelancerGoals.custom) S.freelancerGoals.custom=[];
+    // Migrate old course steps (ensure steps array exists)
+    (S.courses||[]).forEach(c=>{ if(!c.steps) c.steps=[]; });
     // Restore theme/display preferences from cloud
     if(S.settings.accentColor){
       localStorage.setItem('studioAccentColor', S.settings.accentColor);
@@ -11344,6 +11352,23 @@ function openClientPortal(clientId){
   };
   const w=window.open('','_blank');
   w.document.write(buildPortalHTML(d));w.document.close();
+}
+
+function copyPortalLink(){
+  const el = document.getElementById('portal-url-text');
+  if(!el) return;
+  const url = el.textContent || el.innerText;
+  if(!url || url === '...') return;
+  navigator.clipboard.writeText(url).then(()=>{
+    if(typeof showMiniNotif === 'function') showMiniNotif('✅ تم نسخ الرابط');
+  }).catch(()=>{
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(typeof showMiniNotif === 'function') showMiniNotif('✅ تم نسخ الرابط');
+  });
 }
 
 function buildPortalHTML(d){
