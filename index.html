@@ -1871,6 +1871,12 @@ setTimeout(window._showApp, 4000);
   <!-- KANBAN VIEW -->
   <div id="kanban-view">
     <!-- Kanban Status Columns — drag & drop + responsive -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:11px;color:var(--text3)">اسحب المهام بين الأعمدة لتغيير حالتها</div>
+      <button onclick="openStatusManagerModal()" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;transition:.18s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
+        ⚙ إدارة الحالات
+      </button>
+    </div>
 
     <div id="status-cols">
       <div class="kb-col" style="border:1px solid rgba(150,150,180,.3)">
@@ -5174,7 +5180,7 @@ function renderTasks(){
           <span style="font-size:10px;color:var(--text3)">${stepsDone}/${stepsTotal}</span>
         </div>`:''}
         <div style="font-size:10px;color:var(--text3);margin-top:5px;display:flex;justify-content:space-between;align-items:center">
-          <span style="opacity:.4">⠿ اسحب للنقل</span>
+          <button onclick="event.stopPropagation();openCardStatusRename('${st}',this)" style="background:rgba(255,255,255,.06);border:none;border-radius:6px;color:var(--text3);font-size:11px;padding:2px 7px;cursor:pointer" title="تعديل اسم الحالة">⚙</button>
           <button onclick="event.stopPropagation();kbShowMoveMenu(event,${t.id})" style="background:rgba(124,111,247,.15);border:none;border-radius:6px;color:var(--accent);font-size:10px;padding:2px 7px;cursor:pointer;font-weight:700">نقل ▾</button>
         </div>
       </div>`;
@@ -11606,7 +11612,445 @@ _buildTrackingPageHTML = function(t){
 };
 
 // ═══════════════════════════════════════════════════
-// GOALS REDESIGN — Full featured goals system
+// FIX: Use user avatar in tracking page logo
+// ═══════════════════════════════════════════════════
+(function(){
+  const _origBuild = _buildTrackingPageHTML;
+  _buildTrackingPageHTML = function(t){
+    // Inject user avatar as logo if no studio logo
+    const session = getSession();
+    const userAvatar = session?.avatarUrl||'';
+    if(!S.settings) S.settings={};
+    // Temporarily set logo to user avatar if no studio logo
+    const hadLogo = S.settings.logo;
+    if(!hadLogo && userAvatar) S.settings._tempLogo = userAvatar;
+    const html = _origBuild(t);
+    // Replace _tempLogo references
+    const finalHtml = hadLogo ? html : html.replace(
+      /src="undefined"/g, `src="${userAvatar}"`
+    );
+    return finalHtml;
+  };
+  // Also patch the logo extraction inside _buildTrackingPageHTML directly
+})();
+
+// Override with avatar-aware version
+const __buildHTML_orig = _buildTrackingPageHTML;
+_buildTrackingPageHTML = function(t){
+  const session = getSession();
+  const userAvatar = session?.avatarUrl||'';
+  const studioLogo = S.settings?.logo||userAvatar||'';
+
+  const steps=t.steps||[];
+  const stepsTotal=steps.length, stepsDone=steps.filter(s=>s.done).length;
+  const pct=stepsTotal?Math.round(stepsDone/stepsTotal*100):(t.done?100:0);
+  const studio   = S.settings?.name||session?.name||'Studio OS';
+  const phone    = S.settings?.phone||session?.phone||'';
+  const email    = S.settings?.email||'';
+  const socials  = S.settings?.socials||[];
+  const accentColor = localStorage.getItem('studioAccentColor')||'#7c6ff7';
+  const displayMode = localStorage.getItem('studioDisplayMode')||'dark';
+  const isDark = displayMode==='dark';
+  const bg=isDark?'#0f0f1a':'#f5f6fb', bg2=isDark?'#1a1a2e':'#ffffff', bg3=isDark?'#12122a':'#f0f0f8';
+  const border=isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)';
+  const text=isDark?'#e8e8f0':'#1a1a2e', text2=isDark?'#aaa':'#555', text3=isDark?'#666':'#999';
+  const accentHex=accentColor;
+  function hexToRgb(h){try{return `${parseInt(h.slice(1,3),16)},${parseInt(h.slice(3,5),16)},${parseInt(h.slice(5,7),16)}`;}catch(e){return '124,111,247';}}
+  const accentRgb=accentHex.startsWith('#')?hexToRgb(accentHex):'124,111,247';
+  const status={new:'جديد',progress:'قيد التنفيذ',review:'مراجعة',done:'مكتمل ✅'}[t.status]||t.status;
+  const statusColor={new:text3,progress:'#f7c948',review:accentHex,done:'#4fd1a5'}[t.status]||text3;
+  const daysLeft=t.deadline?Math.max(0,Math.ceil((new Date(t.deadline)-new Date())/(1000*60*60*24))):null;
+  const socialIcons={instagram:'📸',facebook:'📘',behance:'🎨',linkedin:'💼',twitter:'🐦',youtube:'📺',tiktok:'🎵',website:'🌐'};
+
+  return `<!DOCTYPE html><html dir="rtl" lang="ar"><head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>متابعة: ${t.title} — ${studio}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root{--accent:${accentHex};--accent-rgb:${accentRgb};--bg:${bg};--bg2:${bg2};--bg3:${bg3};--border:${border};--text:${text};--text2:${text2};--text3:${text3}}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Cairo,sans-serif;background:var(--bg);color:var(--text);direction:rtl;min-height:100vh}
+    .hdr{background:linear-gradient(135deg,rgba(${accentRgb},.85),rgba(${accentRgb},.45));padding:28px 24px;text-align:center;position:relative;overflow:hidden;border-bottom:1px solid rgba(${accentRgb},.2)}
+    .hdr::before{content:'';position:absolute;inset:0;background:${isDark?'rgba(0,0,0,.4)':'rgba(255,255,255,.1)'};}
+    .hdr-inner{position:relative;z-index:1}
+    .studio-logo{width:68px;height:68px;border-radius:50%;object-fit:cover;margin:0 auto 10px;display:block;border:3px solid rgba(255,255,255,.4);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+    .studio-logo-fallback{width:68px;height:68px;border-radius:50%;background:rgba(255,255,255,.2);border:3px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 10px;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+    .studio-name{font-size:12px;font-weight:700;color:rgba(255,255,255,.85);letter-spacing:.5px;margin-bottom:8px}
+    .proj-title{font-size:22px;font-weight:900;color:#fff;margin-bottom:5px;text-shadow:0 2px 8px rgba(0,0,0,.3)}
+    .proj-meta{font-size:12px;color:rgba(255,255,255,.7)}
+    .con{max-width:680px;margin:0 auto;padding:20px 16px}
+    .card{background:var(--bg2);border-radius:16px;padding:20px;margin-bottom:16px;border:1px solid var(--border)}
+    .ct{font-size:14px;font-weight:800;margin-bottom:14px;color:var(--text)}
+    .pct-big{font-size:52px;font-weight:900;color:var(--accent);line-height:1;margin-bottom:4px}
+    .pw{height:14px;background:var(--bg3);border-radius:7px;overflow:hidden;margin:12px 0}
+    .pf{height:100%;background:linear-gradient(90deg,rgba(${accentRgb},1),rgba(${accentRgb},.6));border-radius:7px;transition:width .8s}
+    .step-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+    .step-row:last-child{border:none}
+    .sn{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:var(--text3)}
+    .sn.done{background:#4fd1a5;border-color:#4fd1a5;color:#fff}
+    .sn.cur{background:var(--accent);border-color:var(--accent);color:#fff;animation:pulse 1.5s infinite}
+    @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(${accentRgb},.5)}50%{box-shadow:0 0 0 8px rgba(${accentRgb},0)}}
+    .sl{font-size:13px;flex:1;color:var(--text)}.sl.done{text-decoration:line-through;color:var(--text3)}.sl.cur{font-weight:700}
+    .ig{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .ic{background:var(--bg3);border-radius:10px;padding:12px 14px;border:1px solid var(--border)}
+    .il{font-size:10px;color:var(--text3);font-weight:600;margin-bottom:4px}.iv{font-size:13px;font-weight:700;color:var(--text)}
+    .social-link{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;font-size:12px;font-weight:600;text-decoration:none;color:var(--accent);margin:3px}
+    .ftr{text-align:center;padding:24px;font-size:11px;color:var(--text3);border-top:1px solid var(--border);margin-top:8px}
+    @media(max-width:480px){.ig{grid-template-columns:1fr}.hdr{padding:24px 16px}.pct-big{font-size:38px}}
+  </style></head><body>
+  <div class="hdr">
+    <div class="hdr-inner">
+      ${studioLogo
+        ? `<img src="${studioLogo}" class="studio-logo" alt="${studio}" onerror="this.style.display='none'">`
+        : `<div class="studio-logo-fallback">🎨</div>`}
+      <div class="studio-name">${studio}</div>
+      <div class="proj-title">${t.title}</div>
+      <div class="proj-meta">${t.client?'👤 '+t.client+'  ·  ':''}<span style="color:${statusColor==='#f7c948'?'#ffe082':statusColor}">${status}</span></div>
+    </div>
+  </div>
+  <div class="con">
+    <div class="card" style="text-align:center">
+      <div class="pct-big">${pct}%</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:4px">نسبة الإنجاز</div>
+      <div class="pw"><div class="pf" style="width:${pct}%"></div></div>
+      <div class="ig" style="margin-top:12px">
+        ${t.orderDate?`<div class="ic"><div class="il">📅 تاريخ البدء</div><div class="iv">${t.orderDate}</div></div>`:''}
+        ${t.deadline?`<div class="ic"><div class="il">⏰ موعد التسليم</div><div class="iv" style="color:${daysLeft!==null&&daysLeft<=3?'#f76f7c':daysLeft!==null&&daysLeft<=7?'#f7c948':'#4fd1a5'}">${t.deadline}${daysLeft!==null?' ('+daysLeft+' يوم)':''}</div></div>`:''}
+      </div>
+    </div>
+    ${steps.length?`<div class="card"><div class="ct">🗂 مراحل التنفيذ — ${stepsDone}/${stepsTotal}</div>
+      ${steps.map((s,i)=>{const dn=s.done,cr=!dn&&steps.slice(0,i).every(x=>x.done);return `<div class="step-row"><div class="sn ${dn?'done':cr?'cur':''}">${dn?'✓':cr?'▶':i+1}</div><span class="sl ${dn?'done':cr?'cur':''}">${s.text}</span><span style="font-size:10px;color:${dn?'#4fd1a5':cr?'var(--accent)':'var(--text3)'};font-weight:700">${dn?'مكتمل ✓':cr?'جاري الآن ▶':''}</span></div>`;}).join('')}
+    </div>`:''}
+    ${t.brief?`<div class="card"><div class="ct">📄 وصف المشروع</div><p style="font-size:13px;color:var(--text2);line-height:1.9">${t.brief}</p></div>`:''}
+    ${(phone||email||socials.length)?`<div class="card">
+      <div class="ct">📞 تواصل مع ${studio}</div>
+      ${phone?`<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">📱 <a href="https://wa.me/${phone.replace(/\D/g,'')}" style="color:var(--accent);text-decoration:none;font-weight:600">${phone}</a></div>`:''}
+      ${email?`<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">✉️ <a href="mailto:${email}" style="color:var(--accent);text-decoration:none;font-weight:600">${email}</a></div>`:''}
+      ${socials.length?`<div style="margin-top:10px;display:flex;flex-wrap:wrap">${socials.map(s=>`<a href="${s.url}" target="_blank" class="social-link">${socialIcons[s.platform]||'🔗'} ${s.platform}</a>`).join('')}</div>`:''}
+    </div>`:''}
+    <div class="ftr">
+      <div style="margin-bottom:4px;font-weight:600;color:var(--text2)">${studio}</div>
+      <div>آخر تحديث: ${new Date().toLocaleDateString('ar-EG',{year:'numeric',month:'long',day:'numeric'})}</div>
+    </div>
+  </div></body></html>`;
+};
+
+// ═══════════════════════════════════════════════════
+// CARD ⚙ = RENAME CURRENT STATUS ONLY (mini inline)
+// ═══════════════════════════════════════════════════
+function openCardStatusRename(statusId, triggerEl){
+  // Remove any existing
+  document.querySelectorAll('._card-rename-pop').forEach(el=>el.remove());
+  const defaultDefs={new:{label:'جديد'},progress:{label:'قيد التنفيذ'},review:{label:'مراجعة'},paused:{label:'موقوف'}};
+  const def=defaultDefs[statusId];
+  const custom=(S.customStatuses||[]).find(s=>s.id===statusId);
+  const currentLabel=def?def.label:(custom?.label||statusId);
+  const override=(S.statusOverrides||{})[statusId];
+  const displayLabel=override?.label||currentLabel;
+
+  const pop=document.createElement('div');
+  pop.className='_card-rename-pop';
+  pop.style.cssText='position:fixed;z-index:9998;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:_spIn .15s ease';
+  const rect=triggerEl.getBoundingClientRect();
+  pop.style.top=(rect.bottom+4)+'px';
+  pop.style.right=Math.max(8,window.innerWidth-rect.right)+'px';
+  pop.innerHTML=`
+    <div style="font-size:10px;color:var(--text3);margin-bottom:6px;font-weight:700">تعديل اسم هذه الحالة</div>
+    <div style="display:flex;gap:6px">
+      <input id="_crn-inp" class="form-input" value="${displayLabel}" style="flex:1;height:28px;font-size:12px;padding:0 8px">
+      <button onclick="_cardRenameApply('${statusId}')" style="height:28px;padding:0 10px;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font)">حفظ</button>
+    </div>`;
+  document.body.appendChild(pop);
+  document.getElementById('_crn-inp')?.focus();
+  setTimeout(()=>{
+    document.addEventListener('click',function _crOutside(e){
+      if(!pop.contains(e.target)&&!triggerEl.contains(e.target)){pop.remove();document.removeEventListener('click',_crOutside);}
+    });
+  },100);
+}
+
+function _cardRenameApply(statusId){
+  const label=document.getElementById('_crn-inp')?.value.trim();
+  if(!label)return;
+  if(!S.statusOverrides)S.statusOverrides={};
+  const defaultIds=['new','progress','review','paused'];
+  if(defaultIds.includes(statusId)){
+    S.statusOverrides[statusId]={...(S.statusOverrides[statusId]||{}),label};
+  } else {
+    const idx=(S.customStatuses||[]).findIndex(s=>s.id===statusId);
+    if(idx>-1)S.customStatuses[idx].label=label;
+  }
+  lsSave(); renderAll(); buildDynamicStatusDropdowns(); renderTaskStatusesSettings();
+  document.querySelectorAll('._card-rename-pop').forEach(el=>el.remove());
+  toast('✅ تم تحديث اسم الحالة');
+}
+
+// ═══════════════════════════════════════════════════
+// ⚙ STATUS MANAGER MODAL (big button above kanban)
+// ═══════════════════════════════════════════════════
+function openStatusManagerModal(){
+  let modal=document.getElementById('_modal-status-mgr');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='_modal-status-mgr';
+    modal.className='modal-overlay';
+    modal.innerHTML='<div class="modal" style="width:520px;max-height:85vh;overflow-y:auto" id="_modal-status-mgr-inner"></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click',e=>{if(e.target===modal)closeM('_modal-status-mgr');});
+  }
+  _renderStatusMgrModal();
+  openM('_modal-status-mgr');
+}
+
+function _renderStatusMgrModal(){
+  const el=document.getElementById('_modal-status-mgr-inner');if(!el)return;
+  const hidden=S.hiddenStatuses||[];
+  const overrides=S.statusOverrides||{};
+  const defaultStatuses=[
+    {id:'new',    label:'جديد',       icon:'📋', color:'#5a5a80'},
+    {id:'progress',label:'قيد التنفيذ',icon:'⚡', color:'#f7c948'},
+    {id:'review', label:'مراجعة',     icon:'🔍', color:'#7c6ff7'},
+    {id:'paused', label:'موقوف',      icon:'⏸', color:'#64b5f6'},
+  ];
+  const customStatuses=S.customStatuses||[];
+  const allStatuses=[
+    ...defaultStatuses.map(s=>({...s,isDefault:true,displayLabel:overrides[s.id]?.label||s.label})),
+    ...customStatuses.map(s=>({...s,isDefault:false,displayLabel:s.label})),
+  ];
+  el.innerHTML=`
+    <div class="modal-header">
+      <div class="modal-title">⚙ إدارة حالات المهام</div>
+      <button class="close-btn" onclick="closeM('_modal-status-mgr')">✕</button>
+    </div>
+    <div style="padding:20px">
+      <div style="margin-bottom:16px">
+        ${allStatuses.map((s,i)=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:10px;margin-bottom:8px;border:1px solid ${hidden.includes(s.id)?'rgba(247,111,124,.2)':'var(--border)'};opacity:${hidden.includes(s.id)?'.5':'1'}">
+            <div style="width:10px;height:10px;border-radius:50%;background:${s.color||'#888'};flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <input value="${s.displayLabel}" id="_smgr-lbl-${s.id}" class="form-input" style="height:28px;font-size:12px;padding:0 8px;width:100%" onchange="_smgrUpdateLabel('${s.id}',this.value)">
+            </div>
+            <input type="color" value="${s.color?.startsWith('var')?'#7c6ff7':s.color||'#888'}" id="_smgr-col-${s.id}" onchange="_smgrUpdateColor('${s.id}',this.value)" style="width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;background:none;padding:0;flex-shrink:0" title="تغيير اللون">
+            <button onclick="_smgrToggleHide('${s.id}')" style="background:none;border:1px solid var(--border);border-radius:7px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3)" title="${hidden.includes(s.id)?'إظهار':'إخفاء'}">${hidden.includes(s.id)?'👁':'🙈'}</button>
+            ${!s.isDefault?`<button onclick="_smgrDelete('${s.id}')" style="background:rgba(247,111,124,.1);border:1px solid rgba(247,111,124,.3);border-radius:7px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--accent4)">🗑</button>`:'<div style="width:32px"></div>'}
+          </div>`).join('')}
+      </div>
+      <div style="background:var(--surface2);border-radius:12px;padding:14px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text3);font-weight:700;margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px">+ إضافة حالة جديدة</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="_smgr-new-icon" class="form-input" placeholder="⭐" style="width:38px;text-align:center;font-size:16px;padding:0 4px;height:34px">
+          <input id="_smgr-new-label" class="form-input" placeholder="اسم الحالة الجديدة" style="flex:1;height:34px">
+          <input id="_smgr-new-color" type="color" value="#7c6ff7" style="width:34px;height:34px;border:none;border-radius:8px;cursor:pointer;padding:0;background:none;flex-shrink:0">
+          <button onclick="_smgrAddNew()" class="btn btn-primary" style="height:34px;padding:0 14px;white-space:nowrap">+ إضافة</button>
+        </div>
+      </div>
+      <div style="margin-top:14px;text-align:center">
+        <button onclick="closeM('_modal-status-mgr');renderAll();" class="btn btn-primary">✅ حفظ وتطبيق</button>
+      </div>
+    </div>`;
+}
+
+function _smgrUpdateLabel(id,val){
+  const defaultIds=['new','progress','review','paused'];
+  if(!S.statusOverrides)S.statusOverrides={};
+  if(defaultIds.includes(id)){S.statusOverrides[id]={...(S.statusOverrides[id]||{}),label:val};}
+  else{const idx=(S.customStatuses||[]).findIndex(s=>s.id===id);if(idx>-1)S.customStatuses[idx].label=val;}
+  lsSave();
+}
+function _smgrUpdateColor(id,color){
+  const defaultIds=['new','progress','review','paused'];
+  if(!S.statusOverrides)S.statusOverrides={};
+  if(defaultIds.includes(id)){S.statusOverrides[id]={...(S.statusOverrides[id]||{}),color};}
+  else{const idx=(S.customStatuses||[]).findIndex(s=>s.id===id);if(idx>-1)S.customStatuses[idx].color=color;}
+  lsSave();
+}
+function _smgrToggleHide(id){
+  if(!S.hiddenStatuses)S.hiddenStatuses=[];
+  if(S.hiddenStatuses.includes(id))S.hiddenStatuses=S.hiddenStatuses.filter(x=>x!==id);
+  else S.hiddenStatuses.push(id);
+  lsSave();_renderStatusMgrModal();
+}
+function _smgrDelete(id){
+  const count=(S.tasks||[]).filter(t=>t.status===id).length;
+  const msg=count>0?`هذه الحالة مستخدمة في ${count} مهمة — ستنتقل لحالة "جديد"`:'هل تريد حذف هذه الحالة؟';
+  confirmDel(msg,()=>{
+    if(count>0)(S.tasks||[]).forEach(t=>{if(t.status===id)t.status='new';});
+    S.customStatuses=(S.customStatuses||[]).filter(s=>s.id!==id);
+    lsSave();_renderStatusMgrModal();buildDynamicStatusDropdowns();renderAll();
+  });
+}
+function _smgrAddNew(){
+  const icon=document.getElementById('_smgr-new-icon')?.value.trim()||'';
+  const label=document.getElementById('_smgr-new-label')?.value.trim();
+  const color=document.getElementById('_smgr-new-color')?.value||'#7c6ff7';
+  if(!label){toast('أدخل اسم الحالة');return;}
+  if(!S.customStatuses)S.customStatuses=[];
+  S.customStatuses.push({id:'custom_'+Date.now(),label,color,icon});
+  lsSave();_renderStatusMgrModal();buildDynamicStatusDropdowns();
+  toast('✅ تمت إضافة الحالة: '+(icon?icon+' ':'')+label);
+  // Also add new kanban column
+  setTimeout(()=>{renderAll();},100);
+}
+
+// Patch renderKanban/applyTaskFilters to also render custom status columns
+window.addEventListener('load', function(){
+  // Hook into renderAll to add custom kanban columns
+  const _raOrig2 = renderAll;
+  renderAll = function(){
+    _raOrig2();
+    _renderCustomKanbanCols();
+  };
+  setTimeout(_renderCustomKanbanCols, 600);
+});
+
+function _renderCustomKanbanCols(){
+  const statusCols = document.getElementById('status-cols');
+  if(!statusCols) return;
+  const custom = S.customStatuses||[];
+  const hidden = S.hiddenStatuses||[];
+  const filtered = (S.tasks||[]).filter(t=>{
+    const tf_status=document.getElementById('tf-status')?.value||'';
+    const tf_priority=document.getElementById('tf-priority')?.value||'';
+    const tf_client=document.getElementById('tf-client')?.value||'';
+    if(tf_status && t.status!==tf_status) return false;
+    if(tf_priority && t.priority!==tf_priority) return false;
+    if(tf_client && t.client!==tf_client) return false;
+    return !t.done;
+  });
+
+  custom.filter(cs=>!hidden.includes(cs.id)).forEach(cs=>{
+    let col = document.getElementById('col-custom-'+cs.id);
+    if(!col){
+      // Create new column
+      const wrapper = document.createElement('div');
+      wrapper.className='kb-col';
+      wrapper.id='kcol-'+cs.id;
+      wrapper.style.cssText=`border:1px solid ${cs.color}44`;
+      wrapper.innerHTML=`
+        <div class="kb-col-header" style="background:${cs.color}18">
+          <div style="font-size:12px;font-weight:700;color:${cs.color}">${cs.icon||''} ${cs.label}</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span class="nav-badge" id="cnt-${cs.id}" style="display:none;background:${cs.color}">0</span>
+            <button onclick="openStatusPopover('${cs.id}',this)" style="background:none;border:none;cursor:pointer;padding:2px 4px;color:${cs.color};opacity:.6;font-size:13px;border-radius:5px;line-height:1;transition:.15s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.6'">⚙</button>
+          </div>
+        </div>
+        <div class="kb-col-body" id="col-custom-${cs.id}" data-status="${cs.id}"
+          ondragover="kbDragOver(event)" ondragleave="kbDragLeave(event)" ondrop="kbDrop(event)"></div>`;
+      statusCols.appendChild(wrapper);
+      col = document.getElementById('col-custom-'+cs.id);
+    }
+    // Render tasks
+    const tasks = filtered.filter(t=>t.status===cs.id);
+    const cnt = document.getElementById('cnt-'+cs.id);
+    if(cnt){cnt.textContent=tasks.length;cnt.style.display=tasks.length?'inline-block':'none';}
+    const stMap={};stMap[cs.id]=cs.icon+' '+cs.label;
+    const stColor={};stColor[cs.id]=cs.color;
+    if(!tasks.length){col.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px;text-align:center">لا مهام</div>';return;}
+    col.innerHTML=tasks.map(t=>{
+      const sp=t.steps||[];const sd=sp.filter(s=>s.done).length;const pct=sp.length?Math.round(sd/sp.length*100):0;
+      return `<div class="kb-card" draggable="true" data-task-id="${t.id}" ondragstart="kbDragStart(event,${t.id})" onclick="openTaskDetail(${t.id})">
+        <div style="font-size:12px;font-weight:700;margin-bottom:5px">${t.title}</div>
+        <div style="font-size:10px;color:var(--text3)">${t.client||''}</div>
+        ${sp.length?`<div style="display:flex;align-items:center;gap:5px;margin-top:6px">
+          <div style="flex:1;height:3px;background:var(--surface3);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${cs.color};border-radius:2px"></div>
+          </div><span style="font-size:10px;color:var(--text3)">${sd}/${sp.length}</span></div>`:''}
+        <div style="margin-top:5px;display:flex;justify-content:space-between">
+          <button onclick="event.stopPropagation();openCardStatusRename('${cs.id}',this)" style="background:rgba(255,255,255,.06);border:none;border-radius:6px;color:var(--text3);font-size:11px;padding:2px 7px;cursor:pointer">⚙</button>
+          <button onclick="event.stopPropagation();kbShowMoveMenu(event,${t.id})" style="background:${cs.color}22;border:none;border-radius:6px;color:${cs.color};font-size:10px;padding:2px 7px;cursor:pointer;font-weight:700">نقل ▾</button>
+        </div>
+      </div>`;
+    }).join('');
+  });
+  // Remove cols for deleted custom statuses
+  document.querySelectorAll('[id^="kcol-"]').forEach(el=>{
+    const cid=el.id.replace('kcol-','');
+    if(!custom.find(c=>c.id===cid)||hidden.includes(cid)) el.remove();
+  });
+  // Update grid
+  const count=statusCols.children.length;
+  statusCols.style.gridTemplateColumns=`repeat(${Math.min(count,4)},1fr)`;
+}
+
+// ═══════════════════════════════════════════════════
+// TEAM ASSIGNMENTS — show tasks for linked user
+// ═══════════════════════════════════════════════════
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    const session = getSession();
+    if(!session) return;
+    const myName = session.name||'';
+    const myEmail = session.email||'';
+    // Find tasks assigned to me as workerMember
+    const myTasks = (S.tasks||[]).filter(t=>
+      t.workerType==='team' &&
+      t.workerMember &&
+      (t.workerMember===myName || t.workerMember===myEmail) &&
+      !t.done
+    );
+    if(!myTasks.length) return;
+    // Show a banner on dashboard and tasks page
+    _renderTeamTasksBanner(myTasks, myName);
+  }, 1500);
+});
+
+function _renderTeamTasksBanner(myTasks, myName){
+  // Dashboard banner
+  const dash = document.getElementById('page-dashboard');
+  if(dash && !document.getElementById('_my-team-tasks-dash')){
+    const el=document.createElement('div');
+    el.id='_my-team-tasks-dash';
+    el.className='card';
+    el.style.cssText='margin-bottom:16px;border-color:rgba(100,181,246,.3);background:rgba(100,181,246,.05)';
+    el.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="section-title" style="margin:0;color:#64b5f6">👥 مهامك كعضو فريق (${myTasks.length})</div>
+        <button onclick="showPage('tasks')" class="btn btn-ghost btn-sm" style="font-size:11px;color:#64b5f6">عرض الكل ←</button>
+      </div>
+      ${myTasks.slice(0,3).map(t=>`
+        <div onclick="openTaskDetail(${t.id})" style="display:flex;align-items:center;gap:10px;padding:9px 10px;background:var(--surface2);border-radius:10px;margin-bottom:6px;cursor:pointer;border:1px solid rgba(100,181,246,.15)">
+          <div style="width:8px;height:8px;border-radius:50%;background:#64b5f6;flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.title}</div>
+            <div style="font-size:11px;color:var(--text3)">${t.client||''} ${t.deadline?'· تسليم '+t.deadline:''}</div>
+          </div>
+          <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(100,181,246,.15);color:#64b5f6;font-weight:700">${t.workerAmount?t.workerAmount.toLocaleString()+' ج':''}</span>
+        </div>`).join('')}
+      ${myTasks.length>3?`<div style="font-size:11px;color:var(--text3);text-align:center;margin-top:4px">+ ${myTasks.length-3} مهام أخرى</div>`:''}`;
+    const firstCard = dash.querySelector('.card');
+    if(firstCard) dash.insertBefore(el, firstCard);
+    else dash.appendChild(el);
+  }
+  // Also add section in tasks page
+  const tasksPage = document.getElementById('page-tasks');
+  if(tasksPage && !document.getElementById('_my-team-tasks-section')){
+    const el=document.createElement('div');
+    el.id='_my-team-tasks-section';
+    el.className='card';
+    el.style.cssText='margin-bottom:16px;border-color:rgba(100,181,246,.3)';
+    el.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="section-title" style="margin:0;color:#64b5f6">👥 مهامك كعضو فريق</div>
+        <span style="font-size:11px;color:var(--text3)">${myName}</span>
+      </div>
+      ${myTasks.map(t=>`
+        <div onclick="openTaskDetail(${t.id})" style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface2);border-radius:10px;margin-bottom:6px;cursor:pointer;border:1px solid rgba(100,181,246,.15);transition:.15s" onmouseover="this.style.borderColor='#64b5f6'" onmouseout="this.style.borderColor='rgba(100,181,246,.15)'">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700">${t.title}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">
+              ${t.client?'👤 '+t.client:''}
+              ${t.deadline?'  ·  ⏰ '+t.deadline:''}
+              ${t.workerAmount?'  ·  💰 '+t.workerAmount.toLocaleString()+' ج':''}
+            </div>
+          </div>
+          <span style="font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(100,181,246,.12);color:#64b5f6;font-weight:700;white-space:nowrap">
+            ${({new:'جديد',progress:'جاري',review:'مراجعة'}[t.status])||'جاري'}
+          </span>
+        </div>`).join('')}`;
+    const activeView = document.getElementById('tasks-active-view');
+    if(activeView) activeView.insertBefore(el, activeView.firstChild);
+  }
+}
 // ═══════════════════════════════════════════════════
 
 // Override openFreelancerGoalModal with full-featured version
