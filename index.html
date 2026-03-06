@@ -24,8 +24,7 @@ const supa = supabase.createClient(SUPA_URL, SUPA_ANON, {
     autoRefreshToken: true,
     detectSessionInUrl: true,
     storage: window.localStorage,
-    // Disable BroadcastChannel to prevent DataCloneError with Headers objects
-    // This error occurs when Supabase tries to sync auth state across tabs
+    // Disable BroadcastChannel lock — prevents DataCloneError with Headers objects
     lock: async (name, acquireTimeout, fn) => fn()
   }
 });
@@ -46,8 +45,13 @@ function applyPlatformConfig() {
   const name = cfgName || 'Studio OS';
 
   // PLATFORM logo = admin-set cfg.logo (sidebar), favicon = cfg.favicon (tab + auth icon)
-  const platformLogo = cfg.logo || '';
-  const favicon = cfg.favicon || '';
+  // Resolve b64 references stored separately to avoid localStorage quota issues
+  let rawLogo = cfg.logo || '';
+  let rawFavicon = cfg.favicon || '';
+  if(rawLogo === '__b64_logo__') rawLogo = localStorage.getItem('platform_logo_b64') || '';
+  if(rawFavicon === '__b64_favicon__') rawFavicon = localStorage.getItem('platform_favicon_b64') || '';
+  const platformLogo = rawLogo;
+  const favicon = rawFavicon;
 
   // Sidebar logo: use PLATFORM logo (admin-set), NOT user's studio logo
   const imgEl = document.getElementById('_sidebar-logo-img');
@@ -147,15 +151,9 @@ function cloudSave(data){
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(async ()=>{
     try{
-      // Serialize payload as plain JSON string to avoid DataCloneError with Headers objects
-      const payload = {
-        user_id: _supaUserId,
-        data: JSON.stringify(data),
-        updated_at: new Date().toISOString()
-      };
+      const payload = { user_id: _supaUserId, data: JSON.stringify(data), updated_at: new Date().toISOString() };
       const { error } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
       if(error){
-        // Extract only serializable string — avoid cloning the error object itself
         const msg = (error && typeof error.message === 'string') ? error.message : String(error);
         console.error('cloudSave error:', msg);
         showSyncIndicator('⚠ فشل الحفظ', '#f76f7c');
@@ -163,7 +161,6 @@ function cloudSave(data){
         showSyncIndicator('✅ محفوظ على السحابة', '#4fd1a5');
       }
     }catch(e){
-      // Use string extraction to prevent DataCloneError when logging complex objects
       const msg = (e && typeof e.message === 'string') ? e.message : 'unknown error';
       console.error('cloudSave error:', msg);
       showSyncIndicator('⚠ فشل المزامنة', '#f76f7c');
@@ -12253,15 +12250,9 @@ function _updateHeaderAvatar(){
     txtEl.style.display = 'flex';
     txtEl.textContent = (name[0]||'م').toUpperCase();
   }
-  // Also update sidebar logo
-  var sidLogoImg = document.getElementById('_sidebar-logo-img');
-  var sidHex     = document.getElementById('_logo-mark-hex');
-  var logoUrl = (typeof S !== 'undefined' && S.settings && S.settings.logo) ? S.settings.logo : avatarUrl;
-  if(sidLogoImg && logoUrl){
-    sidLogoImg.src = logoUrl;
-    sidLogoImg.style.display = 'block';
-    if(sidHex) sidHex.style.display = 'none';
-  }
+  // Sidebar logo is ONLY controlled by applyPlatformConfig (admin-set platform logo)
+  // Do NOT override it here with user avatar or studio logo
+  if(typeof applyPlatformConfig === 'function') applyPlatformConfig();
 }
 
 function _toggleProfileMenu(triggerEl){
