@@ -1876,7 +1876,10 @@ setTimeout(window._showApp, 4000);
       <div class="kb-col" style="border:1px solid rgba(150,150,180,.3)">
         <div class="kb-col-header" style="background:rgba(90,90,112,.3)">
           <div style="font-size:12px;font-weight:700;color:var(--text2)">📋 جديد</div>
-          <span class="nav-badge" id="cnt-new" style="display:none;background:var(--text3)">0</span>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span class="nav-badge" id="cnt-new" style="display:none;background:var(--text3)">0</span>
+            <button onclick="openStatusPopover('new',this)" style="background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--text3);font-size:13px;border-radius:5px;line-height:1;transition:.15s" title="إعدادات الحالة" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'">⚙</button>
+          </div>
         </div>
         <div class="kb-col-body" id="col-status-new" data-status="new"
           ondragover="kbDragOver(event)" ondragleave="kbDragLeave(event)" ondrop="kbDrop(event)"></div>
@@ -1884,7 +1887,10 @@ setTimeout(window._showApp, 4000);
       <div class="kb-col" style="border:1px solid rgba(247,201,72,.25)">
         <div class="kb-col-header" style="background:rgba(247,201,72,.1)">
           <div style="font-size:12px;font-weight:700;color:var(--accent2)">⚡ قيد التنفيذ</div>
-          <span class="nav-badge" id="cnt-progress" style="display:none;background:var(--accent2)">0</span>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span class="nav-badge" id="cnt-progress" style="display:none;background:var(--accent2)">0</span>
+            <button onclick="openStatusPopover('progress',this)" style="background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--accent2);opacity:.6;font-size:13px;border-radius:5px;line-height:1;transition:.15s" title="إعدادات الحالة" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.6'">⚙</button>
+          </div>
         </div>
         <div class="kb-col-body" id="col-status-progress" data-status="progress"
           ondragover="kbDragOver(event)" ondragleave="kbDragLeave(event)" ondrop="kbDrop(event)"></div>
@@ -1892,7 +1898,10 @@ setTimeout(window._showApp, 4000);
       <div class="kb-col" style="border:1px solid rgba(124,111,247,.25)">
         <div class="kb-col-header" style="background:rgba(124,111,247,.1)">
           <div style="font-size:12px;font-weight:700;color:var(--accent)">🔍 مراجعة</div>
-          <span class="nav-badge" id="cnt-review" style="display:none;background:var(--accent)">0</span>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span class="nav-badge" id="cnt-review" style="display:none;background:var(--accent)">0</span>
+            <button onclick="openStatusPopover('review',this)" style="background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--accent);opacity:.6;font-size:13px;border-radius:5px;line-height:1;transition:.15s" title="إعدادات الحالة" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.6'">⚙</button>
+          </div>
         </div>
         <div class="kb-col-body" id="col-status-review" data-status="review"
           ondragover="kbDragOver(event)" ondragleave="kbDragLeave(event)" ondrop="kbDrop(event)"></div>
@@ -1900,7 +1909,10 @@ setTimeout(window._showApp, 4000);
       <div class="kb-col" style="border:1px solid rgba(100,181,246,.25)">
         <div class="kb-col-header" style="background:rgba(100,181,246,.1)">
           <div style="font-size:12px;font-weight:700;color:#64b5f6">⏸ موقوف</div>
-          <span class="nav-badge" id="cnt-paused" style="display:none;background:#64b5f6">0</span>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span class="nav-badge" id="cnt-paused" style="display:none;background:#64b5f6">0</span>
+            <button onclick="openStatusPopover('paused',this)" style="background:none;border:none;cursor:pointer;padding:2px 4px;color:#64b5f6;opacity:.6;font-size:13px;border-radius:5px;line-height:1;transition:.15s" title="إعدادات الحالة" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.6'">⚙</button>
+          </div>
         </div>
         <div class="kb-col-body" id="col-status-paused" data-status="paused"
           ondragover="kbDragOver(event)" ondragleave="kbDragLeave(event)" ondrop="kbDrop(event)"></div>
@@ -11154,6 +11166,197 @@ window.addEventListener('load', function(){
 
 // ═══════════════════════════════════════════════════
 // Timer fixed in original ttStop function above
+
+// ═══════════════════════════════════════════════════
+// STATUS SETTINGS POPOVER (kanban column gear icon)
+// ═══════════════════════════════════════════════════
+(function(){
+  // Inject popover CSS
+  const s = document.createElement('style');
+  s.textContent = `
+    #_status-popover{
+      position:fixed;z-index:9999;background:var(--surface2);border:1px solid var(--border);
+      border-radius:14px;padding:0;min-width:260px;max-width:300px;
+      box-shadow:0 12px 40px rgba(0,0,0,.45);animation:_spIn .18s cubic-bezier(.34,1.4,.64,1);
+    }
+    @keyframes _spIn{from{opacity:0;transform:scale(.88) translateY(-6px)}to{opacity:1;transform:scale(1) translateY(0)}}
+    ._sp-header{padding:12px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+    ._sp-title{font-size:12px;font-weight:800;color:var(--text)}
+    ._sp-close{background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 6px;border-radius:6px;line-height:1}
+    ._sp-close:hover{color:var(--text);background:var(--surface3)}
+    ._sp-body{padding:10px 14px}
+    ._sp-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;margin-bottom:2px}
+    ._sp-row:hover{background:var(--surface3)}
+    ._sp-swatch{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+    ._sp-lbl{flex:1;font-size:12px;font-weight:600;color:var(--text2)}
+    ._sp-action{background:none;border:none;cursor:pointer;font-size:11px;padding:3px 7px;border-radius:6px;color:var(--text3);transition:.12s}
+    ._sp-action:hover{background:var(--surface);color:var(--text)}
+    ._sp-action.danger:hover{color:var(--accent4);background:rgba(247,111,124,.1)}
+    ._sp-divider{height:1px;background:var(--border);margin:8px 0}
+    ._sp-new{display:flex;gap:6px;align-items:center;margin-top:2px}
+    ._sp-new input{flex:1;height:30px;padding:0 8px;background:var(--surface3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:12px;font-family:var(--font);outline:none}
+    ._sp-new input:focus{border-color:var(--accent)}
+    ._sp-new .color-dot{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);cursor:pointer;flex-shrink:0}
+    ._sp-add-btn{height:30px;padding:0 10px;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--font)}
+  `;
+  document.head.appendChild(s);
+})();
+
+let _spCurrentId = null;
+
+function openStatusPopover(statusId, triggerEl){
+  // Close if same popover already open
+  const existing = document.getElementById('_status-popover');
+  if(existing){ existing.remove(); if(_spCurrentId===statusId) { _spCurrentId=null; return; } }
+  _spCurrentId = statusId;
+
+  const defaultDefs = {
+    new:      {label:'جديد',       icon:'📋', color:'#5a5a80', isDefault:true},
+    progress: {label:'قيد التنفيذ', icon:'⚡', color:'#f7c948', isDefault:true},
+    review:   {label:'مراجعة',     icon:'🔍', color:'#7c6ff7', isDefault:true},
+    paused:   {label:'موقوف',      icon:'⏸', color:'#64b5f6', isDefault:true},
+  };
+  const def = defaultDefs[statusId];
+  const isCustom = !def;
+  const customEntry = isCustom ? (S.customStatuses||[]).find(s=>s.id===statusId) : null;
+  const label = def ? def.label : (customEntry?.label||statusId);
+  const color = def ? def.color : (customEntry?.color||'#888');
+  const icon  = def ? def.icon  : (customEntry?.icon||'');
+  const isHidden = (S.hiddenStatuses||[]).includes(statusId);
+
+  const pop = document.createElement('div');
+  pop.id = '_status-popover';
+
+  // Position near trigger
+  const rect = triggerEl.getBoundingClientRect();
+  pop.style.top  = (rect.bottom + 6) + 'px';
+  pop.style.right = Math.max(8, window.innerWidth - rect.right - 10) + 'px';
+
+  pop.innerHTML = `
+    <div class="_sp-header">
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${color};display:inline-block"></span>
+        <span class="_sp-title">${icon} ${label}</span>
+      </div>
+      <button class="_sp-close" onclick="document.getElementById('_status-popover')?.remove();_spCurrentId=null">✕</button>
+    </div>
+    <div class="_sp-body">
+      <!-- Edit label & color for this status -->
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px">تعديل الحالة</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input id="_sp-edit-icon"  value="${icon}" placeholder="رمز" style="width:38px;height:30px;padding:0 6px;background:var(--surface3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;text-align:center;outline:none;font-family:var(--font)">
+          <input id="_sp-edit-label" value="${label}" placeholder="اسم الحالة" style="flex:1;height:30px;padding:0 8px;background:var(--surface3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:12px;font-family:var(--font);outline:none">
+          <input id="_sp-edit-color" type="color" value="${color.startsWith('var')?'#7c6ff7':color}" style="width:30px;height:30px;border:none;border-radius:7px;cursor:pointer;background:none;padding:0">
+          <button onclick="_spSaveEdit('${statusId}')" style="height:30px;padding:0 10px;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font)">حفظ</button>
+        </div>
+      </div>
+      <div class="_sp-divider"></div>
+      <!-- Hide/Show toggle -->
+      <div class="_sp-row" style="cursor:pointer" onclick="_spToggleHide('${statusId}')">
+        <span style="font-size:14px">${isHidden?'👁':'🙈'}</span>
+        <span class="_sp-lbl">${isHidden?'إظهار الحالة':'إخفاء الحالة من الكانبان'}</span>
+      </div>
+      <!-- Delete only for custom -->
+      ${isCustom ? `<div class="_sp-row" style="cursor:pointer" onclick="_spDelete('${statusId}')">
+        <span style="font-size:14px">🗑</span>
+        <span class="_sp-lbl" style="color:var(--accent4)">حذف هذه الحالة</span>
+      </div>` : `<div style="font-size:10px;color:var(--text3);padding:2px 8px">الحالات الأساسية لا يمكن حذفها</div>`}
+      <div class="_sp-divider"></div>
+      <!-- Add new status -->
+      <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">+ إضافة حالة جديدة</div>
+      <div class="_sp-new">
+        <input id="_sp-new-icon" placeholder="⭐" style="width:34px;text-align:center;font-size:14px" title="رمز اختياري">
+        <input id="_sp-new-label" placeholder="اسم الحالة...">
+        <input id="_sp-new-color" type="color" value="#7c6ff7" style="width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;background:none;padding:0;flex-shrink:0">
+        <button class="_sp-add-btn" onclick="_spAddNew()">+ إضافة</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(pop);
+
+  // Close on outside click
+  setTimeout(()=>{
+    document.addEventListener('click', function _spOutside(e){
+      if(!pop.contains(e.target) && !triggerEl.contains(e.target)){
+        pop.remove(); _spCurrentId=null;
+        document.removeEventListener('click',_spOutside);
+      }
+    });
+  }, 100);
+}
+
+function _spSaveEdit(statusId){
+  const icon  = document.getElementById('_sp-edit-icon')?.value.trim()||'';
+  const label = document.getElementById('_sp-edit-label')?.value.trim();
+  const color = document.getElementById('_sp-edit-color')?.value||'#7c6ff7';
+  if(!label){toast('أدخل اسم الحالة');return;}
+
+  const defaultIds = ['new','progress','review','paused'];
+  if(defaultIds.includes(statusId)){
+    // Save override for default statuses
+    if(!S.statusOverrides) S.statusOverrides={};
+    S.statusOverrides[statusId] = {label, icon, color};
+    // Update the kanban header visually
+    const col = document.querySelector(`[data-status="${statusId}"]`);
+    if(col){
+      const hdr = col.previousElementSibling;
+      if(hdr) hdr.querySelector('div').textContent = (icon?icon+' ':'')+label;
+    }
+  } else {
+    const idx = (S.customStatuses||[]).findIndex(s=>s.id===statusId);
+    if(idx>-1){ S.customStatuses[idx].label=label; S.customStatuses[idx].icon=icon; S.customStatuses[idx].color=color; }
+  }
+  lsSave(); cloudSave(S);
+  renderAll();
+  renderTaskStatusesSettings();
+  buildDynamicStatusDropdowns();
+  document.getElementById('_status-popover')?.remove(); _spCurrentId=null;
+  toast('✅ تم تحديث الحالة');
+}
+
+function _spToggleHide(statusId){
+  if(!S.hiddenStatuses) S.hiddenStatuses=[];
+  if(S.hiddenStatuses.includes(statusId)){
+    S.hiddenStatuses = S.hiddenStatuses.filter(x=>x!==statusId);
+    toast('👁 تم إظهار الحالة');
+  } else {
+    S.hiddenStatuses.push(statusId);
+    toast('🙈 تم إخفاء الحالة من الكانبان');
+  }
+  lsSave(); cloudSave(S);
+  renderAll(); renderTaskStatusesSettings(); buildDynamicStatusDropdowns();
+  document.getElementById('_status-popover')?.remove(); _spCurrentId=null;
+}
+
+function _spDelete(statusId){
+  const count = (S.tasks||[]).filter(t=>t.status===statusId).length;
+  const msg = count>0
+    ? `هذه الحالة مستخدمة في ${count} مهمة — هل تريد حذفها؟ ستنتقل المهام لحالة "جديد"`
+    : 'هل تريد حذف هذه الحالة؟';
+  confirmDel(msg, ()=>{
+    if(count>0) (S.tasks||[]).forEach(t=>{ if(t.status===statusId) t.status='new'; });
+    S.customStatuses = (S.customStatuses||[]).filter(s=>s.id!==statusId);
+    lsSave(); cloudSave(S);
+    renderAll(); renderTaskStatusesSettings(); buildDynamicStatusDropdowns();
+    document.getElementById('_status-popover')?.remove(); _spCurrentId=null;
+    toast('✅ تم الحذف');
+  });
+}
+
+function _spAddNew(){
+  const icon  = document.getElementById('_sp-new-icon')?.value.trim()||'';
+  const label = document.getElementById('_sp-new-label')?.value.trim();
+  const color = document.getElementById('_sp-new-color')?.value||'#7c6ff7';
+  if(!label){toast('أدخل اسم الحالة الجديدة');return;}
+  if(!S.customStatuses) S.customStatuses=[];
+  const id='custom_'+Date.now();
+  S.customStatuses.push({id,label,color,icon});
+  lsSave(); cloudSave(S);
+  renderAll(); renderTaskStatusesSettings(); buildDynamicStatusDropdowns();
+  document.getElementById('_status-popover')?.remove(); _spCurrentId=null;
+  toast('✅ تمت إضافة الحالة: '+(icon?icon+' ':'')+label);
+}
 
 // ═══════════════════════════════════════════════════
 // GOALS REDESIGN — Full featured goals system
