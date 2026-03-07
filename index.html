@@ -3248,7 +3248,7 @@ setTimeout(window._showApp, 4000);
 
 <!-- ══ MODAL: ADD/EDIT SERVICE ══ -->
 <div class="modal-overlay" id="modal-svc">
-  <div class="modal" style="width:min(660px,96vw);max-height:92vh;overflow-y:auto">
+  <div class="modal" style="width:min(680px,96vw);max-height:92vh;overflow-y:auto">
     <div class="modal-header">
       <div class="modal-title" id="svc-modal-title">🛍 خدمة جديدة</div>
       <button class="close-btn" onclick="closeM('modal-svc')">✕</button>
@@ -3257,11 +3257,13 @@ setTimeout(window._showApp, 4000);
     <div class="form-group"><label class="form-label">عنوان الخدمة *</label><input class="form-input" id="svc-name" placeholder="مثال: تصميم هوية بصرية كاملة"></div>
     <div class="form-group"><label class="form-label">وصف الخدمة *</label><textarea class="form-textarea" id="svc-desc" rows="3" placeholder="اشرح ما تقدمه بالتفصيل..."></textarea></div>
     <div class="form-row" style="grid-template-columns:1fr 1fr">
-      <div class="form-group"><label class="form-label">التصنيف</label>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+          التصنيف
+          <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px" onclick="openSvcCatsSettings()" title="إدارة التصنيفات">⚙ تخصيص</button>
+        </label>
         <select class="form-input" id="svc-cat">
           <option value="">— اختر —</option>
-          <option>تصميم جرافيك</option><option>برمجة وتطوير</option><option>كتابة ومحتوى</option>
-          <option>تسويق رقمي</option><option>فيديو وموشن</option><option>ترجمة</option><option>أخرى</option>
         </select>
       </div>
       <div class="form-group"><label class="form-label">وقت التسليم</label><input class="form-input" id="svc-delivery" placeholder="مثال: 3 أيام عمل"></div>
@@ -3272,30 +3274,55 @@ setTimeout(window._showApp, 4000);
         <input type="file" id="svc-img-input" accept="image/*" style="display:none" onchange="handleSvcImg(this)">
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('svc-img-input').click()">📁 رفع صورة</button>
         <span id="svc-img-name" style="font-size:11px;color:var(--text3)">لا توجد صورة</span>
+        <button class="btn btn-danger btn-sm" id="svc-img-clear-btn" style="display:none" onclick="_clearSvcImg()">✕</button>
       </div>
       <img id="svc-img-preview" src="" style="display:none;margin-top:8px;max-height:120px;border-radius:10px;object-fit:cover;width:100%">
     </div>
 
     <!-- Packages -->
-    <div style="font-size:13px;font-weight:800;margin:16px 0 8px;display:flex;align-items:center;justify-content:space-between">
-      <span>📦 الباقات</span>
-      <button class="btn btn-ghost btn-sm" onclick="addPkgRow()">+ باقة</button>
+    <div style="background:var(--surface2);border-radius:12px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+        <span>📦 الباقات</span>
+        <button class="btn btn-ghost btn-sm" onclick="addPkgRow()">+ باقة</button>
+      </div>
+      <div id="svc-pkgs-list" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div id="svc-pkgs-empty" style="font-size:11px;color:var(--text3);text-align:center;padding:10px 0">لا توجد باقات — اضغط "+ باقة" لإضافة</div>
     </div>
-    <div id="svc-pkgs-list" style="display:flex;flex-direction:column;gap:8px"></div>
 
     <!-- Portfolio -->
-    <div style="font-size:13px;font-weight:800;margin:16px 0 8px;display:flex;align-items:center;justify-content:space-between">
-      <span>🖼 معرض الأعمال</span>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-ghost btn-sm" onclick="addPortfolioItem('behance')">Behance</button>
-        <button class="btn btn-ghost btn-sm" onclick="addPortfolioItem('drive')">Google Drive</button>
+    <div style="background:var(--surface2);border-radius:12px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+        <span>🖼 معرض الأعمال</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="addPortfolioRow('behance')" title="إضافة مشروع Behance">+ Behance</button>
+          <button class="btn btn-ghost btn-sm" onclick="addPortfolioRow('drive')" title="إضافة رابط Google Drive">+ Drive</button>
+        </div>
       </div>
+      <div id="svc-portfolio-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div id="svc-portfolio-empty" style="font-size:11px;color:var(--text3);text-align:center;padding:10px 0">لا توجد أعمال — اختر Behance أو Drive</div>
     </div>
-    <div id="svc-portfolio-list" style="display:flex;flex-direction:column;gap:8px"></div>
 
-    <div style="display:flex;gap:8px;margin-top:20px">
+    <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveSvc()">💾 حفظ الخدمة</button>
+      <button class="btn btn-ghost" onclick="closeM('modal-svc')">إلغاء</button>
     </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: SVC CATEGORIES SETTINGS ══ -->
+<div class="modal-overlay" id="modal-svc-cats">
+  <div class="modal" style="width:min(440px,96vw)">
+    <div class="modal-header">
+      <div class="modal-title">⚙ إدارة تصنيفات الخدمات</div>
+      <button class="close-btn" onclick="closeM('modal-svc-cats')">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">أضف تصنيفات مخصصة تناسب مجالك</div>
+    <div id="svc-cats-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px">
+      <input class="form-input" id="svc-cat-new-input" placeholder="اسم التصنيف الجديد..." style="flex:1">
+      <button class="btn btn-primary btn-sm" onclick="addSvcCat()">+ إضافة</button>
+    </div>
+    <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:10px" onclick="closeM('modal-svc-cats');openSvcModal(document.getElementById('svc-eid').value||'')">✅ تم</button>
   </div>
 </div>
 
@@ -14634,6 +14661,53 @@ function clearSvcBanner(){
   lsSave(); cloudSave(S); toast('🗑 تم حذف البانر');
 }
 
+// ── Service Image Clear ──
+function _clearSvcImg(){
+  _svcImgData='';
+  var pv=document.getElementById('svc-img-preview'); if(pv){ pv.src=''; pv.style.display='none'; }
+  var nm=document.getElementById('svc-img-name'); if(nm) nm.textContent='لا توجد صورة';
+  var cl=document.getElementById('svc-img-clear-btn'); if(cl) cl.style.display='none';
+  var inp=document.getElementById('svc-img-input'); if(inp) inp.value='';
+}
+
+// ── Custom Service Categories ──
+var _DEFAULT_SVC_CATS=['تصميم جرافيك','برمجة وتطوير','كتابة ومحتوى','تسويق رقمي','فيديو وموشن','ترجمة','أخرى'];
+function _getSvcCats(){
+  try{ var c=JSON.parse(localStorage.getItem('_svcCats')||'null'); if(Array.isArray(c)) return c; }catch(e){}
+  return _DEFAULT_SVC_CATS.slice();
+}
+function _saveSvcCats(arr){ localStorage.setItem('_svcCats',JSON.stringify(arr)); }
+function _populateSvcCatSelect(currentVal){
+  var sel=document.getElementById('svc-cat'); if(!sel) return;
+  var cats=_getSvcCats();
+  sel.innerHTML='<option value="">— اختر —</option>'+cats.map(function(c){
+    return '<option value="'+escapeHtml(c)+'"'+(c===currentVal?' selected':'')+'>'+escapeHtml(c)+'</option>';
+  }).join('');
+}
+function openSvcCatsSettings(){
+  var cats=_getSvcCats();
+  var list=document.getElementById('svc-cats-list'); if(!list) return;
+  list.innerHTML=cats.map(function(c,i){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface2);border-radius:8px">'+
+      '<span style="flex:1;font-size:13px">'+escapeHtml(c)+'</span>'+
+      '<button onclick="_delSvcCat('+i+')" class="btn btn-ghost btn-sm" style="color:var(--accent4);padding:3px 8px">✕</button>'+
+    '</div>';
+  }).join('');
+  var inp=document.getElementById('svc-cat-new-input'); if(inp) inp.value='';
+  openM('modal-svc-cats');
+}
+function addSvcCat(){
+  var inp=document.getElementById('svc-cat-new-input'); if(!inp) return;
+  var val=(inp.value||'').trim(); if(!val){ toast('⚠ اكتب اسم التصنيف'); return; }
+  var cats=_getSvcCats(); if(cats.includes(val)){ toast('⚠ التصنيف موجود'); return; }
+  cats.push(val); _saveSvcCats(cats); inp.value='';
+  openSvcCatsSettings();
+  toast('✅ تم إضافة التصنيف');
+}
+function _delSvcCat(i){
+  var cats=_getSvcCats(); cats.splice(i,1); _saveSvcCats(cats); openSvcCatsSettings();
+}
+
 // ── Service Modal ──
 var _svcImgData = '';
 function openSvcModal(id){
@@ -14642,23 +14716,30 @@ function openSvcModal(id){
   document.getElementById('svc-modal-title').textContent = id ? '✏ تعديل الخدمة' : '🛍 خدمة جديدة';
   document.getElementById('svc-name').value = '';
   document.getElementById('svc-desc').value = '';
-  document.getElementById('svc-cat').value = '';
   document.getElementById('svc-delivery').value = '';
   document.getElementById('svc-img-name').textContent = 'لا توجد صورة';
   document.getElementById('svc-img-preview').style.display = 'none';
   document.getElementById('svc-img-preview').src = '';
+  var clrBtn=document.getElementById('svc-img-clear-btn'); if(clrBtn) clrBtn.style.display='none';
   document.getElementById('svc-pkgs-list').innerHTML = '';
   document.getElementById('svc-portfolio-list').innerHTML = '';
   document.getElementById('svc-img-input').value = '';
+  var pkgEmpty=document.getElementById('svc-pkgs-empty'); if(pkgEmpty) pkgEmpty.style.display='';
+  var pfEmpty=document.getElementById('svc-portfolio-empty'); if(pfEmpty) pfEmpty.style.display='';
+  _populateSvcCatSelect('');
   if(id){
     var svc = (S.services||[]).find(function(x){ return String(x.id)===String(id); });
     if(svc){
       document.getElementById('svc-name').value = svc.name||'';
       document.getElementById('svc-desc').value = svc.desc||'';
-      document.getElementById('svc-cat').value = svc.cat||'';
       document.getElementById('svc-delivery').value = svc.delivery||'';
+      _populateSvcCatSelect(svc.cat||'');
       _svcImgData = svc.image||'';
-      if(svc.image){ var pv=document.getElementById('svc-img-preview'); pv.src=svc.image; pv.style.display=''; document.getElementById('svc-img-name').textContent='صورة محفوظة'; }
+      if(svc.image){
+        var pv=document.getElementById('svc-img-preview'); pv.src=svc.image; pv.style.display='';
+        document.getElementById('svc-img-name').textContent='صورة محفوظة';
+        if(clrBtn) clrBtn.style.display='';
+      }
       (svc.packages||[]).forEach(function(p){ addPkgRow(p); });
       (svc.portfolio||[]).forEach(function(p){ _renderPortfolioRow(p); });
     }
@@ -14673,6 +14754,7 @@ function handleSvcImg(input){
     _svcImgData=e.target.result;
     var pv=document.getElementById('svc-img-preview'); pv.src=e.target.result; pv.style.display='';
     document.getElementById('svc-img-name').textContent=input.files[0].name;
+    var cl=document.getElementById('svc-img-clear-btn'); if(cl) cl.style.display='';
   };
   r.readAsDataURL(file);
 }
@@ -14681,90 +14763,167 @@ function handleSvcImg(input){
 function addPkgRow(pkg){
   pkg = pkg || {};
   var id = 'pkg_'+Date.now()+'_'+Math.random().toString(36).slice(2,5);
+  var empty = document.getElementById('svc-pkgs-empty');
+  if(empty) empty.style.display='none';
   var row = document.createElement('div');
   row.className='svc-pkg-row'; row.id=id;
-  row.style.cssText='display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);margin-bottom:6px';
+  row.style.cssText='display:flex;flex-direction:column;gap:8px;padding:14px;background:var(--surface);border-radius:12px;border:1.5px solid var(--border);margin-bottom:4px';
+  var items = pkg.items||[];
+  var itemsHtml = items.map(function(it,i){
+    return '<div style="display:flex;gap:6px;align-items:center" data-pkg-item>'+
+      '<input class="form-input" placeholder="بند الباقة..." value="'+escapeHtml(it)+'" style="flex:1;font-size:12px" data-item-text>'+
+      '<button onclick="this.parentNode.remove()" class="btn btn-ghost btn-sm" style="color:var(--accent4);padding:4px 8px">✕</button>'+
+    '</div>';
+  }).join('');
   row.innerHTML=
     '<div style="display:flex;gap:8px;align-items:center">'+
-      '<input class="form-input" placeholder="اسم الباقة (مثال: أساسية)" value="'+escapeHtml(pkg.name||'')+'" data-field="name" style="flex:2">'+
+      '<input class="form-input" placeholder="اسم الباقة (مثال: أساسية)" value="'+escapeHtml(pkg.name||'')+'" data-field="name" style="flex:2;font-weight:700">'+
       '<input class="form-input" placeholder="السعر" type="number" value="'+(pkg.price||'')+'" data-field="price" style="flex:1">'+
-      '<button onclick="document.getElementById(\''+id+'\').remove()" class="btn btn-danger btn-sm">✕</button>'+
+      '<button onclick="document.getElementById(\''+id+'\').remove();_pkgCheckEmpty()" class="btn btn-danger btn-sm">✕</button>'+
     '</div>'+
     '<div style="display:flex;gap:8px">'+
       '<input class="form-input" placeholder="وقت التسليم" value="'+escapeHtml(pkg.delivery||'')+'" data-field="delivery" style="flex:1">'+
       '<input class="form-input" placeholder="عدد التعديلات" type="number" value="'+(pkg.revisions||'')+'" data-field="revisions" style="flex:1">'+
     '</div>'+
-    '<textarea class="form-textarea" placeholder="وصف الباقة..." data-field="desc" rows="2" style="font-size:12px">'+escapeHtml(pkg.desc||'')+'</textarea>';
+    '<textarea class="form-textarea" placeholder="وصف الباقة..." data-field="desc" rows="2" style="font-size:12px">'+escapeHtml(pkg.desc||'')+'</textarea>'+
+    '<div style="border-top:1px dashed var(--border);padding-top:10px">'+
+      '<div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">📋 بنود الباقة (ما تشمله)</div>'+
+      '<div class="pkg-items-list" style="display:flex;flex-direction:column;gap:6px">'+itemsHtml+'</div>'+
+      '<button class="btn btn-ghost btn-sm" style="margin-top:6px;font-size:11px" onclick="_addPkgItem(this)">+ إضافة بند</button>'+
+    '</div>';
   document.getElementById('svc-pkgs-list').appendChild(row);
 }
+function _addPkgItem(btn){
+  var list=btn.previousElementSibling;
+  var item=document.createElement('div');
+  item.setAttribute('data-pkg-item','');
+  item.style.cssText='display:flex;gap:6px;align-items:center';
+  item.innerHTML='<input class="form-input" placeholder="بند الباقة..." style="flex:1;font-size:12px" data-item-text>'+
+    '<button onclick="this.parentNode.remove()" class="btn btn-ghost btn-sm" style="color:var(--accent4);padding:4px 8px">✕</button>';
+  list.appendChild(item);
+  item.querySelector('input').focus();
+}
+function _pkgCheckEmpty(){
+  var list=document.getElementById('svc-pkgs-list');
+  var empty=document.getElementById('svc-pkgs-empty');
+  if(empty) empty.style.display=(list&&list.children.length===0)?'':'none';
+}
 function collectPackages(){
-  var rows = document.querySelectorAll('#svc-pkgs-list > div');
+  var rows = document.querySelectorAll('#svc-pkgs-list > div.svc-pkg-row');
   var pkgs = [];
   rows.forEach(function(row){
+    var items=[];
+    row.querySelectorAll('[data-pkg-item] [data-item-text]').forEach(function(inp){
+      var v=(inp.value||'').trim(); if(v) items.push(v);
+    });
     pkgs.push({
       id: Date.now()+'_'+Math.random().toString(36).slice(2,5),
       name: (row.querySelector('[data-field="name"]')||{}).value||'',
       price: +((row.querySelector('[data-field="price"]')||{}).value||0),
       delivery: (row.querySelector('[data-field="delivery"]')||{}).value||'',
       revisions: +((row.querySelector('[data-field="revisions"]')||{}).value||0),
-      desc: (row.querySelector('[data-field="desc"]')||{}).value||''
+      desc: (row.querySelector('[data-field="desc"]')||{}).value||'',
+      items: items
     });
   });
   return pkgs.filter(function(p){ return p.name; });
 }
 
-// ── Portfolio ──
-var _portfolioItems = [];
-function addPortfolioItem(type){
-  var item = { type: type, id: Date.now() };
-  if(type==='behance'){
-    var url = prompt('الصق رابط مشروع Behance:');
-    if(!url||!url.includes('behance')) return toast('⚠ الرابط غير صحيح');
-    item.url = url;
-    item.thumb = 'https://www.behance.net/favicon.ico';
-    item.label = 'Behance';
-  } else {
-    var url2 = prompt('الصق رابط Google Drive:');
-    if(!url2) return;
-    item.url = url2;
-    item.label = 'Google Drive';
-    item.thumb = '';
-    var thumbInput = document.createElement('input');
-    thumbInput.type='file'; thumbInput.accept='image/*';
-    thumbInput.onchange=function(){
-      var file=thumbInput.files[0]; if(!file) return;
-      if(file.size>1024*1024){ toast('⚠ الصورة أكبر من 1 ميجا'); return; }
-      var r=new FileReader();
-      r.onload=function(e){ item.thumb=e.target.result; _renderPortfolioRow(item, true); };
-      r.readAsDataURL(file);
-    };
-    thumbInput.click();
-    return;
-  }
-  _renderPortfolioRow(item);
-}
-function _renderPortfolioRow(item, replace){
+// ── Portfolio (inline rows) ──
+function addPortfolioRow(type){
   var list = document.getElementById('svc-portfolio-list');
-  var old = document.getElementById('pf_'+item.id);
-  if(old) old.remove();
+  var empty = document.getElementById('svc-portfolio-empty');
+  if(empty) empty.style.display='none';
+  var id = 'pf_'+Date.now()+'_'+Math.random().toString(36).slice(2,5);
   var row = document.createElement('div');
-  row.className='portfolio-item'; row.id='pf_'+item.id;
-  row.dataset.item = JSON.stringify(item);
-  row.innerHTML=
-    (item.thumb?'<img src="'+escapeHtml(item.thumb)+'" class="portfolio-thumb" onerror="this.style.display=\'none\'">':'<div class="portfolio-thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px">'+(item.type==='behance'?'🎨':'📁')+'</div>')+
-    '<div style="flex:1"><div style="font-size:12px;font-weight:700">'+(item.label||item.type)+'</div><div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px">'+escapeHtml(item.url)+'</div></div>'+
-    '<a href="'+escapeHtml(item.url)+'" target="_blank" class="btn btn-ghost btn-sm">↗</a>'+
-    '<button onclick="document.getElementById(\'pf_'+item.id+'\').remove()" class="btn btn-danger btn-sm">✕</button>';
+  row.id = id;
+  row.dataset.pftype = type;
+  row.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px';
+  if(type==='behance'){
+    row.innerHTML=
+      '<div style="display:flex;align-items:center;gap:8px">'+
+        '<span style="font-size:13px;font-weight:700;color:#1769ff">🎨 Behance</span>'+
+        '<button onclick="document.getElementById(\''+id+'\').remove();_pfCheckEmpty()" class="btn btn-danger btn-sm" style="margin-right:auto">✕</button>'+
+      '</div>'+
+      '<input class="form-input" placeholder="رابط المشروع على Behance *" data-pf="url" style="font-size:12px">'+
+      '<input class="form-input" placeholder="اسم المشروع (اختياري)" data-pf="label" style="font-size:12px">';
+  } else {
+    row.innerHTML=
+      '<div style="display:flex;align-items:center;gap:8px">'+
+        '<span style="font-size:13px;font-weight:700;color:#34a853">📁 Google Drive</span>'+
+        '<button onclick="document.getElementById(\''+id+'\').remove();_pfCheckEmpty()" class="btn btn-danger btn-sm" style="margin-right:auto">✕</button>'+
+      '</div>'+
+      '<input class="form-input" placeholder="رابط Google Drive *" data-pf="url" style="font-size:12px">'+
+      '<input class="form-input" placeholder="اسم الملف/العمل (اختياري)" data-pf="label" style="font-size:12px">'+
+      '<div style="display:flex;align-items:center;gap:8px">'+
+        '<input type="file" accept="image/*" style="display:none" id="pfthumb_'+id+'" onchange="_pfThumbUpload(this,\''+id+'\')">'+
+        '<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'pfthumb_'+id+'\').click()">📷 رفع صورة مصغرة (1MB)</button>'+
+        '<span id="pfthumb_lbl_'+id+'" style="font-size:10px;color:var(--text3)">اختياري</span>'+
+      '</div>';
+  }
   list.appendChild(row);
 }
+function _pfCheckEmpty(){
+  var list=document.getElementById('svc-portfolio-list');
+  var empty=document.getElementById('svc-portfolio-empty');
+  if(empty) empty.style.display=(list&&list.children.length===0)?'':'none';
+}
+function _pfThumbUpload(input, rowId){
+  var file=input.files[0]; if(!file) return;
+  if(file.size>1024*1024){ toast('⚠ الصورة أكبر من 1 ميجا'); input.value=''; return; }
+  var r=new FileReader();
+  r.onload=function(e){
+    var row=document.getElementById(rowId); if(!row) return;
+    row.dataset.thumb=e.target.result;
+    var lbl=document.getElementById('pfthumb_lbl_'+rowId);
+    if(lbl) lbl.textContent='✅ '+file.name.slice(0,18);
+  };
+  r.readAsDataURL(file);
+}
 function collectPortfolio(){
-  var rows = document.querySelectorAll('#svc-portfolio-list > div[data-item]');
+  var rows = document.querySelectorAll('#svc-portfolio-list > div[data-pftype]');
   var items = [];
   rows.forEach(function(row){
-    try{ items.push(JSON.parse(row.dataset.item)); }catch(e){}
+    var type=row.dataset.pftype;
+    var url=(row.querySelector('[data-pf="url"]')||{}).value||'';
+    var label=(row.querySelector('[data-pf="label"]')||{}).value||'';
+    var thumb=row.dataset.thumb||'';
+    if(!url) return;
+    items.push({ id:Date.now()+'_'+Math.random().toString(36).slice(2,5), type:type, url:url, label:label||(type==='behance'?'Behance':'Google Drive'), thumb:thumb });
   });
   return items;
 }
+function _renderPortfolioRow(item){
+  // Used when editing an existing service — recreate inline rows
+  var list=document.getElementById('svc-portfolio-list');
+  var empty=document.getElementById('svc-portfolio-empty');
+  if(empty) empty.style.display='none';
+  var id='pf_'+item.id+'_e';
+  var row=document.createElement('div');
+  row.id=id; row.dataset.pftype=item.type||'behance';
+  if(item.thumb) row.dataset.thumb=item.thumb;
+  row.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px';
+  var typeLabel=item.type==='behance'?'🎨 Behance':'📁 Google Drive';
+  var typeColor=item.type==='behance'?'#1769ff':'#34a853';
+  row.innerHTML=
+    '<div style="display:flex;align-items:center;gap:8px">'+
+      '<span style="font-size:13px;font-weight:700;color:'+typeColor+'">'+typeLabel+'</span>'+
+      (item.type!=='behance'?'<span style="font-size:10px;color:var(--text3);margin-right:auto">'+(item.thumb?'✅ صورة مرفوعة':'لا صورة')+'</span>':'')+
+      '<button onclick="document.getElementById(\''+id+'\').remove();_pfCheckEmpty()" class="btn btn-danger btn-sm" style="margin-right:'+(item.type!=='behance'?'0':'auto')+'">✕</button>'+
+    '</div>'+
+    '<input class="form-input" placeholder="الرابط *" data-pf="url" value="'+escapeHtml(item.url||'')+'" style="font-size:12px">'+
+    '<input class="form-input" placeholder="الاسم" data-pf="label" value="'+escapeHtml(item.label||'')+'" style="font-size:12px">'+
+    (item.type==='drive'?
+      '<div style="display:flex;align-items:center;gap:8px">'+
+        '<input type="file" accept="image/*" style="display:none" id="pfthumb_'+id+'" onchange="_pfThumbUpload(this,\''+id+'\')">'+
+        '<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'pfthumb_'+id+'\').click()">📷 تغيير الصورة</button>'+
+        '<span id="pfthumb_lbl_'+id+'" style="font-size:10px;color:var(--text3)">'+(item.thumb?'✅ محفوظة':'اختياري')+'</span>'+
+      '</div>':'')+
+    '';
+  list.appendChild(row);
+}
+// Keep old addPortfolioItem as alias
+function addPortfolioItem(type){ addPortfolioRow(type); }
 
 // ── Save Service ──
 function saveSvc(){
@@ -14773,9 +14932,10 @@ function saveSvc(){
   var desc = document.getElementById('svc-desc').value.trim();
   if(!name||!desc){ toast('⚠ اسم الخدمة والوصف مطلوبان'); return; }
   if(!S.services) S.services=[];
+  var catEl=document.getElementById('svc-cat');
   var d = {
     name: name, desc: desc,
-    cat: document.getElementById('svc-cat').value,
+    cat: catEl ? catEl.value : '',
     delivery: document.getElementById('svc-delivery').value.trim(),
     image: _svcImgData,
     packages: collectPackages(),
@@ -14880,6 +15040,7 @@ function openSvcDetail(id){
         return '<div class="svc-pkg-row" style="background:var(--surface2);border-radius:10px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);margin-bottom:6px">'+
           '<div style="flex:1"><div style="font-size:13px;font-weight:800">'+escapeHtml(p.name)+'</div>'+
           (p.desc?'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+escapeHtml(p.desc)+'</div>':'')+
+          (p.items&&p.items.length?'<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">'+p.items.map(function(it){ return '<div style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px"><span style="color:var(--accent3)">✓</span>'+escapeHtml(it)+'</div>'; }).join('')+'</div>':'')+
           '<div style="display:flex;gap:10px;margin-top:6px;font-size:11px;color:var(--text3)">'+
             (p.delivery?'<span>⏱ '+escapeHtml(p.delivery)+'</span>':'')+
             (p.revisions?'<span>🔄 '+p.revisions+' تعديلات</span>':'')+
@@ -15071,8 +15232,23 @@ function _checkSvcOrderUrl(){
   var portalId=params.get('portal');
   if(portalId && params.get('uid')) { _buildClientPortalPage(params.get('uid'), portalId); return; }
   if(!uid) return;
+  // Immediately replace body to avoid showing dashboard
+  document.body.innerHTML='<div style="position:fixed;inset:0;background:#f0f0f8;display:flex;align-items:center;justify-content:center;font-family:Cairo,Tajawal,sans-serif;direction:rtl"><div style="text-align:center"><div style="font-size:36px;margin-bottom:12px">⏳</div><div style="font-size:14px;color:#666">جاري تحميل الصفحة...</div></div></div>';
+  document.body.style.cssText='margin:0;padding:0;background:#f0f0f8;font-family:Cairo,Tajawal,sans-serif;direction:rtl';
   _buildSvcOrderPage(uid);
 }
+// Run ASAP — before DOMContentLoaded if possible
+(function(){
+  var p=new URLSearchParams(window.location.search);
+  if(p.get('svcorder')||( p.get('portal')&&p.get('uid') )){
+    // hide everything immediately
+    document.documentElement.style.visibility='hidden';
+    document.addEventListener('DOMContentLoaded',function(){
+      document.documentElement.style.visibility='';
+      _checkSvcOrderUrl();
+    });
+  }
+})();
 function _buildSvcOrderPage(userId){
   if(typeof supa==='undefined'){ _svcOrderFallback(); return; }
   var controller=new AbortController();
@@ -15423,9 +15599,10 @@ function sendSupportReply(){
   }
 }
 
-// startup check
+// startup check (fallback if early IIFE didn't fire)
 window.addEventListener('load', function(){
-  setTimeout(_checkSvcOrderUrl, 400);
+  var p=new URLSearchParams(window.location.search);
+  if(p.get('svcorder')||( p.get('portal')&&p.get('uid') )) _checkSvcOrderUrl();
 });
 
 // Re-trigger admin notifications after cloudLoad (user login)
