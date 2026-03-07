@@ -747,7 +747,7 @@ body {
 }
 
 /* ── Prevent layout jumps on mobile ── */
-.page { contain: layout style; }
+.page { contain: style; }
 
 /* ═══════════════════════════════════════════════════
    PAGES
@@ -14086,35 +14086,35 @@ function incReceiptClear(){
 
 // SERVICES & PACKAGES SYSTEM
 // ═══════════════════════════════════════════════════
-(function(){
-  if(!window._svcPackagesList) window._svcPackagesList = [];
 
-  // ─── Get public services page link ───
-  function getSvcLink(){
-    var uid = typeof _supaUserId !== 'undefined' ? _supaUserId : '';
-    var origin = window.location.origin;
-    var pathname = window.location.pathname.replace(/\/[^\/]*$/, '/');
-    return origin + pathname + 'services.html?u=' + encodeURIComponent(uid);
-  }
+if(!window._svcPackagesList) window._svcPackagesList = [];
 
-  window.openSvcOrderLink = function(){
+// ─── Get public services page link ───
+function getSvcLink(){
+var uid = typeof _supaUserId !== 'undefined' ? _supaUserId : '';
+var origin = window.location.origin;
+var pathname = window.location.pathname.replace(/\/[^\/]*$/, '/');
+return origin + pathname + 'services.html?u=' + encodeURIComponent(uid);
+}
+
+function openSvcOrderLink(){
     var link = getSvcLink();
     if(document.getElementById('svc-link-text')) document.getElementById('svc-link-text').textContent = link;
     window.open(link, '_blank');
-  };
-  window.svcCopyLink = function(){
+};
+function svcCopyLink(){
     var link = getSvcLink();
     navigator.clipboard.writeText(link).then(function(){ toast('✅ تم نسخ الرابط'); }).catch(function(){ toast('رابطك: ' + link); });
-  };
-  window.svcShareWhatsApp = function(){
+};
+function svcShareWhatsApp(){
     var link = getSvcLink();
     var name = (typeof S !== 'undefined' && S.settings && S.settings.name) ? S.settings.name : 'Ordo';
     var text = 'مرحباً 👋\nيمكنك الاطلاع على خدماتي وطلب الخدمة مباشرة:\n' + link + '\n\n— ' + name;
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
-  };
+};
 
-  // ─── Tab switcher ───
-  window.switchSvcTab = function(tab){
+// ─── Tab switcher ───
+function switchSvcTab(tab){
     var gWrap = document.getElementById('svc-grid-wrap');
     var oWrap = document.getElementById('svc-orders-table-wrap');
     var tSvc  = document.getElementById('svctab-services');
@@ -14131,10 +14131,10 @@ function incReceiptClear(){
       if(tSvc){ tSvc.className='btn btn-primary btn-sm'; tSvc.style.borderRadius='7px'; }
       if(tOrd){ tOrd.className='btn btn-ghost btn-sm'; tOrd.style.borderRadius='7px'; }
     }
-  };
+};
 
-  // ─── Promo Banner ───
-  window.handleSvcBanner = function(input){
+// ─── Promo Banner ───
+function handleSvcBanner(input){
     var file = input.files[0];
     if(!file) return;
     if(file.size > 3*1024*1024){ toast('⚠ حجم البانر أكبر من 3 ميجا'); input.value=''; return; }
@@ -14152,8 +14152,8 @@ function incReceiptClear(){
       toast('✅ تم رفع البانر');
     };
     reader.readAsDataURL(file);
-  };
-  window.clearSvcBanner = function(){
+};
+function clearSvcBanner(){
     if(!confirm('حذف البانر الإعلاني؟')) return;
     if(S.settings) S.settings.svc_banner = '';
     lsSave(); cloudSave(S);
@@ -14165,10 +14165,10 @@ function incReceiptClear(){
     if(clr)  clr.style.display='none';
     var inp = document.getElementById('svc-banner-input'); if(inp) inp.value='';
     toast('🗑 تم حذف البانر');
-  };
+};
 
-  // ─── Main render ───
-  window.renderServices = function(){
+// ─── Main render ───
+function renderServices(){
     try {
     if(!document.getElementById('page-services')) return;
 
@@ -14259,10 +14259,10 @@ function incReceiptClear(){
       '</div>';
     }).join('');
     } catch(e){ console.error('renderServices error:', e); }
-  };
+};
 
-  // ─── Service detail modal (owner view) ───
-  window.openSvcDetail = function(id){
+// ─── Service detail modal (owner view) ───
+function openSvcDetail(id){
     var svc = (S.services||[]).find(function(x){ return String(x.id)===String(id); });
     if(!svc) return;
     var existing = document.getElementById('_svc-detail-overlay');
@@ -14308,10 +14308,10 @@ function incReceiptClear(){
       '</div>';
     ov.onclick = function(e){ if(e.target===ov) ov.remove(); };
     document.body.appendChild(ov);
-  };
+};
 
-  // ─── Orders table (all orders history) ───
-  window.renderOrdersTable = function(){
+// ─── Orders table (all orders history) ───
+function renderOrdersTable(){
     var el = document.getElementById('svc-orders-table');
     if(!el) return;
     var orders = (typeof S !== 'undefined' && S.svc_orders) ? S.svc_orders : [];
@@ -14340,10 +14340,10 @@ function incReceiptClear(){
         '</div>'+
       '</div>';
     }).join('');
-  };
+};
 
-  // ─── Show order detail modal (from notification click) ───
-  window.openOrderDetail = function(orderId){
+// ─── Show order detail modal (from notification click) ───
+function openOrderDetail(orderId){
     showPage('services');
     setTimeout(function(){
       switchSvcTab('orders');
@@ -14352,11 +14352,11 @@ function incReceiptClear(){
       // Highlight the order + open accept modal if pending
       if(order.status === 'pending') openOrderAccept(orderId);
     }, 200);
-  };
+};
 
-  // ─── Image handling for service modal ───
-  window._svcImgB64 = '';
-  window.handleSvcImg = function(input){
+// ─── Image handling for service modal ───
+window._svcImgB64 = '';
+function handleSvcImg(input){
     var file = input.files[0];
     if(!file) return;
     if(file.size > 1024*1024){ toast('⚠ حجم الصورة أكبر من 1 ميجا'); input.value=''; return; }
@@ -14369,16 +14369,16 @@ function incReceiptClear(){
       if(clrBtn) clrBtn.style.display='';
     };
     reader.readAsDataURL(file);
-  };
-  window.clearSvcImg = function(){
+};
+function clearSvcImg(){
     window._svcImgB64 = '__cleared__';
     var prev = document.getElementById('svc-img-preview');
     if(prev){ prev.innerHTML = '🛍'; }
     var inp = document.getElementById('svc-img-input'); if(inp) inp.value='';
     var clrBtn = document.getElementById('svc-img-clear-btn'); if(clrBtn) clrBtn.style.display='none';
-  };
+};
 
-  window.openSvcModal = function(id){
+function openSvcModal(id){
     window._svcPackagesList = [];
     window._svcImgB64 = '';
     var svc = id && typeof S !== 'undefined' ? (S.services||[]).find(function(x){return x.id===id;}) : null;
@@ -14398,9 +14398,9 @@ function incReceiptClear(){
     var inp = document.getElementById('svc-img-input'); if(inp) inp.value='';
     renderSvcPackages();
     openM('modal-svc');
-  };
+};
 
-  window.renderSvcPackages = function(){
+function renderSvcPackages(){
     var el = document.getElementById('svc-packages-list');
     if(!el) return;
     if(!window._svcPackagesList.length){
@@ -14430,29 +14430,29 @@ function incReceiptClear(){
         '</div>'+
       '</div>';
     }).join('');
-  };
+};
 
-  window.addSvcPackage = function(){
+function addSvcPackage(){
     window._svcPackagesList.push({name:'',price:0,items:[]});
     renderSvcPackages();
-  };
-  window._svcPkgName  = function(el){ var i=+el.dataset.pkgi; if(window._svcPackagesList[i]) window._svcPackagesList[i].name=el.value; };
-  window._svcPkgPrice = function(el){ var i=+el.dataset.pkgi; if(window._svcPackagesList[i]) window._svcPackagesList[i].price=+el.value||0; };
-  window._svcPkgItems = function(el){ var i=+el.dataset.pkgi; if(window._svcPackagesList[i]) window._svcPackagesList[i].items=el.value.split('\n').map(function(x){return x.trim();}).filter(Boolean); };
-  window._svcPkgDel   = function(el){ var i=+el.dataset.pkgi; window._svcPackagesList.splice(i,1); renderSvcPackages(); };
-  window._svcPkgImg   = function(input){
+};
+window._svcPkgName  = function(el){ var i=+el.dataset.pkgi; if(window._svcPackagesList[i]) window._svcPackagesList[i].name=el.value; };
+window._svcPkgPrice = function(el){ var i=+el.dataset.pkgi; if(window._svcPackagesList[i]) window._svcPackagesList[i].price=+el.value||0; };
+window._svcPkgItems = function(el){ var i=+el.dataset.pkgi; if(window._svcPackagesList[i]) window._svcPackagesList[i].items=el.value.split('\n').map(function(x){return x.trim();}).filter(Boolean); };
+window._svcPkgDel   = function(el){ var i=+el.dataset.pkgi; window._svcPackagesList.splice(i,1); renderSvcPackages(); };
+window._svcPkgImg   = function(input){
     var pi=+input.dataset.pkgi; var file=input.files[0]; if(!file) return;
     if(file.size>1024*1024){ toast('⚠ حجم صورة الباقة أكبر من 1 ميجا'); input.value=''; return; }
     var reader=new FileReader();
     reader.onload=function(e){ if(window._svcPackagesList[pi]) window._svcPackagesList[pi].image=e.target.result; renderSvcPackages(); };
     reader.readAsDataURL(file);
-  };
-  window._svcPkgImgClear = function(pi){
+};
+window._svcPkgImgClear = function(pi){
     if(window._svcPackagesList[pi]) window._svcPackagesList[pi].image='';
     renderSvcPackages();
-  };
+};
 
-  window.saveSvc = function(){
+function saveSvc(){
     var name = document.getElementById('svc-name')&&document.getElementById('svc-name').value.trim();
     if(!name){ toast('⚠ أدخل اسم الخدمة'); return; }
     var eid = document.getElementById('svc-eid').value;
@@ -14469,16 +14469,16 @@ function incReceiptClear(){
     if(eid){ var idx=S.services.findIndex(function(x){return String(x.id)===String(eid);}); if(idx>-1) S.services[idx]=svc; else S.services.push(svc); }
     else S.services.push(svc);
     lsSave(); cloudSave(S); closeM('modal-svc'); renderServices(); toast('✅ تم حفظ الخدمة');
-  };
+};
 
-  window.delSvc = function(id){
+function delSvc(id){
     if(!confirm('حذف الخدمة؟')) return;
     S.services=(S.services||[]).filter(function(x){return String(x.id)!==String(id);});
     lsSave(); cloudSave(S); renderServices(); toast('🗑 تم الحذف');
-  };
+};
 
-  // ─── Order acceptance ───
-  window.openOrderAccept = function(orderId){
+// ─── Order acceptance ───
+function openOrderAccept(orderId){
     var order=(S.svc_orders||[]).find(function(o){return String(o.id)===String(orderId);});
     if(!order) return;
     document.getElementById('oa-order-id').value=orderId;
@@ -14496,9 +14496,9 @@ function incReceiptClear(){
     (S.teams||[]).forEach(function(t){(t.members||[]).forEach(function(m){workers.push(m.name);});});
     workerSel.innerHTML='<option value="">بدون تعيين</option>'+workers.map(function(w){return '<option value="'+w+'">'+w+'</option>';}).join('');
     openM('modal-order-accept');
-  };
+};
 
-  window.acceptOrderAsTask = function(){
+function acceptOrderAsTask(){
     var orderId=document.getElementById('oa-order-id').value;
     var title=document.getElementById('oa-title').value.trim();
     if(!title){ toast('⚠ أدخل عنوان المهمة'); return; }
@@ -14523,24 +14523,24 @@ function incReceiptClear(){
     renderServices(); if(typeof renderTasks==='function') renderTasks();
     addNotification('✅ مهمة جديدة من طلب: '+title, 'success');
     toast('✅ تم إنشاء المهمة');
-  };
+};
 
-  window.rejectOrder = function(orderId){
+function rejectOrder(orderId){
     if(!confirm('رفض هذا الطلب؟')) return;
     var order=(S.svc_orders||[]).find(function(o){return String(o.id)===String(orderId);});
     if(order) order.status='rejected';
     lsSave(); cloudSave(S); renderServices(); toast('✕ تم رفض الطلب');
-  };
+};
 
-  // ─── PUBLIC ORDER PAGE ───
-  window._checkSvcOrderUrl = function(){
+// ─── PUBLIC ORDER PAGE ───
+function _checkSvcOrderUrl(){
     var params=new URLSearchParams(window.location.search);
     var uid=params.get('svcorder');
     if(!uid) return;
     _buildSvcOrderPage(uid);
-  };
+};
 
-  function _buildSvcOrderPage(userId){
+function _buildSvcOrderPage(userId){
     if(typeof supa==='undefined'){ _showSvcOrderFallback(); return; }
     supa.from('studio_data').select('data').eq('user_id',userId).single().then(function(res){
       if(!res.data){ _showSvcOrderFallback(); return; }
@@ -14610,10 +14610,10 @@ function incReceiptClear(){
       window._svcOrderUserId = userId;
       window._svcOrderUd = ud;
     }).catch(function(){ _showSvcOrderFallback(); });
-  }
+}
 
-  // Public service detail page
-  window._openPublicSvcDetail = function(userId, svcId){
+// Public service detail page
+function _openPublicSvcDetail(userId, svcId){
     var ud = window._svcOrderUd;
     if(!ud) return;
     var svc = (ud.services||[]).find(function(x){ return String(x.id)===String(svcId); });
@@ -14661,17 +14661,17 @@ function incReceiptClear(){
           : '<button onclick="_selectSvcForOrder(\''+userId+'\',\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+')" style="width:100%;padding:16px;background:'+accent+';color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:900;cursor:pointer;font-family:Cairo,sans-serif;margin-top:8px">اطلب الآن 🛍</button>')+
       '</div>';
     document.body.appendChild(detail);
-  };
+};
 
-  window._selectSvcForOrder = function(userId, svcNameEnc, pkgNameEnc, price){
+function _selectSvcForOrder(userId, svcNameEnc, pkgNameEnc, price){
     var svcName = decodeURIComponent(svcNameEnc||'');
     var pkgName = decodeURIComponent(pkgNameEnc||'');
     document.getElementById('svc-order-ttl').textContent = 'طلب: '+svcName+(pkgName?' — '+pkgName:'');
     window._pendingOrderData = {userId, svcName, pkgName, price};
     openM('modal-svc-order');
-  };
+};
 
-  window.submitSvcOrder = function(){
+function submitSvcOrder(){
     var name  = document.getElementById('ord-name')&&document.getElementById('ord-name').value.trim();
     var phone = document.getElementById('ord-phone')&&document.getElementById('ord-phone').value.trim();
     if(!name||!phone){ toast('⚠ الاسم والواتساب مطلوبان'); return; }
@@ -14723,19 +14723,16 @@ function incReceiptClear(){
       closeM('modal-svc-order');
       toast('✅ تم إرسال الطلب');
     }
-  };
+};
 
-  function _showSvcOrderFallback(){
+function _showSvcOrderFallback(){
     document.body.insertAdjacentHTML('beforeend','<div style="position:fixed;inset:0;background:#f8f8f8;z-index:9999;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;font-family:Cairo,sans-serif"><div><div style="font-size:48px">🔒</div><div style="font-size:18px;font-weight:700;margin-top:14px">الرابط غير صالح</div></div></div>');
-  }
+}
 
-  window.addEventListener('load', function(){
+window.addEventListener('load', function(){
     setTimeout(window._checkSvcOrderUrl, 500);
     if(typeof S !== 'undefined') renderServices();
-  });
-
-})();
-
+});
 
 
 // Re-trigger admin notifications after cloudLoad (user login)
