@@ -4182,6 +4182,19 @@ setTimeout(window._showApp, 4000);
 const COLORS=['#7c6ff7','#f7c948','#4fd1a5','#f76f7c','#64b5f6','#ff8a65','#ce93d8','#80cbc4'];
 let S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],teams:[],subscriptions:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:'',taskTypes:['مهمة عامة','مشروع','استشارة','تقرير','متابعة','أخرى']},services:[],svc_orders:[]};
 
+// ══════════════════════════════════════════════════
+//  SECURITY — XSS Prevention utility
+// ══════════════════════════════════════════════════
+function escapeHtml(str){
+  if(str===null||str===undefined) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#039;');
+}
+
 // ── Time Tracker global state (declared early to avoid TDZ errors) ──
 let _tt={running:false,elapsed:0,startedAt:null,interval:null};
 let _ttFilter='all';
@@ -10295,40 +10308,74 @@ function openTeamModal(id){
 function renderTeamMembersForm(){
   const el = document.getElementById('team-members-list'); if(!el) return;
   if(!teamMembersForm.length){
-    el.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">لا أعضاء بعد — أضف أعضاء من الأسفل</div>';
+    el.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:10px;text-align:center;background:var(--surface2);border-radius:8px">لا أعضاء بعد — أضف أعضاء من الأسفل</div>';
     return;
   }
-  const roleIcon = {
-    'كونتنت كريتور':'✍',
-    'مستقل':'👤',
-    'فيديو إديتور':'🎬',
-    'مودريتور':'💬',
-    'أخرى':'📌'
-  };
+  const roleIcon = {'كونتنت كريتور':'✍','مستقل':'👤','فيديو إديتور':'🎬','مودريتور':'💬','أخرى':'📌'};
   el.innerHTML = teamMembersForm.map((m,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px">
+    <div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid ${m.linked ? 'rgba(79,209,165,.5)' : 'var(--border)'};border-radius:8px;padding:10px 14px">
       <div style="flex:1">
-        <div style="font-weight:700;font-size:13px">${roleIcon[m.role]||'👤'} ${m.name}</div>
-        <div style="font-size:11px;color:var(--text3)">${m.role}${m.phone?' · 📞'+m.phone:''}${m.rate?' · نسبة '+m.rate+'%':''}</div>
+        <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          ${escapeHtml(roleIcon[m.role]||'👤')} ${escapeHtml(m.name)}
+          ${m.linked ? '<span style="font-size:10px;background:rgba(79,209,165,.15);color:var(--accent3);padding:2px 7px;border-radius:6px;font-weight:700">✓ حساب مرتبط</span>' : ''}
+          ${(m.email && !m.linked) ? '<span style="font-size:10px;background:rgba(247,201,72,.15);color:var(--accent2);padding:2px 7px;border-radius:6px;font-weight:700">⏳ دعوة معلقة</span>' : ''}
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">
+          ${escapeHtml(m.role)}${m.phone ? ' · 📞' + escapeHtml(m.phone) : ''}${m.email ? ' · ✉ ' + escapeHtml(m.email) : ''}${m.rate ? ' · نسبة ' + m.rate + '%' : ''}
+        </div>
       </div>
       <button class="btn btn-danger btn-sm" onclick="removeTeamMember(${i})">✕</button>
     </div>`).join('');
 }
 
-function addMemberToForm(){
-  const name = document.getElementById('member-name')?.value.trim();
+async function addMemberToForm(){
+  const name  = document.getElementById('member-name')?.value.trim();
+  const email = (document.getElementById('member-email')?.value||'').trim().toLowerCase();
   if(!name) return alert('أدخل اسم العضو');
+
+  const addBtn = document.querySelector('[onclick="addMemberToForm()"]');
+  if(addBtn){ addBtn.textContent='⏳ جاري التحقق...'; addBtn.disabled=true; }
+
+  let linked = false;
+  let linkedUserId = null;
+
+  if(email){
+    try {
+      const { data: rows } = await supa.from('studio_data').select('user_id, data');
+      if(rows){
+        for(const row of rows){
+          try{
+            const ud = typeof row.data==='string' ? JSON.parse(row.data) : row.data;
+            const se = (ud?.settings?.email||ud?._user_email||'').toLowerCase().trim();
+            if(se && se===email){ linked=true; linkedUserId=row.user_id; break; }
+          }catch(e){}
+        }
+      }
+      if(!linked){
+        const { data: prof } = await supa.from('profiles').select('id').eq('email',email).maybeSingle().catch(()=>({data:null}));
+        if(prof && prof.id){ linked=true; linkedUserId=prof.id; }
+      }
+    } catch(e){ console.warn('Member lookup:', e); }
+  }
+
   teamMembersForm.push({
     name,
-    role: document.getElementById('member-role')?.value||'أخرى',
-    phone: document.getElementById('member-phone')?.value||'',
-    email: document.getElementById('member-email')?.value||'',
-    rate: +(document.getElementById('member-rate')?.value)||0,
+    role        : document.getElementById('member-role')?.value||'أخرى',
+    phone       : document.getElementById('member-phone')?.value||'',
+    email,
+    rate        : +(document.getElementById('member-rate')?.value)||0,
+    linked,
+    linkedUserId: linkedUserId||null,
   });
+
   ['member-name','member-phone','member-email','member-rate'].forEach(id=>{
-    const el=document.getElementById(id);if(el)el.value='';
+    const el=document.getElementById(id); if(el) el.value='';
   });
+  if(addBtn){ addBtn.textContent='+ إضافة'; addBtn.disabled=false; }
   renderTeamMembersForm();
+
+  if(linked)        showMiniNotif('✅ '+name+' — حساب موجود، سيتم ربطه تلقائياً');
+  else if(email)    showMiniNotif('⏳ '+name+' — لا يوجد حساب بعد، دعوة معلقة');
 }
 
 function removeTeamMember(i){
@@ -10336,16 +10383,17 @@ function removeTeamMember(i){
   renderTeamMembersForm();
 }
 
-function saveTeam(){
+async function saveTeam(){
   const name = document.getElementById('team-name')?.value.trim();
   if(!name) return alert('أدخل اسم الفريق');
   const eid = document.getElementById('team-eid')?.value;
-  // Get old members before update to detect newly added members
+
   const oldTeam = eid ? (S.teams||[]).find(t=>String(t.id)===String(eid)) : null;
   const oldMemberEmails = oldTeam ? (oldTeam.members||[]).map(m=>(m.email||'').toLowerCase().trim()).filter(Boolean) : [];
+
   const d = {
     name,
-    desc: document.getElementById('team-desc')?.value||'',
+    desc   : document.getElementById('team-desc')?.value||'',
     members: teamMembersForm.map(m=>({...m})),
   };
   if(eid){
@@ -10358,54 +10406,57 @@ function saveTeam(){
   lsSave(); cloudSave(S); closeM('modal-team'); renderTeams();
   fillWorkerMembersDD();
   showMiniNotif('✅ تم حفظ الفريق: '+name);
-  // Notify newly added members via their studio_data
-  if(typeof supa !== 'undefined'){
-    const newMembers = d.members.filter(m => m.email && !oldMemberEmails.includes(m.email.toLowerCase().trim()));
-    newMembers.forEach(async function(m){
-      try {
-        const email = m.email.toLowerCase().trim();
-        // Find user by email in auth metadata — search studio_data for matching email
-        const {data:rows} = await supa.from('studio_data').select('user_id,data');
-        if(!rows) return;
-        // Try to find by user profile email
-        const {data:authUsers} = await supa.from('profiles').select('id,email').eq('email',email).maybeSingle().catch(()=>({data:null}));
-        let targetUserId = authUsers?.id;
-        if(!targetUserId){
-          // Search within studio_data settings email OR _user_email field
-          for(const row of rows){
-            try {
-              const ud = typeof row.data==='string' ? JSON.parse(row.data) : row.data;
-              const storedEmail = (ud?.settings?.email||ud?._user_email||'').toLowerCase().trim();
-              if(storedEmail && storedEmail===email){ targetUserId=row.user_id; break; }
-            } catch(e){}
+
+  if(typeof supa === 'undefined') return;
+  const newMembers = d.members.filter(m=>m.email && !oldMemberEmails.includes((m.email||'').toLowerCase().trim()));
+  const ownerName  = (S.settings&&S.settings.name)||'مشرف';
+
+  for(const m of newMembers){
+    try {
+      const email = (m.email||'').toLowerCase().trim();
+      if(!email) continue;
+
+      let targetUserId = m.linkedUserId || null;
+
+      if(!targetUserId){
+        const { data: rows2 } = await supa.from('studio_data').select('user_id, data');
+        if(rows2){
+          for(const row of rows2){
+            try{
+              const ud2 = typeof row.data==='string' ? JSON.parse(row.data) : row.data;
+              const se2 = (ud2?.settings?.email||ud2?._user_email||'').toLowerCase().trim();
+              if(se2 && se2===email){ targetUserId=row.user_id; break; }
+            }catch(e){}
           }
         }
         if(!targetUserId){
-          console.warn('Team notify: لم يتم العثور على المستخدم بالإيميل:', email);
-          return;
+          const { data: pr } = await supa.from('profiles').select('id').eq('email',email).maybeSingle().catch(()=>({data:null}));
+          if(pr) targetUserId=pr.id;
         }
-        // Find or create the target row
-        let targetRow = rows.find(r=>r.user_id===targetUserId);
-        let ud = null;
-        if(targetRow){
-          try{ ud = typeof targetRow.data==='string' ? JSON.parse(targetRow.data) : targetRow.data; }catch(e){}
-        }
-        if(!ud) ud = {};
-        ud._pending_notifications = ud._pending_notifications||[];
-        // Avoid duplicate notifications for same team
-        const alreadyNotified = ud._pending_notifications.find(function(n){ return n.type==='team' && n.body && n.body.includes('"'+name+'"'); });
-        if(alreadyNotified) return;
-        const ownerName = (S.settings&&S.settings.name)||'مشرف';
-        ud._pending_notifications.push({
-          id: Date.now()+'_'+Math.random().toString(36).slice(2,7),
-          title: '👥 تمت إضافتك لفريق!',
-          body: 'تمت إضافتك كـ '+m.role+' في فريق "'+name+'" — '+ownerName,
-          type: 'team', created_at: new Date().toISOString(), read: false
-        });
-        await supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',targetUserId);
-        console.log('Team notify: ✅ إشعار أُرسل إلى', email);
-      } catch(e){ console.warn('Team notify error:',e); }
-    });
+      }
+
+      if(!targetUserId){ console.log('Team: pending invite for', email); continue; }
+
+      const { data: tgt } = await supa.from('studio_data').select('data').eq('user_id',targetUserId).single().catch(()=>({data:null}));
+      let ud = null;
+      if(tgt){ try{ ud=typeof tgt.data==='string'?JSON.parse(tgt.data):tgt.data; }catch(e){} }
+      if(!ud) ud={};
+      ud._pending_notifications = ud._pending_notifications||[];
+      const already = ud._pending_notifications.find(n=>n.type==='team'&&n.body&&n.body.includes('"'+name+'"'));
+      if(already) continue;
+      ud._pending_notifications.push({
+        id         : Date.now()+'_'+Math.random().toString(36).slice(2,7),
+        title      : '👥 تمت إضافتك لفريق!',
+        body       : 'تمت إضافتك كـ '+(m.role||'عضو')+' في فريق "'+name+'" بواسطة '+ownerName,
+        type       : 'team',
+        teamName   : name,
+        ownerName,
+        created_at : new Date().toISOString(),
+        read       : false
+      });
+      await supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',targetUserId);
+      console.log('✅ Team notif sent to', email);
+    } catch(e){ console.warn('Team notify err:', m.name, e); }
   }
 }
 
@@ -10446,14 +10497,19 @@ function renderTeams(){
       <div style="display:flex;flex-direction:column;gap:6px">
         ${team.members.map(m=>{
           const mTasks = S.tasks.filter(t=>t.workerMember===m.name&&!t.done).length;
-          return `<div onclick="openMemberProfile('${m.name.replace(/'/g,"\'")}')" class="task-clickable" style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer">
+          const borderColor = m.linked ? 'rgba(79,209,165,.4)' : 'var(--border)';
+          return `<div onclick="openMemberProfile('${escapeHtml(m.name).replace(/'/g,"&#039;")}')" class="task-clickable" style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid ${borderColor};border-radius:8px;padding:8px 10px;cursor:pointer">
             <div style="font-size:18px">${roleIcon[m.role]||'👤'}</div>
-            <div style="flex:1">
-              <div style="font-size:12px;font-weight:700">${m.name}</div>
-              <div style="font-size:11px;color:var(--text3)">${m.role}${m.rate?' · '+m.rate+'%':''}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+                ${escapeHtml(m.name)}
+                ${m.linked ? '<span style="font-size:9px;background:rgba(79,209,165,.15);color:var(--accent3);padding:1px 5px;border-radius:5px;font-weight:700">✓ مرتبط</span>' : ''}
+                ${(m.email && !m.linked) ? '<span style="font-size:9px;background:rgba(247,201,72,.15);color:var(--accent2);padding:1px 5px;border-radius:5px;font-weight:700">⏳ دعوة</span>' : ''}
+              </div>
+              <div style="font-size:11px;color:var(--text3)">${escapeHtml(m.role)}${m.rate?' · '+m.rate+'%':''}</div>
             </div>
             ${mTasks?`<span style="font-size:10px;background:rgba(247,201,72,.2);color:var(--accent2);padding:2px 7px;border-radius:10px;font-weight:700">${mTasks} مهام</span>`:''}
-            ${m.phone?`<a href="https://wa.me/${m.phone.replace(/[^\d]/g,'')}" target="_blank" onclick="event.stopPropagation()" style="font-size:16px;text-decoration:none" title="واتساب">💬</a>`:''}
+            ${m.phone?`<a href="https://wa.me/${escapeHtml(m.phone.replace(/[^\d]/g,''))}" target="_blank" onclick="event.stopPropagation()" style="font-size:16px;text-decoration:none" title="واتساب">💬</a>`:''}
             <span style="font-size:11px;color:var(--text3)">←</span>
           </div>`;
         }).join('')}
@@ -13986,36 +14042,36 @@ function incReceiptClear(){
   })();
 
   window._showTeamMembershipBanner = function(memberships){
-    // Add "فريقي" section to the sidebar if not already there
     var existingBanner = document.getElementById('team-membership-section');
     if(!existingBanner){
       var section = document.createElement('div');
       section.id = 'team-membership-section';
       section.style.cssText = 'padding:8px 0';
-      // Insert in sidebar before settings section
       var sidebar = document.querySelector('.sidebar');
       var settingsLabel = Array.from(document.querySelectorAll('.nav-section-label')).find(function(el){ return el.textContent.includes('الإعدادات'); });
       if(sidebar && settingsLabel) sidebar.insertBefore(section, settingsLabel);
       else if(sidebar) sidebar.appendChild(section);
-    } else {
-      existingBanner = document.getElementById('team-membership-section');
     }
     var el = document.getElementById('team-membership-section');
     if(!el) return;
 
-    var totalTasks = memberships.reduce(function(s,m){ return s + m.tasks.length; }, 0);
+    var totalTasks = memberships.reduce(function(s,m){ return s + (m.tasks ? m.tasks.length : 0); }, 0);
     el.innerHTML =
-      '<div class="nav-section-label" style="color:var(--accent2)">👥 أنا في فريق</div>'+
+      '<div class="nav-section-label" style="color:var(--accent3)">👥 أنا في فريق</div>'+
       memberships.map(function(m){
-        return '<div class="nav-item" onclick="openTeamMemberDashboard('+JSON.stringify(m.ownerId)+')" style="color:var(--accent2);flex-direction:column;align-items:flex-start;padding:10px 16px;gap:4px">'+
-          '<div style="display:flex;align-items:center;gap:8px;width:100%">'+
-            '<span style="font-size:14px">🏢</span>'+
-            '<span style="font-size:13px;font-weight:700;flex:1">'+m.ownerName+'</span>'+
-            (m.tasks.length?'<span style="background:var(--accent4);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">'+m.tasks.length+' مهام</span>':'<span style="background:var(--accent3);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">✓</span>')+
-          '</div>'+
-          '<div style="font-size:11px;color:var(--text3);padding-right:22px">'+m.teamName+' · '+m.role+'</div>'+
-        '</div>';
-      }).join('');
+        var taskCount = m.tasks ? m.tasks.length : 0;
+        return '<div class="nav-item" onclick="openTeamMemberDashboard(\''+m.ownerId+'\')" style="flex-direction:column;align-items:flex-start;padding:10px 16px;gap:4px">'
+          +'<div style="display:flex;align-items:center;gap:8px;width:100%">'
+            +'<span style="font-size:14px">🏢</span>'
+            +'<span style="font-size:13px;font-weight:700;flex:1;color:var(--accent3)">'+escapeHtml(m.ownerName)+'</span>'
+            +(taskCount
+              ? '<span style="background:var(--accent4);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">'+taskCount+' مهام</span>'
+              : '<span style="background:var(--accent3);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">✓ كل شيء تمام</span>')
+          +'</div>'
+          +'<div style="font-size:11px;color:var(--text3);padding-right:22px">'+escapeHtml(m.teamName)+' · '+escapeHtml(m.role||'عضو')+'</div>'
+        +'</div>';
+      }).join('')+
+      (totalTasks > 0 ? '<div style="margin:4px 16px 8px;padding:7px 12px;background:rgba(247,111,124,.08);border:1px solid rgba(247,111,124,.2);border-radius:8px;font-size:11px;color:var(--accent4);font-weight:700">⚡ لديك '+totalTasks+' مهمة نشطة في الفريق</div>' : '');
   };
 
   window.openTeamMemberDashboard = function(ownerId){
@@ -14189,18 +14245,23 @@ function clearSvcBanner(){
 
 // ─── Main render ───
 function renderServices(){
-    try {
-    if(!document.getElementById('page-services')) return;
+  try {
+    var pageEl = document.getElementById('page-services');
+    if(!pageEl) return;
 
-    // Update link display
+    // Guard: S must be loaded
+    if(typeof S === 'undefined'){ 
+      var g = document.getElementById('svc-grid');
+      if(g) g.innerHTML = '<div style="grid-column:span 3;text-align:center;padding:40px;color:var(--text3)"><div style="font-size:28px;opacity:.4">⏳</div><div style="font-size:13px;margin-top:8px">جاري تحميل البيانات...</div></div>';
+      return; 
+    }
+
+    // ── Update public link ──
     var linkEl = document.getElementById('svc-link-text');
-    if(linkEl) { try { linkEl.textContent = getSvcLink(); } catch(e){} }
+    if(linkEl){ try{ linkEl.textContent = getSvcLink(); }catch(e){ linkEl.textContent = window.location.href.split('?')[0] + 'services.html?u=...'; } }
 
-    // Guard S
-    if(typeof S === 'undefined') return;
-
-    // Show banner if exists
-    var banner = S && S.settings && S.settings.svc_banner;
+    // ── Banner ──
+    var banner = S.settings && S.settings.svc_banner;
     var bannerPrev = document.getElementById('svc-banner-preview');
     var bannerImg  = document.getElementById('svc-banner-img');
     var bannerClr  = document.getElementById('svc-banner-clear-btn');
@@ -14210,75 +14271,95 @@ function renderServices(){
       if(bannerClr)  bannerClr.style.display = '';
     } else {
       if(bannerPrev) bannerPrev.style.display = 'none';
+      if(bannerClr)  bannerClr.style.display = 'none';
     }
 
-    // Services
-    var svcs = (typeof S !== 'undefined' && S.services) ? S.services : [];
-    var grid = document.getElementById('svc-grid');
+    // ── Ensure arrays exist ──
+    if(!S.services)   S.services   = [];
+    if(!S.svc_orders) S.svc_orders = [];
+
+    var svcs    = S.services;
+    var orders  = S.svc_orders;
+    var grid    = document.getElementById('svc-grid');
     if(!grid) return;
 
-    // Pending orders alert
-    var orders  = (typeof S !== 'undefined' && S.svc_orders) ? S.svc_orders : [];
-    var pending = orders.filter(function(o){ return o.status === 'pending'; });
+    // ── Pending orders alert ──
+    var pending  = orders.filter(function(o){ return o.status === 'pending'; });
     var navBadge = document.getElementById('svc-orders-nav-badge');
-    if(navBadge){ navBadge.textContent=pending.length; navBadge.style.display=pending.length?'':'none'; }
-    var alertEl  = document.getElementById('svc-orders-alert');
-    var badgeEl  = document.getElementById('svc-orders-badge');
-    var ordListEl= document.getElementById('svc-orders-list');
+    if(navBadge){ navBadge.textContent = pending.length; navBadge.style.display = pending.length ? '' : 'none'; }
+
+    var alertEl   = document.getElementById('svc-orders-alert');
+    var badgeEl   = document.getElementById('svc-orders-badge');
+    var ordListEl = document.getElementById('svc-orders-list');
     if(alertEl){
       alertEl.style.display = pending.length ? 'block' : 'none';
       if(badgeEl) badgeEl.textContent = pending.length;
       if(ordListEl){
         ordListEl.innerHTML = pending.map(function(o){
-          var d = new Date(o.created_at).toLocaleDateString('ar-EG');
-          return '<div style="background:var(--surface);border:1px solid rgba(247,201,72,.3);border-right:3px solid var(--accent2);border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">'+
-            '<div style="flex:1;min-width:0">'+
-              '<div style="font-size:13px;font-weight:800">'+o.client_name+'</div>'+
-              '<div style="font-size:11px;color:var(--text3);margin-top:2px">'+o.service_name+'</div>'+
-              '<div style="font-size:11px;color:var(--text3)">📱 '+o.client_phone+(o.desc?' · '+o.desc.slice(0,50):'')+'</div>'+
-              '<div style="font-size:10px;color:var(--text3);margin-top:2px">'+d+'</div>'+
-            '</div>'+
-            '<div style="display:flex;gap:6px;flex-shrink:0">'+
-              '<button onclick="openOrderDetail(\''+o.id+'\')" class="btn btn-ghost btn-sm">👁 عرض</button>'+
-              '<button onclick="openOrderAccept(\''+o.id+'\')" class="btn btn-primary btn-sm">✅ قبول</button>'+
-              '<button onclick="rejectOrder(\''+o.id+'\')" class="btn btn-danger btn-sm">✕ رفض</button>'+
-            '</div>'+
-          '</div>';
+          var d = o.created_at ? new Date(o.created_at).toLocaleDateString('ar-EG') : '—';
+          return '<div style="background:var(--surface);border:1px solid rgba(247,201,72,.3);border-right:3px solid var(--accent2);border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">'
+            +'<div style="flex:1;min-width:0">'
+              +'<div style="font-size:13px;font-weight:800">'+escapeHtml(o.client_name)+'</div>'
+              +'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+escapeHtml(o.service_name)+'</div>'
+              +'<div style="font-size:11px;color:var(--text3)">📱 '+escapeHtml(o.client_phone)+(o.desc?' · '+escapeHtml(o.desc.slice(0,50)):'')+'</div>'
+              +'<div style="font-size:10px;color:var(--text3);margin-top:2px">'+d+'</div>'
+            +'</div>'
+            +'<div style="display:flex;gap:6px;flex-shrink:0">'
+              +'<button onclick="openOrderDetail(\''+escapeHtml(o.id)+'\')" class="btn btn-ghost btn-sm">👁 عرض</button>'
+              +'<button onclick="openOrderAccept(\''+escapeHtml(o.id)+'\')" class="btn btn-primary btn-sm">✅ قبول</button>'
+              +'<button onclick="rejectOrder(\''+escapeHtml(o.id)+'\')" class="btn btn-danger btn-sm">✕ رفض</button>'
+            +'</div>'
+          +'</div>';
         }).join('');
       }
     }
 
+    // ── Empty state ──
     if(!svcs.length){
-      grid.innerHTML = '<div class="empty card" style="grid-column:span 3"><div class="empty-icon">🛍</div>لا خدمات بعد — أضف خدمتك الأولى<br><button onclick="openSvcModal()" class="btn btn-primary" style="margin-top:12px">+ خدمة جديدة</button></div>';
+      grid.innerHTML =
+        '<div class="empty card" style="grid-column:span 3;padding:40px 20px;text-align:center">'
+          +'<div class="empty-icon" style="font-size:48px;margin-bottom:12px">🛍</div>'
+          +'<div style="font-size:16px;font-weight:700;margin-bottom:6px">لا توجد خدمات بعد</div>'
+          +'<div style="font-size:13px;color:var(--text3);margin-bottom:18px">أضف خدماتك وأرسل الرابط لعملائك لطلبها مباشرة</div>'
+          +'<button onclick="openSvcModal()" class="btn btn-primary">+ إضافة خدمة جديدة</button>'
+        +'</div>';
       return;
     }
 
-    // Compact service cards with click-to-expand
+    // ── Service cards ──
     grid.innerHTML = svcs.map(function(svc){
-      var minPrice = svc.price||0;
+      var minPrice = svc.price || 0;
       if(svc.packages && svc.packages.length){
         var prices = svc.packages.map(function(p){ return p.price||0; }).filter(function(p){ return p>0; });
         if(prices.length) minPrice = Math.min.apply(null, prices);
       }
-      return '<div class="card" style="overflow:hidden;padding:0;cursor:pointer;transition:.15s" onclick="openSvcDetail('+svc.id+')" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'\'">'+
-        (svc.image ? '<div style="height:110px;overflow:hidden"><img src="'+svc.image+'" style="width:100%;height:100%;object-fit:cover"></div>' : '')+
-        '<div style="padding:12px">'+
-          '<div style="font-size:14px;font-weight:800;margin-bottom:3px">'+svc.name+'</div>'+
-          (svc.desc ? '<div style="font-size:11px;color:var(--text3);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+svc.desc+'</div>' : '')+
-          '<div style="display:flex;align-items:center;justify-content:space-between">'+
-            '<div style="font-size:15px;font-weight:900;color:var(--accent)">'+(minPrice?Number(minPrice).toLocaleString()+' ج':'—')+'</div>'+
-            '<div style="display:flex;gap:4px">'+
-              (svc.packages&&svc.packages.length ? '<span style="font-size:10px;background:rgba(124,111,247,.12);color:var(--accent);padding:2px 7px;border-radius:8px;font-weight:700">'+svc.packages.length+' باقة</span>' : '')+
-            '</div>'+
-          '</div>'+
-          '<div style="display:flex;gap:4px;margin-top:10px;border-top:1px solid var(--border);padding-top:8px" onclick="event.stopPropagation()">'+
-            '<button data-svcedit="'+svc.id+'" onclick="openSvcModal(+this.dataset.svcedit)" class="btn btn-ghost btn-sm" style="flex:1">✏ تعديل</button>'+
-            '<button data-svcdel="'+svc.id+'" onclick="delSvc(+this.dataset.svcdel)" class="btn btn-danger btn-sm">🗑</button>'+
-          '</div>'+
-        '</div>'+
-      '</div>';
+      var ordCount = orders.filter(function(o){ return String(o.service_id)===String(svc.id); }).length;
+      return '<div class="card" style="overflow:hidden;padding:0;cursor:pointer;transition:border-color .15s,transform .15s" onclick="openSvcDetail('+svc.id+')" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.borderColor=\'\';this.style.transform=\'\'">'
+        +(svc.image ? '<div style="height:120px;overflow:hidden;background:var(--surface2)"><img src="'+escapeHtml(svc.image)+'" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.style.display=\'none\'"></div>'
+                    : '<div style="height:60px;background:linear-gradient(135deg,rgba(124,111,247,.15),rgba(79,209,165,.1));display:flex;align-items:center;justify-content:center;font-size:28px">🛍</div>')
+        +'<div style="padding:14px">'
+          +'<div style="font-size:14px;font-weight:800;margin-bottom:4px;line-height:1.4">'+escapeHtml(svc.name)+'</div>'
+          +(svc.desc ? '<div style="font-size:11px;color:var(--text3);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(svc.desc)+'</div>' : '')
+          +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+            +'<div style="font-size:16px;font-weight:900;color:var(--accent)">'+(minPrice ? Number(minPrice).toLocaleString()+' ج' : '<span style="color:var(--text3);font-size:13px">سعر عند الطلب</span>')+'</div>'
+            +'<div style="display:flex;gap:4px;align-items:center">'
+              +(svc.packages&&svc.packages.length ? '<span style="font-size:10px;background:rgba(124,111,247,.12);color:var(--accent);padding:2px 7px;border-radius:8px;font-weight:700">'+svc.packages.length+' باقة</span>' : '')
+              +(ordCount ? '<span style="font-size:10px;background:rgba(79,209,165,.12);color:var(--accent3);padding:2px 7px;border-radius:8px;font-weight:700">'+ordCount+' طلب</span>' : '')
+            +'</div>'
+          +'</div>'
+          +'<div style="display:flex;gap:4px;border-top:1px solid var(--border);padding-top:10px" onclick="event.stopPropagation()">'
+            +'<button data-svcedit="'+svc.id+'" onclick="openSvcModal(+this.dataset.svcedit)" class="btn btn-ghost btn-sm" style="flex:1;justify-content:center">✏ تعديل</button>'
+            +'<button data-svcdel="'+svc.id+'" onclick="delSvc(+this.dataset.svcdel)" class="btn btn-danger btn-sm">🗑</button>'
+          +'</div>'
+        +'</div>'
+      +'</div>';
     }).join('');
-    } catch(e){ console.error('renderServices error:', e); }
+
+  } catch(e){
+    console.error('renderServices error:', e);
+    var g2 = document.getElementById('svc-grid');
+    if(g2) g2.innerHTML = '<div style="grid-column:span 3;text-align:center;padding:30px;color:var(--accent4)"><div style="font-size:24px">⚠</div><div style="font-size:13px;margin-top:8px">خطأ في تحميل الخدمات — '+escapeHtml(e.message)+'</div><button onclick="renderServices()" class="btn btn-ghost btn-sm" style="margin-top:10px">إعادة المحاولة</button></div>';
+  }
 };
 
 // ─── Service detail modal (owner view) ───
