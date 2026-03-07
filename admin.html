@@ -910,16 +910,22 @@ select.filter-sel:focus { outline:none; border-color:var(--accent); }
             <div style="font-size:13px;color:var(--text3);margin-top:2px" id="udp-email">—</div>
             <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap" id="udp-badges"></div>
           </div>
-          <div class="grid grid-4" style="gap:10px;flex:2;min-width:280px" id="udp-stats"></div>
+          <!-- زر الرسالة المختصر -->
+          <button id="udp-msg-shortcut" onclick="openSendMessageModal(_currentDetailUid, document.getElementById('udp-name')?.textContent||'مستخدم')"
+            style="background:rgba(79,209,165,.15);border:1.5px solid var(--accent3);color:var(--accent3);border-radius:10px;padding:8px 14px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            إرسال رسالة
+          </button>
         </div>
       </div>
 
       <!-- Tabs -->
       <div class="detail-tabs">
-        <button class="detail-tab active" onclick="switchDetailTab('overview')">📊 نظرة عامة</button>
-        <button class="detail-tab" onclick="switchDetailTab('contracts')">📝 العقود</button>
-        <button class="detail-tab" onclick="switchDetailTab('timetracker')">⏱ الوقت</button>
-        <button class="detail-tab" onclick="switchDetailTab('subscription')">📦 الاشتراك</button>
+        <button class="detail-tab active" data-tab="overview" onclick="switchDetailTab('overview')">📊 نظرة عامة</button>
+        <button class="detail-tab" data-tab="activity" onclick="switchDetailTab('activity')">📡 سجل النشاط</button>
+        <button class="detail-tab" data-tab="contracts" onclick="switchDetailTab('contracts')">📝 العقود</button>
+        <button class="detail-tab" data-tab="timetracker" onclick="switchDetailTab('timetracker')">⏱ الوقت</button>
+        <button class="detail-tab" data-tab="subscription" onclick="switchDetailTab('subscription')">📦 الاشتراك</button>
       </div>
 
       <!-- Tab: Overview -->
@@ -1494,6 +1500,34 @@ select.filter-sel:focus { outline:none; border-color:var(--accent); }
           <div class="acc-row acc-check"><label>⏱ تتبع الوقت</label><input type="checkbox" id="feat-timetracker" checked></div>
           <div class="acc-row acc-check"><label>📝 العقود الرقمية</label><input type="checkbox" id="feat-contracts" checked></div>
           <div class="acc-row acc-check"><label>🔗 بوابة العميل</label><input type="checkbox" id="feat-client-portal" checked></div>
+        </div>
+      </div>
+
+      <!-- ميزات v2.1 الجديدة -->
+      <div class="acc-section" id="acc-v21">
+        <div class="acc-header" onclick="toggleAcc('v21')">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="checkbox" id="feat-v21-on" checked onclick="event.stopPropagation()" style="width:16px;height:16px">
+            <span style="font-weight:700">🚀 ميزات v2.1 المتقدمة</span>
+            <span style="font-size:9px;background:var(--accent4);color:#fff;padding:2px 6px;border-radius:6px;font-weight:700">جديد</span>
+          </div>
+          <span class="acc-arrow">▾</span>
+        </div>
+        <div class="acc-body" id="acc-body-v21" style="display:none">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:8px;padding:0 4px">تحكم في الميزات المتقدمة التي أُضيفت في التحديث الأخير</div>
+          <div class="acc-row acc-check"><label>🔁 المهام المتكررة (Recurring)</label><input type="checkbox" id="feat-recurring" checked></div>
+          <div class="acc-row acc-check"><label>🏁 مراحل التسليم (Milestones)</label><input type="checkbox" id="feat-milestones" checked></div>
+          <div class="acc-row acc-check"><label>⏰ سجل تغيير مواعيد التسليم</label><input type="checkbox" id="feat-deadline-log" checked></div>
+          <div class="acc-row acc-check"><label>🧬 DNA العميل + Value Score</label><input type="checkbox" id="feat-client-dna" checked></div>
+          <div class="acc-row acc-check"><label>📊 تقرير العميل القابل للطباعة</label><input type="checkbox" id="feat-client-report" checked></div>
+          <div class="acc-row acc-check"><label>💰 لوحة الدخل المتوقع وسعة العمل</label><input type="checkbox" id="feat-expected-income" checked></div>
+          <div class="acc-row acc-check"><label>🎯 مؤشر الالتزام بالمواعيد</label><input type="checkbox" id="feat-commitment-meter" checked></div>
+          <div class="acc-row acc-check"><label>⚡ مقياس الزخم (Momentum Meter)</label><input type="checkbox" id="feat-momentum" checked></div>
+          <div class="acc-row acc-check"><label>🏆 تحدي الأسبوع</label><input type="checkbox" id="feat-weekly-challenge" checked></div>
+          <div class="acc-row acc-check"><label>⏰ تنبيه مواعيد 24/48 ساعة</label><input type="checkbox" id="feat-deadline-alerts" checked></div>
+          <div class="acc-row acc-check"><label>🔕 تنبيه العميل الهادي</label><input type="checkbox" id="feat-silent-client-alert" checked></div>
+          <div class="acc-row acc-check"><label>📄 كشوفات الحساب</label><input type="checkbox" id="feat-statements" checked></div>
+          <div class="acc-row acc-check"><label>🚀 سجل التحديثات في الإعدادات</label><input type="checkbox" id="feat-updates-log" checked></div>
         </div>
       </div>
 
@@ -2120,6 +2154,31 @@ FOR ALL USING (
 -- CREATE POLICY "admin_read_all_activity" ON user_activity FOR SELECT USING (
 --   (auth.jwt()->'user_metadata'->>'role' = 'admin') OR auth.uid() = user_id
 -- );
+
+-- ⭐ جدول الإشعارات والرسائل للمستخدمين (مطلوب لميزة إرسال الرسائل)
+CREATE TABLE IF NOT EXISTS user_notifications (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT,
+  body TEXT NOT NULL,
+  type TEXT DEFAULT 'message',
+  read BOOLEAN DEFAULT FALSE,
+  sent_by TEXT DEFAULT 'admin',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE user_notifications ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "users_read_own_notifications" ON user_notifications;
+CREATE POLICY "users_read_own_notifications" ON user_notifications
+FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
+DROP POLICY IF EXISTS "admin_manage_notifications" ON user_notifications;
+CREATE POLICY "admin_manage_notifications" ON user_notifications
+FOR ALL USING (
+  (auth.jwt()->'user_metadata'->>'role' = 'admin') OR
+  (auth.jwt()->'user_metadata'->>'is_admin' = 'true')
+) WITH CHECK (
+  (auth.jwt()->'user_metadata'->>'role' = 'admin') OR
+  (auth.jwt()->'user_metadata'->>'is_admin' = 'true')
+);
 
 -- السماح للأدمن بتعديل studio_data لأي مستخدم
 DROP POLICY IF EXISTS "admin_update_studio_data" ON studio_data;
@@ -2952,7 +3011,11 @@ function editPlan(id) {
     'pay-cash','pay-instapay','pay-vodafone',
     'inv-create','inv-pdf','inv-whatsapp','inv-policies',
     'rep-monthly','rep-clients','other-on',
-    'timetracker','contracts','client-portal'
+    'timetracker','contracts','client-portal',
+    // v2.1 defaults ON
+    'recurring','milestones','deadline-log','client-dna','client-report',
+    'expected-income','commitment-meter','momentum','weekly-challenge',
+    'deadline-alerts','silent-client-alert','statements','updates-log','v21-on'
   ]);
 
   const allChecks = [
@@ -2963,7 +3026,11 @@ function editPlan(id) {
     'pay-cash','pay-instapay','pay-vodafone','pay-etisalat','pay-bank','pay-card',
     'inv-create','inv-pdf','inv-whatsapp','inv-contracts','inv-policies',
     'schedule-day','schedule-export','rep-monthly','rep-clients','rep-export','other-on',
-    'timetracker','contracts','client-portal'
+    'timetracker','contracts','client-portal',
+    // v2.1
+    'v21-on','recurring','milestones','deadline-log','client-dna','client-report',
+    'expected-income','commitment-meter','momentum','weekly-challenge',
+    'deadline-alerts','silent-client-alert','statements','updates-log'
   ];
 
   allChecks.forEach(k => {
@@ -3078,6 +3145,20 @@ function savePlan() {
     timetracker:        _chk('feat-timetracker'),
     contracts:          _chk('feat-contracts'),
     client_portal:      _chk('feat-client-portal'),
+    // ميزات v2.1
+    recurring:          _chk('feat-recurring'),
+    milestones:         _chk('feat-milestones'),
+    deadline_log:       _chk('feat-deadline-log'),
+    client_dna:         _chk('feat-client-dna'),
+    client_report:      _chk('feat-client-report'),
+    expected_income:    _chk('feat-expected-income'),
+    commitment_meter:   _chk('feat-commitment-meter'),
+    momentum:           _chk('feat-momentum'),
+    weekly_challenge:   _chk('feat-weekly-challenge'),
+    deadline_alerts:    _chk('feat-deadline-alerts'),
+    silent_client_alert:_chk('feat-silent-client-alert'),
+    statements:         _chk('feat-statements'),
+    updates_log:        _chk('feat-updates-log'),
   };
 
   const mc = features.max_clients_feat || 0;
@@ -3187,31 +3268,69 @@ function renderUserActivityLog(uid) {
   const loginCount = history.length || st.loginCount || 0;
   const lastLogin  = history[0]?.time || st.lastLogin;
   const lastLoginStr = lastLogin ? new Date(lastLogin).toLocaleString('ar-EG') : '—';
-
-  let html = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">';
-  html += '<div class="stat-mini"><div class="stat-mini-val" style="color:var(--accent)">' + loginCount + '</div><div class="stat-mini-lbl">إجمالي الدخولات</div></div>';
-  html += '<div class="stat-mini"><div class="stat-mini-val" style="color:var(--accent3);font-size:13px">' + lastLoginStr + '</div><div class="stat-mini-lbl">آخر دخول</div></div>';
-
   const today = new Date().toDateString();
   const todayLogins = history.filter(h => new Date(h.time).toDateString() === today).length;
-  html += '<div class="stat-mini"><div class="stat-mini-val" style="color:var(--accent2)">' + todayLogins + '</div><div class="stat-mini-lbl">دخولات اليوم</div></div>';
+  const thisWeek = history.filter(h => {
+    const d = new Date(h.time); const now = new Date();
+    const diff = (now - d) / (1000*60*60*24);
+    return diff <= 7;
+  }).length;
+
+  // Stats row
+  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px">';
+  html += `<div class="stat-mini"><div class="stat-mini-val" style="color:var(--accent)">${loginCount}</div><div class="stat-mini-lbl">🔐 إجمالي الدخولات</div></div>`;
+  html += `<div class="stat-mini"><div class="stat-mini-val" style="color:var(--accent2)">${todayLogins}</div><div class="stat-mini-lbl">📅 دخولات اليوم</div></div>`;
+  html += `<div class="stat-mini"><div class="stat-mini-val" style="color:var(--accent3)">${thisWeek}</div><div class="stat-mini-lbl">📆 آخر 7 أيام</div></div>`;
+  html += `<div class="stat-mini"><div class="stat-mini-val" style="color:var(--text);font-size:12px">${lastLoginStr}</div><div class="stat-mini-lbl">🕐 آخر دخول</div></div>`;
   html += '</div>';
 
+  // Session timeline
   if(!history.length) {
-    html += '<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">لا يوجد سجل دخول مسجّل بعد</div>';
+    html += '<div style="text-align:center;padding:30px;color:var(--text3);font-size:13px">'
+      + '<div style="font-size:32px;margin-bottom:8px">📭</div>'
+      + '<div>لا يوجد سجل دخول مسجّل بعد</div>'
+      + '<div style="font-size:11px;margin-top:6px;color:var(--text3)">سيظهر السجل بعد دخول المستخدم للسيستم</div>'
+      + '</div>';
   } else {
-    html += '<div style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto">';
-    history.slice(0, 50).forEach(function(h) {
-      const d = new Date(h.time);
-      const dateStr = d.toLocaleDateString('ar-EG') + ' ' + d.toLocaleTimeString('ar-EG', {hour:'2-digit',minute:'2-digit'});
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--surface2);border-radius:8px;font-size:12px">'
-        + '<div><span style="color:var(--accent3)">🔐</span> <span style="font-weight:600">تسجيل دخول</span>'
-        + (h.device ? ' <span style="color:var(--text3);font-size:10px">— ' + h.device + '</span>' : '')
-        + '</div>'
-        + '<div style="color:var(--text3)">' + dateStr + '</div>'
-        + '</div>';
+    // Group by date
+    const grouped = {};
+    history.slice(0, 100).forEach(function(h) {
+      const dateKey = new Date(h.time).toLocaleDateString('ar-EG');
+      if(!grouped[dateKey]) grouped[dateKey] = [];
+      grouped[dateKey].push(h);
+    });
+
+    html += '<div style="display:flex;flex-direction:column;gap:12px;max-height:400px;overflow-y:auto">';
+    Object.entries(grouped).forEach(([date, entries]) => {
+      html += `<div>
+        <div style="font-size:11px;font-weight:700;color:var(--text3);padding:4px 0;margin-bottom:6px;border-bottom:1px solid var(--border)">${date} — ${entries.length} دخول</div>
+        <div style="display:flex;flex-direction:column;gap:4px">`;
+      entries.forEach(function(h) {
+        const t = new Date(h.time);
+        const timeStr = t.toLocaleTimeString('ar-EG', {hour:'2-digit',minute:'2-digit'});
+        const isToday = t.toDateString() === new Date().toDateString();
+        html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--surface2);border-radius:8px;font-size:12px;border-right:3px solid ${isToday?'var(--accent3)':'var(--border)'}">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:16px">🔐</span>
+            <div>
+              <span style="font-weight:600">تسجيل دخول</span>
+              ${h.device ? `<span style="color:var(--text3);font-size:10px;margin-right:6px">— ${h.device}</span>` : ''}
+              ${h.ip ? `<span style="color:var(--text3);font-size:10px;font-family:monospace"> | ${h.ip}</span>` : ''}
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            ${isToday ? '<span style="font-size:9px;background:var(--accent3);color:#fff;padding:1px 6px;border-radius:6px">اليوم</span>' : ''}
+            <span style="color:var(--text3)">${timeStr}</span>
+          </div>
+        </div>`;
+      });
+      html += '</div></div>';
     });
     html += '</div>';
+
+    if(history.length > 100) {
+      html += `<div style="text-align:center;font-size:11px;color:var(--text3);margin-top:8px">+ ${history.length-100} دخول إضافي</div>`;
+    }
   }
   el.innerHTML = html;
 
@@ -3765,27 +3884,9 @@ function openUserDetailPage(uid) {
       (studio !== '—' && studio !== name+' Studio' ? `<span class="badge badge-gray">🏢 ${studio}</span>` : '');
   }
 
-  // Stats
+  // Stats — moved to overview tab only (not in header)
   const statsEl = document.getElementById('udp-stats');
-  if(statsEl) {
-    const tasks    = p.tasks?.length || 0;
-    const clients  = p.clients?.length || 0;
-    const invoices = p.invoices?.length || 0;
-    const contracts = p.contracts?.length || 0;
-    const signedContracts = (p.contracts||[]).filter(ct=>ct.status==='signed').length;
-    const timeEntries = p.timeEntries?.length || 0;
-    const income   = (p.transactions||[]).filter(t=>t.type==='income').reduce((s,t)=>s+(+t.amount||0),0);
-    const ttSecs   = (p.timeEntries||[]).reduce((s,e)=>s+(e.duration_seconds||0),0);
-    const ttHours  = (ttSecs/3600).toFixed(1);
-    statsEl.innerHTML = [
-      {v:clients, l:'عميل', c:'purple'},
-      {v:tasks,   l:'مهمة', c:'green'},
-      {v:invoices,l:'فاتورة',c:'yellow'},
-      {v:income.toLocaleString()+' ج', l:'إجمالي الدخل',c:'green'},
-      {v:contracts+(signedContracts?` (${signedContracts}✅)`:''), l:'عقد', c:''},
-      {v:ttHours+'h', l:'ساعات عمل', c:''}
-    ].map(s=>`<div class="stat-mini"><div class="stat-mini-val" style="color:var(--accent${s.c==='green'?'3':s.c==='yellow'?'2':''})">${s.v}</div><div class="stat-mini-lbl">${s.l}</div></div>`).join('');
-  }
+  if(statsEl) statsEl.innerHTML = ''; // clear header stats
 
   // Account status
   const userSt = getUserStatus(uid);
@@ -3897,19 +3998,23 @@ function loadDetailOverview(uid, p, sub, plan) {
     }
   }
 
-  // Quick stats
+  // Quick stats — subscription & activity only (no sensitive financial/task data)
   const qsEl = document.getElementById('udp-quick-stats');
   if(qsEl && p) {
-    const income  = (p.transactions||[]).filter(t=>t.type==='income').reduce((s,t)=>s+(+t.amount||0),0);
-    const expense = (p.transactions||[]).filter(t=>t.type==='expense').reduce((s,t)=>s+(+t.amount||0),0);
-    const doneTasks = (p.tasks||[]).filter(t=>t.done||t.status==='done').length;
-    const paidInv   = (p.invoices||[]).filter(i=>i.status==='paid').length;
+    const loginHistory = getUserLoginHistory(uid);
+    const lastLogin = loginHistory[0]?.time || ALL_STUDIO_DATA[uid]?.updated_at;
+    const loginCount = loginHistory.length;
+    const todayLogins = loginHistory.filter(h => new Date(h.time).toDateString() === new Date().toDateString()).length;
+    const hasActiveSubscription = sub && sub.status === 'active';
+    const daysLeft = (sub && sub.expiresAt && sub.billing !== 'lifetime')
+      ? Math.max(0, Math.ceil((new Date(sub.expiresAt) - Date.now()) / 86400000))
+      : null;
     qsEl.innerHTML = [
-      {v:income.toLocaleString()+' ج', l:'إجمالي الدخل', c:'var(--accent3)'},
-      {v:expense.toLocaleString()+' ج', l:'إجمالي المصروفات', c:'var(--accent4)'},
-      {v:doneTasks, l:'مهام مكتملة', c:'var(--accent)'},
-      {v:paidInv,   l:'فواتير محصّلة', c:'var(--accent2)'},
-    ].map(s=>`<div class="stat-mini"><div class="stat-mini-val" style="color:${s.c}">${s.v}</div><div class="stat-mini-lbl">${s.l}</div></div>`).join('');
+      {v: loginCount,                                          l: '🔐 إجمالي الدخولات',    c: 'var(--accent)'},
+      {v: todayLogins,                                         l: '📅 دخولات اليوم',       c: 'var(--accent2)'},
+      {v: lastLogin ? new Date(lastLogin).toLocaleDateString('ar-EG') : '—', l: '🕐 آخر نشاط', c: 'var(--accent3)'},
+      {v: hasActiveSubscription ? (daysLeft !== null ? daysLeft+' يوم' : '♾️') : '—', l: '📦 متبقي للاشتراك', c: daysLeft!==null&&daysLeft<7 ? 'var(--accent4)' : 'var(--text)'},
+    ].map(s=>`<div class="stat-mini"><div class="stat-mini-val" style="color:${s.c};font-size:15px">${s.v}</div><div class="stat-mini-lbl">${s.l}</div></div>`).join('');
   }
 }
 
@@ -4442,8 +4547,34 @@ async function doSendMessage() {
       sent_by   : 'admin'
     };
 
-    const { error } = await supa.from('user_notifications').insert([notif]);
-    if(error) throw error;
+    // Try Supabase first, fallback to localStorage if table doesn't exist
+    let saveError = null;
+    try {
+      const { error } = await supa.from('user_notifications').insert([notif]);
+      if(error) saveError = error;
+    } catch(supaErr) {
+      saveError = supaErr;
+    }
+
+    if(saveError) {
+      // Check if it's a "table not found" error → use localStorage fallback
+      const isTableMissing = saveError.message && (
+        saveError.message.includes('user_notifications') ||
+        saveError.message.includes('schema cache') ||
+        saveError.message.includes('not found') ||
+        saveError.code === '42P01'
+      );
+      if(isTableMissing) {
+        // Fallback: save to localStorage
+        const stored = JSON.parse(localStorage.getItem('_admin_msgs') || '[]');
+        stored.unshift({...notif, id: Date.now().toString()});
+        if(stored.length > 500) stored.splice(500);
+        localStorage.setItem('_admin_msgs', JSON.stringify(stored));
+        console.warn('⚠ user_notifications table not found — saved to localStorage fallback');
+      } else {
+        throw saveError;
+      }
+    }
 
     closeModal('modal-send-message');
     toast('✅ تم إرسال الرسالة' + (isBroadcast ? ' للجميع' : ''));
@@ -4471,10 +4602,30 @@ async function loadMessagesPage() {
       .limit(100);
     if(error) throw error;
     _allMessages = data || [];
+    // Also merge localStorage fallback
+    const localMsgs = JSON.parse(localStorage.getItem('_admin_msgs') || '[]');
+    if(localMsgs.length) {
+      _allMessages = [..._allMessages, ...localMsgs].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    }
     renderMessagesList(_allMessages);
     updateMsgStats(_allMessages);
   } catch(e) {
-    if(bodyEl) bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--accent4)">❌ تعذّر التحميل: '+e.message+'<br><div style="font-size:11px;color:var(--text3);margin-top:8px">تأكد من إنشاء جدول user_notifications في Supabase</div></div>';
+    // Fallback: load from localStorage
+    const localMsgs = JSON.parse(localStorage.getItem('_admin_msgs') || '[]');
+    if(localMsgs.length) {
+      _allMessages = localMsgs;
+      renderMessagesList(_allMessages);
+      updateMsgStats(_allMessages);
+      if(bodyEl) {
+        // Add a notice about table missing
+        const notice = document.createElement('div');
+        notice.style.cssText = 'background:rgba(247,196,72,.1);border:1px solid rgba(247,196,72,.3);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--accent2);margin-bottom:12px';
+        notice.innerHTML = '⚠ جدول user_notifications غير موجود في Supabase — الرسائل محفوظة محلياً. أنشئ الجدول من كود SQL في صفحة الإعداد.';
+        bodyEl.prepend(notice);
+      }
+    } else {
+      if(bodyEl) bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--accent4)">❌ تعذّر التحميل: '+e.message+'<br><div style="font-size:11px;color:var(--text3);margin-top:8px">تأكد من إنشاء جدول user_notifications في Supabase من كود SQL في صفحة البداية</div></div>';
+    }
   }
 }
 
