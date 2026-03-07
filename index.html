@@ -1220,6 +1220,16 @@ tr:hover td { background: rgba(255,255,255,.02); }
 ═══════════════════════════════════════════════════ */
 #modal-profile .modal { width: 480px; }
 
+/* ── Client Profile Tabs ── */
+.profile-tab {
+  background: none; border: none; cursor: pointer;
+  font-family: var(--font); font-size: 12px; font-weight: 600;
+  color: var(--text3); padding: 10px 14px; border-bottom: 2.5px solid transparent;
+  white-space: nowrap; transition: all .18s;
+}
+.profile-tab:hover { color: var(--text); }
+.profile-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
 .profile-avatar-lg {
   width: 72px; height: 72px;
   background: linear-gradient(135deg, var(--accent), #a89cff);
@@ -3211,12 +3221,20 @@ setTimeout(window._showApp, 4000);
 
 <!-- CLIENT PROFILE MODAL -->
 <div class="modal-overlay" id="modal-client-profile">
-  <div class="modal" style="width:720px">
-    <div class="modal-header">
+  <div class="modal" style="width:820px;max-width:98vw">
+    <div class="modal-header" style="flex-wrap:wrap;gap:8px">
       <div class="modal-title" id="profile-title">ملف العميل</div>
-      <button class="close-btn" onclick="closeM(&#39;modal-client-profile&#39;)">✕</button>
+      <div style="display:flex;gap:6px;align-items:center;margin-right:auto" id="profile-header-actions"></div>
+      <button class="close-btn" onclick="closeM('modal-client-profile')">✕</button>
     </div>
-    <div id="profile-body"></div>
+    <!-- Tab Bar -->
+    <div style="display:flex;gap:4px;padding:0 20px 0;border-bottom:1px solid var(--border);overflow-x:auto" id="profile-tabs">
+      <button class="profile-tab active" data-tab="overview" onclick="switchProfileTab('overview',this)">📊 نظرة عامة</button>
+      <button class="profile-tab" data-tab="history" onclick="switchProfileTab('history',this)">📅 سجل الطلبات</button>
+      <button class="profile-tab" data-tab="invoices" onclick="switchProfileTab('invoices',this)">🧾 الفواتير</button>
+      <button class="profile-tab" data-tab="contracts" onclick="switchProfileTab('contracts',this)">📝 العقود</button>
+    </div>
+    <div id="profile-body" style="max-height:75vh;overflow-y:auto;padding:18px 20px"></div>
   </div>
 </div>
 
@@ -5643,123 +5661,355 @@ function saveClient(){
   else{ if(!checkLimit('max_clients_feat', S.clients.length)) return; d.id=Date.now();S.clients.push(d);}
   lsSave();closeM('modal-client');renderAll();fillDD('t-client');fillDD('inv-client');
 }
+// ── Active profile client id (for tab switching) ──
+let _profileClientId = null;
+
 function openClientProfile(id){
+  _profileClientId = id;
   const c=S.clients.find(c=>c.id===id);if(!c)return;
 
-  // Sub-clients of this client (if it's a parent)
+  // Sub-clients
   const subClients = S.clients.filter(sc => String(sc.parentClientId) === String(c.id));
   const isParent = subClients.length > 0;
-
-  // Parent info for sub-clients
   const parentClient = (c.workType==='sub' && c.parentClientId)
-    ? S.clients.find(p=>String(p.id)===String(c.parentClientId))
-    : null;
+    ? S.clients.find(p=>String(p.id)===String(c.parentClientId)) : null;
+  const allClientNames = isParent ? [c.name,...subClients.map(sc=>sc.name)] : [c.name];
 
-  // For parent: aggregate data from sub-clients too
-  const allClientNames = isParent
-    ? [c.name, ...subClients.map(sc=>sc.name)]
-    : [c.name];
+  // Title bar
+  document.getElementById('profile-title').innerHTML=
+    `<span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:${c.color};color:#fff;font-weight:800;font-size:14px;margin-left:8px">${c.name[0]}</span>`+
+    `${c.name}`+
+    (isParent?` <span style="font-size:10px;background:rgba(124,111,247,.15);color:var(--accent);padding:2px 8px;border-radius:8px;margin-right:6px">🏢 ${subClients.length} فرع</span>`:'')+
+    (parentClient?` <span style="font-size:10px;background:rgba(79,209,165,.12);color:var(--accent3);padding:2px 8px;border-radius:8px;margin-right:6px;cursor:pointer" onclick="closeM('modal-client-profile');setTimeout(()=>openClientProfile(${parentClient.id}),120)">🔗 تابع لـ ${parentClient.name} ←</span>`:'');
 
-  const cTasks = S.tasks.filter(t => allClientNames.includes(t.client));
-  const cInvs  = S.invoices.filter(i => allClientNames.includes(i.client));
-  const cContracts = (S.contracts||[]).filter(ct => allClientNames.includes(ct.client_name||''));
-  const cTrans = S.transactions.filter(t => allClientNames.includes(t.source));
-  const totalInc   = cTrans.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
-  const pendingInv = cInvs.filter(i=>i.status==='pending');
-  const paidInv    = cInvs.filter(i=>i.status==='paid');
+  // Header action buttons
+  const hdr = document.getElementById('profile-header-actions');
+  if(hdr) hdr.innerHTML=
+    (c.phone?`<a href="https://wa.me/${c.phone.replace(/[^\d]/g,'')}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;background:#25D366;color:#fff;border:none;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;text-decoration:none;cursor:pointer">💬 واتساب</a>`:'') +
+    `<button class="btn btn-ghost btn-sm" title="إعدادات التذكير" onclick="openClientModal(${c.id});closeM('modal-client-profile')">⚙️</button>`+
+    `<button class="btn btn-ghost btn-sm" title="بوابة العميل" onclick="openClientPortal(${c.id})">🔗 بوابة</button>`+
+    `<button class="btn btn-primary btn-sm" onclick="_profileShowStatement(${c.id})">📄 كشف حساب</button>`;
 
-  // Monthly stats (current month)
-  const now = new Date(); const curY=now.getFullYear(); const curM=now.getMonth()+1;
-  const monthStr = `${curY}-${String(curM).padStart(2,'0')}`;
-  const monthTasks = cTasks.filter(t=>(t.isoDate||t.createdAt||'').startsWith(monthStr) || (t.doneAt||'').startsWith(monthStr));
-  const monthInvs  = cInvs.filter(i=>(i.isoDate||i.date||'').includes(monthStr) || (i.createdAt||'').startsWith(monthStr));
-
-  const statusBadgeLocal={new:'<span class="badge badge-gray">جديد</span>',progress:'<span class="badge badge-yellow">جاري</span>',review:'<span class="badge badge-purple">مراجعة</span>',done:'<span class="badge badge-green">مكتمل</span>'};
-
-  // Sub-clients section HTML
-  const subClientsSection = isParent ? `
-    <div style="margin-bottom:20px">
-      <div class="section-title" style="margin-bottom:10px">🔗 العملاء / الفروع التابعة (${subClients.length})</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
-        ${subClients.map(sc=>{
-          const scTasks = S.tasks.filter(t=>t.client===sc.name).length;
-          const scInvs  = S.invoices.filter(i=>i.client===sc.name);
-          const scPending = scInvs.filter(i=>i.status==='pending').reduce((s,i)=>s+i.total,0);
-          return `<div class="card" style="padding:12px;cursor:pointer;transition:.18s" onclick="closeM('modal-client-profile');setTimeout(()=>openClientProfile(${sc.id}),120)"
-            onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor=''">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-              <div style="width:30px;height:30px;border-radius:50%;background:${sc.color||'var(--accent)'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;flex-shrink:0">${sc.name[0]}</div>
-              <div style="font-weight:700;font-size:13px;flex:1">${sc.name}</div>
-            </div>
-            <div style="display:flex;gap:8px;font-size:11px;color:var(--text3)">
-              <span>📋 ${scTasks} مهمة</span>
-              ${scPending>0?`<span style="color:var(--accent2)">🧾 ${scPending.toLocaleString()} ج معلق</span>`:''}
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>` : '';
-
-  document.getElementById('profile-title').innerHTML=`<span style="color:${c.color}">${c.name[0]}</span> ملف ${isParent?'الشركة':'العميل'} — ${c.name}${isParent?` <span style="font-size:11px;background:rgba(124,111,247,.15);color:var(--accent);padding:2px 8px;border-radius:10px;margin-right:6px">🏢 شركة</span>`:''}${parentClient?` <span style="font-size:11px;background:rgba(79,209,165,.12);color:var(--accent3);padding:2px 8px;border-radius:10px;margin-right:6px;cursor:pointer" onclick="closeM('modal-client-profile');setTimeout(()=>openClientProfile(${parentClient.id}),120)">🔗 تابع لـ ${parentClient.name} ←</span>`:''}`;
-
-  document.getElementById('profile-body').innerHTML=`
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px">
-      <div class="card" style="padding:14px"><div class="stat-label">💰 إجمالي الدخل${isParent?' (مجمّع)':''}</div><div style="font-size:22px;font-weight:900;color:var(--accent3)">${totalInc.toLocaleString()} ج</div></div>
-      <div class="card" style="padding:14px"><div class="stat-label">📋 المشاريع${isParent?' (مجمّع)':''}</div><div style="font-size:22px;font-weight:900;color:var(--accent)">${cTasks.length}</div></div>
-      <div class="card" style="padding:14px"><div class="stat-label">⏳ فواتير معلقة${isParent?' (مجمّع)':''}</div><div style="font-size:22px;font-weight:900;color:var(--accent2)">${pendingInv.reduce((s,i)=>s+i.total,0).toLocaleString()} ج</div></div>
-      <div class="card" style="padding:14px"><div class="stat-label">📅 طلبات هذا الشهر</div><div style="font-size:22px;font-weight:900;color:var(--accent)">${monthTasks.length}</div><div style="font-size:11px;color:var(--text3)">${monthInvs.length} فاتورة هذا الشهر</div></div>
-    </div>
-    ${subClientsSection}
-    <div style="display:flex;gap:8px;margin-bottom:16px;font-size:13px;flex-wrap:wrap;align-items:center">
-      ${c.phone?`<span style="background:var(--surface2);padding:5px 12px;border-radius:20px;color:var(--text2)">📞 ${c.phone}</span>`:''}
-      ${c.phone?`<button onclick="window.open('https://wa.me/'+('${c.phone}'.replace(/\\D/g,'')),'_blank')" style="display:flex;align-items:center;gap:6px;background:#25D366;color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">💬 واتساب</button>`:''}
-      ${c.email?`<span style="background:var(--surface2);padding:5px 12px;border-radius:20px;color:var(--text2)">✉ ${c.email}</span>`:''}
-    </div>
-    ${cTasks.length?`
-    <div style="margin-bottom:20px">
-      <div class="section-title" style="margin-bottom:10px">📋 المهام (${cTasks.length})</div>
-      ${cTasks.slice(0,5).map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-        <div>
-          <div style="font-size:13px;font-weight:600">${t.title}</div>
-          ${isParent && t.client !== c.name ? `<div style="font-size:10px;color:var(--text3)">🔗 ${t.client}</div>` : ''}
-        </div>
-        ${statusBadgeLocal[t.status]||''}
-      </div>`).join('')}
-      ${cTasks.length>5?`<div style="font-size:11px;color:var(--accent);margin-top:6px;cursor:pointer" onclick="closeM('modal-client-profile');showPage('tasks')">+ ${cTasks.length-5} مهام أخرى ←</div>`:''}
-    </div>`:``}
-    ${cInvs.length?`
-    <div style="margin-bottom:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div class="section-title">🧾 الفواتير (${cInvs.length}) — إجمالي: ${cInvs.reduce((s,i)=>s+i.total,0).toLocaleString()} ج</div>
-        <button class="btn btn-ghost btn-sm" onclick="closeM('modal-client-profile');showPage('invoices')">عرض الكل ←</button>
-      </div>
-      ${cInvs.slice(0,5).map(i=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-        <div>
-          <div style="font-size:13px;font-weight:600">#${i.num||'—'} — ${i.date||''}</div>
-          ${isParent && i.client !== c.name ? `<div style="font-size:10px;color:var(--text3)">🔗 ${i.client}</div>` : ''}
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-weight:700;color:${i.status==='paid'?'var(--accent3)':'var(--accent2)'}">${i.total.toLocaleString()} ج</span>
-          <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${i.status==='paid'?'rgba(79,209,165,.15)':'rgba(247,201,72,.15)'};color:${i.status==='paid'?'var(--accent3)':'var(--accent2)'}">${i.status==='paid'?'✅ مدفوع':'⏳ معلق'}</span>
-        </div>
-      </div>`).join('')}
-    </div>`:``}
-    ${cContracts.length?`
-    <div style="margin-bottom:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div class="section-title">📝 العقود (${cContracts.length})</div>
-        <button class="btn btn-ghost btn-sm" onclick="closeM('modal-client-profile');showPage('invoices');setTimeout(()=>switchInvTab('contracts'),200)">عرض الكل ←</button>
-      </div>
-      ${cContracts.slice(0,3).map(ct=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:13px;font-weight:600">${ct.title||'عقد'}</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          ${ct.value?`<span style="font-weight:700;color:var(--accent3)">${Number(ct.value).toLocaleString()} ج</span>`:''}
-          <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${ct.status==='signed'?'rgba(79,209,165,.15)':'rgba(124,111,247,.15)'};color:${ct.status==='signed'?'var(--accent3)':'var(--accent)'}">${ct.status==='signed'?'✅ موقّع':'📋 مسودة'}</span>
-        </div>
-      </div>`).join('')}
-    </div>`:``}`;
+  // Reset tabs
+  document.querySelectorAll('.profile-tab').forEach(t=>t.classList.remove('active'));
+  const firstTab = document.querySelector('.profile-tab[data-tab="overview"]');
+  if(firstTab) firstTab.classList.add('active');
 
   openM('modal-client-profile');
+  _renderProfileTab('overview', id);
+}
+
+function switchProfileTab(tab, btn){
+  document.querySelectorAll('.profile-tab').forEach(t=>t.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  _renderProfileTab(tab, _profileClientId);
+}
+
+function _renderProfileTab(tab, id){
+  const c=S.clients.find(c=>c.id===id);if(!c)return;
+  const subClients = S.clients.filter(sc=>String(sc.parentClientId)===String(c.id));
+  const isParent = subClients.length>0;
+  const allClientNames = isParent?[c.name,...subClients.map(sc=>sc.name)]:[c.name];
+  const cTasks = S.tasks.filter(t=>allClientNames.includes(t.client));
+  const cInvs  = S.invoices.filter(i=>allClientNames.includes(i.client));
+  const cContracts = (S.contracts||[]).filter(ct=>allClientNames.includes(ct.client_name||''));
+  const cTrans = S.transactions.filter(t=>allClientNames.includes(t.source));
+
+  const now=new Date(); const curY=now.getFullYear(); const curM=now.getMonth()+1;
+  const monthStr=`${curY}-${String(curM).padStart(2,'0')}`;
+  const _taskDate=t=>t.isoDate||t.createdAt||t.doneAt||'';
+  const monthTasks=cTasks.filter(t=>_taskDate(t).startsWith(monthStr));
+  const monthIncome=cTrans.filter(t=>t.type==='income'&&(t.isoDate||t.date||'').startsWith(monthStr)).reduce((s,t)=>s+t.amount,0);
+  const pendingInv=cInvs.filter(i=>i.status==='pending');
+  const totalInc=cTrans.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+
+  const statusBadge={new:'<span class="badge badge-gray">جديد</span>',progress:'<span class="badge badge-yellow">جاري</span>',review:'<span class="badge badge-purple">مراجعة</span>',done:'<span class="badge badge-green">مكتمل</span>'};
+  const body=document.getElementById('profile-body');
+
+  if(tab==='overview'){
+    // last task date
+    const sortedTasks=[...cTasks].filter(t=>_taskDate(t)).sort((a,b)=>_taskDate(b).localeCompare(_taskDate(a)));
+    const lastTask=sortedTasks[0];
+    const lastReqLabel=lastTask?`آخر طلب: ${_taskDate(lastTask).slice(0,10)}`:'لا طلبات بعد';
+
+    const subSection=isParent?`
+      <div style="margin-bottom:18px">
+        <div class="section-title" style="margin-bottom:8px">🏢 الفروع / العملاء التابعين (${subClients.length})</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px">
+          ${subClients.map(sc=>{
+            const st=S.tasks.filter(t=>t.client===sc.name).length;
+            const sp=S.invoices.filter(i=>i.client===sc.name&&i.status==='pending').reduce((s,i)=>s+i.total,0);
+            return `<div class="card" style="padding:10px;cursor:pointer" onclick="closeM('modal-client-profile');setTimeout(()=>openClientProfile(${sc.id}),120)" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor=''">
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+                <div style="width:26px;height:26px;border-radius:50%;background:${sc.color||'var(--accent)'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff">${sc.name[0]}</div>
+                <div style="font-weight:700;font-size:12px">${sc.name}</div>
+              </div>
+              <div style="font-size:11px;color:var(--text3)">📋 ${st} مهمة${sp?` · <span style="color:var(--accent2)">${sp.toLocaleString()} ج معلق</span>`:''}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>` : '';
+
+    body.innerHTML=`
+      <!-- Stats row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+        <div class="card" style="padding:12px;text-align:center">
+          <div style="font-size:20px;font-weight:900;color:var(--accent)">${monthTasks.length}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">📅 هذا الشهر</div>
+        </div>
+        <div class="card" style="padding:12px;text-align:center">
+          <div style="font-size:20px;font-weight:900;color:var(--accent3)">${monthIncome.toLocaleString()}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">💰 دخل الشهر ج</div>
+        </div>
+        <div class="card" style="padding:12px;text-align:center">
+          <div style="font-size:20px;font-weight:900;color:var(--accent2)">${pendingInv.reduce((s,i)=>s+i.total,0).toLocaleString()}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">⏳ معلق ج</div>
+        </div>
+        <div class="card" style="padding:12px;text-align:center">
+          <div style="font-size:20px;font-weight:900;color:var(--text2)">${cTasks.length}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">📋 إجمالي المشاريع</div>
+        </div>
+      </div>
+      <!-- Info + last request -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        ${c.phone?`<span style="background:var(--surface2);padding:4px 12px;border-radius:20px;font-size:12px;color:var(--text2)">📞 ${c.phone}</span>`:''}
+        ${c.email?`<span style="background:var(--surface2);padding:4px 12px;border-radius:20px;font-size:12px;color:var(--text2)">✉ ${c.email}</span>`:''}
+        <span style="background:var(--surface2);padding:4px 12px;border-radius:20px;font-size:11px;color:var(--text3)">🕐 ${lastReqLabel}</span>
+        <span style="background:var(--surface2);padding:4px 12px;border-radius:20px;font-size:11px;color:var(--text3)">💰 إجمالي محصّل: ${totalInc.toLocaleString()} ج</span>
+      </div>
+      ${subSection}
+      <!-- Recent tasks -->
+      <div>
+        <div class="section-title" style="margin-bottom:8px">📋 آخر الطلبات</div>
+        ${cTasks.length?[...cTasks].sort((a,b)=>_taskDate(b).localeCompare(_taskDate(a))).slice(0,5).map(t=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="closeM('modal-client-profile');openTaskDetail(${t.id})">
+            <div>
+              <div style="font-size:13px;font-weight:600">${t.title}</div>
+              <div style="font-size:10px;color:var(--text3)">${_taskDate(t).slice(0,10)||''}${isParent&&t.client!==c.name?' · 🔗 '+t.client:''}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${t.value?`<span style="font-size:12px;font-weight:700;color:var(--accent3)">${Number(t.value).toLocaleString()} ج</span>`:''}
+              ${statusBadge[t.status]||''}
+            </div>
+          </div>`).join('')
+        :'<div class="empty" style="padding:20px 0"><div class="empty-icon">📭</div>لا طلبات بعد</div>'}
+      </div>`;
+  }
+
+  else if(tab==='history'){
+    // Build month buckets
+    const tasksByMonth={};
+    cTasks.forEach(t=>{
+      const d=_taskDate(t); const mk=d?d.slice(0,7):'بدون تاريخ';
+      if(!tasksByMonth[mk]) tasksByMonth[mk]=[];
+      tasksByMonth[mk].push(t);
+    });
+    // Sort months desc
+    const months=Object.keys(tasksByMonth).sort((a,b)=>b.localeCompare(a));
+    // Annual summary
+    const yearlyData={};
+    months.forEach(mk=>{
+      const yr=mk.slice(0,4);
+      if(!yearlyData[yr]) yearlyData[yr]={tasks:0,income:0};
+      yearlyData[yr].tasks+=tasksByMonth[mk].length;
+      tasksByMonth[mk].forEach(t=>{ yearlyData[yr].income+=(t.value||0); });
+    });
+    const arabicMonths=['','يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    const fmtMonth=mk=>{ if(!mk||mk==='بدون تاريخ') return mk; const [y,m]=mk.split('-'); return `${arabicMonths[+m]||m} ${y}`; };
+
+    const yearsHtml=Object.keys(yearlyData).sort((a,b)=>b-a).map(yr=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;background:rgba(124,111,247,.08);border-radius:8px;margin-bottom:6px">
+        <span style="font-weight:700;font-size:13px">📆 ${yr}</span>
+        <div style="display:flex;gap:14px;font-size:12px">
+          <span style="color:var(--accent)">📋 ${yearlyData[yr].tasks} طلب</span>
+          ${yearlyData[yr].income?`<span style="color:var(--accent3)">💰 ${yearlyData[yr].income.toLocaleString()} ج</span>`:''}
+        </div>
+      </div>`).join('');
+
+    const monthsHtml=months.map(mk=>{
+      const tasks=tasksByMonth[mk];
+      const monthInc=tasks.reduce((s,t)=>s+(t.value||0),0);
+      const uid='mth_'+mk.replace('-','_');
+      return `
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)" onclick="const el=document.getElementById('${uid}');el.style.display=el.style.display==='none'?'block':'none'">
+            <div style="font-weight:700;font-size:13px">📅 ${fmtMonth(mk)} <span style="font-size:11px;color:var(--text3);font-weight:400">(${tasks.length} طلب)</span></div>
+            <div style="display:flex;gap:10px;align-items:center;font-size:12px">
+              ${monthInc?`<span style="color:var(--accent3);font-weight:700">${monthInc.toLocaleString()} ج</span>`:''}
+              <span style="color:var(--text3)">▼</span>
+            </div>
+          </div>
+          <div id="${uid}" style="display:none;margin-top:6px;padding:0 4px">
+            ${tasks.map(t=>{
+              const tInvs=S.invoices.filter(i=>i.items&&i.items.some(it=>it._taskId===t.id));
+              const tContr=(S.contracts||[]).filter(ct=>(ct.client_name||'')===t.client&&ct.title===t.title);
+              return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);border-radius:6px;margin-bottom:2px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px" onclick="closeM('modal-client-profile');openTaskDetail(${t.id})">
+                    🔹 ${t.title}
+                  </div>
+                  <div style="font-size:10px;color:var(--text3);margin-top:2px">${_taskDate(t).slice(0,10)||''}${tInvs.length?` · 🧾 ${tInvs.length} فاتورة`:''}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                  ${t.value?`<span style="font-size:12px;font-weight:700;color:var(--accent3)">${Number(t.value).toLocaleString()} ج</span>`:''}
+                  ${statusBadge[t.status]||''}
+                  <button class="btn btn-ghost btn-sm" onclick="closeM('modal-client-profile');openTaskDetail(${t.id})" title="تفاصيل">👁</button>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }).join('');
+
+    body.innerHTML=`
+      ${yearsHtml?`<div style="margin-bottom:16px"><div class="section-title" style="margin-bottom:8px">📊 ملخص سنوي</div>${yearsHtml}</div>`:''}
+      <div class="section-title" style="margin-bottom:10px">📅 تفاصيل شهرية</div>
+      ${monthsHtml||'<div class="empty"><div class="empty-icon">📭</div>لا طلبات بعد</div>'}`;
+  }
+
+  else if(tab==='invoices'){
+    const sm={
+      pending:'<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:rgba(247,201,72,.15);color:var(--accent2)">⏳ معلق</span>',
+      paid:'<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:rgba(79,209,165,.15);color:var(--accent3)">✅ مدفوع</span>',
+      cancelled:'<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:rgba(247,111,124,.15);color:var(--accent4)">🚫 ملغية</span>'
+    };
+    const totalPaid=cInvs.filter(i=>i.status==='paid').reduce((s,i)=>s+i.total,0);
+    const totalPend=cInvs.filter(i=>i.status==='pending').reduce((s,i)=>s+i.total,0);
+    body.innerHTML=`
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div class="card" style="padding:10px 16px;flex:1;min-width:120px"><div style="font-size:18px;font-weight:900;color:var(--accent3)">${totalPaid.toLocaleString()} ج</div><div style="font-size:10px;color:var(--text3)">✅ محصّل</div></div>
+        <div class="card" style="padding:10px 16px;flex:1;min-width:120px"><div style="font-size:18px;font-weight:900;color:var(--accent2)">${totalPend.toLocaleString()} ج</div><div style="font-size:10px;color:var(--text3)">⏳ معلق</div></div>
+        <button class="btn btn-primary btn-sm" style="align-self:center" onclick="openInvoiceModal();document.getElementById('inv-client').value='${c.name.replace(/'/g,"\\'")}'" >+ فاتورة جديدة</button>
+      </div>
+      ${cInvs.length?cInvs.map(i=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--surface2);border-radius:8px;margin-bottom:6px;border:1px solid var(--border)">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700">#${i.num||'—'} <span style="font-size:11px;color:var(--text3)">${i.date||''}</span></div>
+            ${isParent&&i.client!==c.name?`<div style="font-size:10px;color:var(--text3)">🔗 ${i.client}</div>`:''}
+            <div style="font-size:12px;font-weight:700;color:${i.status==='paid'?'var(--accent3)':'var(--accent2)'};margin-top:2px">${i.total.toLocaleString()} ج &nbsp;${sm[i.status]||''}</div>
+          </div>
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            <button class="btn btn-ghost btn-sm" onclick="previewInv(${i.id})" title="عرض">👁</button>
+            <button class="btn btn-ghost btn-sm" onclick="openInvoiceModal(${i.id})" title="تعديل">✏</button>
+            <button class="btn btn-warn btn-sm" onclick="exportPDF(${i.id})" title="PDF">🖨</button>
+            ${i.status==='pending'?`<button class="btn btn-success btn-sm" onclick="markPaid(${i.id});_renderProfileTab('invoices',${id})" style="font-size:10px">✅</button>`:''}
+            <button class="btn btn-danger btn-sm" onclick="delInvoice(${i.id});_renderProfileTab('invoices',${id})" title="حذف">🗑</button>
+          </div>
+        </div>`).join('')
+      :'<div class="empty"><div class="empty-icon">🧾</div>لا فواتير لهذا العميل</div>'}`;
+  }
+
+  else if(tab==='contracts'){
+    body.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:13px;color:var(--text2)">${cContracts.length} عقد</div>
+        <button class="btn btn-primary btn-sm" onclick="openContractModal(null,'${c.name.replace(/'/g,"\\'")}')">+ عقد جديد</button>
+      </div>
+      ${cContracts.length?cContracts.map(ct=>`
+        <div style="padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px;border:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+            <div style="font-size:13px;font-weight:700">${ct.title||'عقد'}</div>
+            <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${ct.status==='signed'?'rgba(79,209,165,.15)':'rgba(124,111,247,.15)'};color:${ct.status==='signed'?'var(--accent3)':'var(--accent)'}">${ct.status==='signed'?'✅ موقّع':'📋 مسودة'}</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:11px;color:var(--text3);margin-bottom:8px">
+            ${ct.value?`<span>💰 ${Number(ct.value).toLocaleString()} ج</span>`:''}
+            ${ct.start?`<span>📅 ${ct.start}</span>`:''}
+            ${ct.end?`<span>🏁 ${ct.end}</span>`:''}
+          </div>
+          <div style="display:flex;gap:5px">
+            ${ct.status!=='signed'?`<button class="btn btn-ghost btn-sm" onclick="openContractModal('${ct.id}')">✏ تعديل</button>`:''}
+            <button class="btn btn-ghost btn-sm" onclick="openContractShareModal('${ct.id}')">🔗 مشاركة</button>
+            <button class="btn btn-warn btn-sm" onclick="window.open('','_blank').document.write(buildContractPrintHTML&&buildContractPrintHTML('${ct.id}')||'')">🖨 طباعة</button>
+            <button class="btn btn-danger btn-sm" onclick="ctDelete('${ct.id}');_renderProfileTab('contracts',${id})">🗑</button>
+          </div>
+        </div>`).join('')
+      :'<div class="empty"><div class="empty-icon">📝</div>لا عقود لهذا العميل</div>'}`;
+  }
+}
+
+function _profileShowStatement(id){
+  const c=S.clients.find(c=>c.id===id);if(!c)return;
+  const now=new Date();
+  const defFrom=`${now.getFullYear()}-01-01`;
+  const defTo=new Date().toISOString().split('T')[0];
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:5000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)';
+  overlay.innerHTML=`<div style="background:var(--surface);border-radius:16px;padding:24px;width:420px;max-width:96vw;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="font-size:16px;font-weight:800;margin-bottom:16px">📄 كشف حساب — ${c.name}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">من تاريخ</label><input type="date" id="_stmt-from" value="${defFrom}" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-family:var(--font);font-size:13px"></div>
+      <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">إلى تاريخ</label><input type="date" id="_stmt-to" value="${defTo}" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-family:var(--font);font-size:13px"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer" onclick="_genStatement(${id})">📄 إصدار الكشف</button>
+      <button style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 16px;font-family:var(--font);font-size:13px;cursor:pointer;color:var(--text2)" onclick="this.closest('[style*=fixed]').remove()">إلغاء</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function _genStatement(id){
+  const c=S.clients.find(c=>c.id===id);if(!c)return;
+  const from=document.getElementById('_stmt-from')?.value||'';
+  const to=document.getElementById('_stmt-to')?.value||'';
+  document.querySelectorAll('[style*="position:fixed"][style*="z-index:5000"]').forEach(el=>el.remove());
+
+  const subClients=S.clients.filter(sc=>String(sc.parentClientId)===String(c.id));
+  const allNames=subClients.length?[c.name,...subClients.map(sc=>sc.name)]:[c.name];
+  const inRange=d=>(!from||d>=from)&&(!to||d<=to);
+  const tasks=S.tasks.filter(t=>allNames.includes(t.client)&&inRange((t.isoDate||t.createdAt||t.doneAt||'').slice(0,10)));
+  const invs=S.invoices.filter(i=>allNames.includes(i.client)&&inRange((i.isoDate||'').slice(0,10)||i.date||''));
+  const totalTasks=tasks.reduce((s,t)=>s+(t.value||0),0);
+  const totalInvPaid=invs.filter(i=>i.status==='paid').reduce((s,i)=>s+i.total,0);
+  const totalInvPend=invs.filter(i=>i.status==='pending').reduce((s,i)=>s+i.total,0);
+  const studio=S.settings?.name||'نظام إدارة الأعمال';
+  const arabicMonths=['','يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+  const html=`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>كشف حساب — ${c.name}</title>
+  <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Cairo',Arial,sans-serif;background:#f5f6fa;color:#1a1a2e;padding:30px}
+  .page{background:#fff;max-width:800px;margin:0 auto;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  h1{font-size:22px;font-weight:900;color:#7c6ff7;margin-bottom:4px}.sub{font-size:12px;color:#888;margin-bottom:24px}
+  .meta{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:24px;padding:14px 18px;background:#f0f2f8;border-radius:10px;font-size:12px}
+  .meta b{color:#7c6ff7}
+  .section-title{font-size:14px;font-weight:800;color:#7c6ff7;border-bottom:2px solid #e8eaf0;padding-bottom:6px;margin:20px 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{background:#f0f2f8;padding:8px 12px;text-align:right;font-weight:700;color:#5a5a7a}
+  td{padding:8px 12px;border-bottom:1px solid #eee}
+  tr:last-child td{border-bottom:none}
+  .badge{display:inline-block;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700}
+  .paid{background:rgba(79,209,165,.15);color:#2db87c}.pend{background:rgba(247,201,72,.15);color:#d49e00}
+  .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:24px}
+  .sum-card{background:#f0f2f8;border-radius:10px;padding:14px;text-align:center}
+  .sum-card .val{font-size:20px;font-weight:900;color:#7c6ff7}
+  .sum-card .lbl{font-size:10px;color:#888;margin-top:3px}
+  @media print{body{padding:0;background:#fff}.page{box-shadow:none;border-radius:0}}
+  </style></head><body><div class="page">
+  <h1>📄 كشف حساب</h1>
+  <div class="sub">${studio} · صادر بتاريخ ${new Date().toLocaleDateString('ar-EG')}</div>
+  <div class="meta">
+    <div><b>العميل:</b> ${c.name}</div>
+    ${c.phone?`<div><b>الهاتف:</b> ${c.phone}</div>`:''}
+    ${c.email?`<div><b>البريد:</b> ${c.email}</div>`:''}
+    <div><b>الفترة:</b> ${from||'البداية'} — ${to||'الآن'}</div>
+  </div>
+  <div class="summary">
+    <div class="sum-card"><div class="val">${tasks.length}</div><div class="lbl">إجمالي الطلبات</div></div>
+    <div class="sum-card"><div class="val" style="color:#2db87c">${totalInvPaid.toLocaleString()} ج</div><div class="lbl">✅ محصّل</div></div>
+    <div class="sum-card"><div class="val" style="color:#d49e00">${totalInvPend.toLocaleString()} ج</div><div class="lbl">⏳ معلق</div></div>
+  </div>
+  ${tasks.length?`<div class="section-title">📋 الطلبات والمشاريع</div>
+  <table><thead><tr><th>الطلب</th><th>التاريخ</th><th>القيمة</th><th>الحالة</th></tr></thead><tbody>
+  ${tasks.map(t=>{const st={new:'جديد',progress:'جاري',review:'مراجعة',done:'مكتمل'};return`<tr><td>${t.title}</td><td>${(t.isoDate||t.createdAt||'').slice(0,10)||'—'}</td><td>${t.value?t.value.toLocaleString()+' ج':'—'}</td><td>${st[t.status]||t.status||'—'}</td></tr>`}).join('')}
+  </tbody></table>`:''}
+  ${invs.length?`<div class="section-title">🧾 الفواتير</div>
+  <table><thead><tr><th>رقم</th><th>التاريخ</th><th>الإجمالي</th><th>الحالة</th></tr></thead><tbody>
+  ${invs.map(i=>`<tr><td>#${i.num||'—'}</td><td>${i.date||'—'}</td><td>${i.total.toLocaleString()} ج</td><td><span class="badge ${i.status==='paid'?'paid':'pend'}">${i.status==='paid'?'مدفوع':'معلق'}</span></td></tr>`).join('')}
+  </tbody></table>`:''}
+  <div style="margin-top:30px;padding-top:16px;border-top:2px solid #e8eaf0;display:flex;justify-content:space-between;font-size:11px;color:#aaa">
+    <span>${studio}</span><span>كشف حساب صادر تلقائياً من نظام إدارة الأعمال</span>
+  </div>
+  </div><script>window.onload=()=>setTimeout(()=>window.print(),400)</script></body></html>`;
+  const w=window.open('','_blank');w.document.write(html);w.document.close();
 }
 
   
@@ -5793,6 +6043,7 @@ function renderClients(){
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div class="client-avatar" style="background:${c.color}22;color:${c.color}">${c.name[0]}</div>
         <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
+          <button class="btn btn-ghost btn-sm" title="إعدادات التذكير" onclick="openClientModal(${c.id})">⚙️</button>
           <button class="btn btn-ghost btn-sm" title="بوابة العميل" onclick="openClientPortal(${c.id})">🔗</button>
           <button class="btn btn-ghost btn-sm" onclick="openClientModal(${c.id})">✏</button>
           <button class="btn btn-danger btn-sm" onclick="delClient(${c.id})">🗑</button>
@@ -5809,7 +6060,6 @@ function renderClients(){
       ${c.notes?`<div style="font-size:12px;color:var(--text3);margin-top:6px;font-style:italic">${c.notes.slice(0,60)}${c.notes.length>60?'...':''}</div>`:''}
       <div style="display:flex;gap:16px;margin-top:12px">
         <div><div style="font-size:16px;font-weight:700;color:${c.color}">${cTasks(c.name)}</div><div style="font-size:11px;color:var(--text3)">مشاريع</div></div>
-        <div><div style="font-size:16px;font-weight:700;color:var(--accent3)">${cInc(c.name).toLocaleString()}</div><div style="font-size:11px;color:var(--text3)">إجمالي ج</div></div>
         <div><div style="font-size:16px;font-weight:700;color:var(--accent2)">${(()=>{const now=new Date();const ms=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;return S.tasks.filter(t=>t.client===c.name&&((t.isoDate||'').startsWith(ms)||(t.doneAt||'').startsWith(ms))).length;})()}</div><div style="font-size:11px;color:var(--text3)">هذا الشهر</div></div>
       </div>
     </div>`).join('');
