@@ -3320,10 +3320,9 @@ setTimeout(window._showApp, 4000);
   <!-- Services Grid -->
   <div id="svc-grid-wrap">
     <div id="svc-grid" class="grid grid-3">
-      <div class="empty card" style="grid-column:span 3">
-        <div class="empty-icon">🛍</div>
-        لا خدمات بعد — أضف خدمتك الأولى<br>
-        <button onclick="openSvcModal()" class="btn btn-primary" style="margin-top:12px">+ خدمة جديدة</button>
+      <div style="grid-column:span 3;text-align:center;padding:40px;color:var(--text3)">
+        <div style="font-size:28px;margin-bottom:8px;opacity:.4">⏳</div>
+        <div style="font-size:13px">جاري التحميل...</div>
       </div>
     </div>
   </div>
@@ -4181,7 +4180,7 @@ setTimeout(window._showApp, 4000);
 // CORE STATE
 // ============================================================
 const COLORS=['#7c6ff7','#f7c948','#4fd1a5','#f76f7c','#64b5f6','#ff8a65','#ce93d8','#80cbc4'];
-let S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],teams:[],subscriptions:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:'',taskTypes:['مهمة عامة','مشروع','استشارة','تقرير','متابعة','أخرى']}};
+let S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],teams:[],subscriptions:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:'',taskTypes:['مهمة عامة','مشروع','استشارة','تقرير','متابعة','أخرى']},services:[],svc_orders:[]};
 
 // ── Time Tracker global state (declared early to avoid TDZ errors) ──
 let _tt={running:false,elapsed:0,startedAt:null,interval:null};
@@ -4308,11 +4307,12 @@ function showPage(id,el){
   if(window.innerWidth<=1024) closeSidebar();
   renderAll();
   window.scrollTo(0,0);
-  // sync platform name on every page change
   applyPlatformConfig();
-  // Force re-render for specific pages
-  if(id === 'services' && typeof renderServices === 'function'){
-    setTimeout(function(){ renderServices(); }, 50);
+  // After page is active, force-render the specific page
+  if(id === 'services'){
+    setTimeout(function(){
+      if(typeof window.renderServices === 'function') window.renderServices();
+    }, 30);
   }
 }
 
@@ -8513,6 +8513,8 @@ async function loginWithSupaSession(supaUser, session, userMeta){
   updateHeader('dashboard');
   // Force dashboard update with cloud data
   setTimeout(()=>{ updateDash(); _renderDashGrid && _renderDashGrid(); }, 100);
+  // Force services render after data is fully ready
+  setTimeout(function(){ if(typeof window.renderServices==='function') window.renderServices(); }, 500);
 
   // ── فحص عضوية الفريق: هل هذا المستخدم مضاف كعضو في فريق شخص آخر؟ ──
   _checkTeamMembership(supaUser.email || userObj.email);
