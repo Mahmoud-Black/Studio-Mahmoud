@@ -1516,9 +1516,77 @@ select.filter-sel:focus { outline:none; border-color:var(--accent); }
           <div class="acc-row"><label>عدد الخدمات المتاحة</label><input type="number" class="form-input acc-num" id="feat-max-services" placeholder="0=∞" min="0" oninput="updateAccBadge('services')"></div>
           <div class="acc-row acc-check"><label>باقات داخل الخدمة</label><input type="checkbox" id="feat-svc-packages" checked></div>
           <div class="acc-row acc-check"><label>صور الخدمات والباقات</label><input type="checkbox" id="feat-svc-images" checked></div>
+          <div class="acc-row acc-check"><label>معرض الأعمال (Portfolio)</label><input type="checkbox" id="feat-svc-portfolio" checked></div>
           <div class="acc-row acc-check"><label>رابط الطلب العام</label><input type="checkbox" id="feat-svc-order-link" checked></div>
           <div class="acc-row acc-check"><label>استقبال وإدارة الطلبات</label><input type="checkbox" id="feat-svc-orders" checked></div>
           <div class="acc-row acc-check"><label>تحويل الطلب لمهمة تلقائياً</label><input type="checkbox" id="feat-svc-auto-task" checked></div>
+          <div class="acc-row acc-check"><label>بوابة العميل (Client Portal)</label><input type="checkbox" id="feat-client-portal-svc" checked></div>
+        </div>
+      </div>
+
+      <!-- باقة الشركات -->
+      <div class="acc-section" id="acc-corporate" style="border:1.5px solid rgba(249,200,70,.3);background:rgba(249,200,70,.04)">
+        <div class="acc-header" onclick="toggleAcc('corporate')" style="background:rgba(249,200,70,.06)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="checkbox" id="feat-corporate" onclick="event.stopPropagation()" style="width:16px;height:16px">
+            <span style="font-weight:700;color:#f9c846">🏢 باقة الشركات</span>
+            <span style="font-size:10px;background:rgba(249,200,70,.2);color:#f9c846;padding:2px 8px;border-radius:8px;font-weight:700">Enterprise</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="acc-badge" id="acc-corporate-badge" style="background:rgba(249,200,70,.2);color:#f9c846">معطل</span>
+            <span class="acc-arrow">▾</span>
+          </div>
+        </div>
+        <div class="acc-body" id="acc-body-corporate" style="display:none">
+          <div style="font-size:11px;color:var(--accent2);margin-bottom:10px;background:rgba(249,200,70,.07);padding:8px;border-radius:8px">
+            🏢 تتيح هذه الخاصية للمستخدم إنشاء حساب شركة وإضافة موظفين يحصلون على اشتراك مجاني تابع للشركة.
+          </div>
+          <div class="acc-row acc-check"><label>تفعيل وضع الشركة</label><input type="checkbox" id="feat-corp-mode" oninput="updateAccBadge('corporate')"></div>
+          <div class="acc-row"><label>الحد الأقصى للموظفين</label><input type="number" class="form-input acc-num" id="feat-corp-max-employees" placeholder="0=∞" min="0"></div>
+          <div class="acc-row"><label>الحد الأقصى للأقسام</label><input type="number" class="form-input acc-num" id="feat-corp-max-depts" placeholder="0=∞" min="0"></div>
+          <div style="margin-top:8px;font-size:11px;font-weight:700;color:var(--text3)">صلاحيات موظفي الشركة:</div>
+          <div class="acc-row acc-check"><label>✅ عرض مهامهم الخاصة فقط</label><input type="checkbox" id="feat-corp-emp-tasks" checked></div>
+          <div class="acc-row acc-check"><label>عرض المشاريع المكلفين بها</label><input type="checkbox" id="feat-corp-emp-projects" checked></div>
+          <div class="acc-row acc-check"><label>رفع ملفات بالمهمة</label><input type="checkbox" id="feat-corp-emp-files" checked></div>
+          <div class="acc-row acc-check"><label>❌ عرض ملفات ومهام الآخرين</label><input type="checkbox" id="feat-corp-emp-others" style="accent-color:var(--accent4)"></div>
+          <div class="acc-row acc-check"><label>❌ إدارة المالية والفواتير</label><input type="checkbox" id="feat-corp-emp-finance" style="accent-color:var(--accent4)"></div>
+          <div class="acc-row acc-check"><label>❌ إدارة العملاء</label><input type="checkbox" id="feat-corp-emp-clients" style="accent-color:var(--accent4)"></div>
+          <div style="margin-top:8px;font-size:11px;font-weight:700;color:var(--text3)">إعدادات دعوة الموظف:</div>
+          <div class="acc-row acc-check"><label>إرسال دعوة بالبريد الإلكتروني</label><input type="checkbox" id="feat-corp-invite-email" checked></div>
+          <div class="acc-row acc-check"><label>قبول/رفض الدعوة من الموظف</label><input type="checkbox" id="feat-corp-invite-accept" checked></div>
+        </div>
+      </div>
+
+      <!-- نظام التخصصات -->
+      <div class="acc-section" id="acc-specializations">
+        <div class="acc-header" onclick="toggleAcc('specializations')">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="checkbox" id="feat-specializations" checked onclick="event.stopPropagation()" style="width:16px;height:16px">
+            <span style="font-weight:700">🏷 تخصصات الفريق</span>
+          </div>
+          <span class="acc-arrow">▾</span>
+        </div>
+        <div class="acc-body" id="acc-body-specializations" style="display:none">
+          <div class="acc-row acc-check"><label>إنشاء وتعديل التخصصات</label><input type="checkbox" id="feat-spec-manage" checked></div>
+          <div class="acc-row acc-check"><label>تعيين تخصصات متعددة للعضو</label><input type="checkbox" id="feat-spec-multi" checked></div>
+          <div class="acc-row acc-check"><label>نظام دعوة الفريق</label><input type="checkbox" id="feat-team-invite" checked></div>
+          <div class="acc-row acc-check"><label>قبول/رفض دعوات الفريق</label><input type="checkbox" id="feat-team-invite-accept" checked></div>
+        </div>
+      </div>
+
+      <!-- اللغات -->
+      <div class="acc-section" id="acc-languages">
+        <div class="acc-header" onclick="toggleAcc('languages')">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="checkbox" id="feat-languages" onclick="event.stopPropagation()" style="width:16px;height:16px">
+            <span style="font-weight:700">🌐 تبديل اللغة (AR/EN)</span>
+          </div>
+          <span class="acc-arrow">▾</span>
+        </div>
+        <div class="acc-body" id="acc-body-languages" style="display:none">
+          <div class="acc-row acc-check"><label>تفعيل تبديل اللغة في الإعدادات</label><input type="checkbox" id="feat-lang-switch" checked></div>
+          <div class="acc-row acc-check"><label>اللغة العربية (افتراضي)</label><input type="checkbox" id="feat-lang-ar" checked></div>
+          <div class="acc-row acc-check"><label>اللغة الإنجليزية</label><input type="checkbox" id="feat-lang-en" checked></div>
         </div>
       </div>
 
@@ -2966,12 +3034,14 @@ function renderPlans() {
   el.innerHTML = PLANS.map(p => {
     const usersOnPlan = SERIALS.filter(s => s.planId === p.id && s.userId).length;
     const featList = Object.entries(p.features||{}).filter(([,v])=>v)
-      .map(([k]) => ({ tasks:'المهام', clients:'العملاء', finance:'المالية', invoices:'الفواتير', schedule:'الجدولة', reports:'التقارير', cloud:'السحابة' }[k]||k))
+      .map(([k]) => ({ tasks:'المهام', clients:'العملاء', finance:'المالية', invoices:'الفواتير', schedule:'الجدولة', reports:'التقارير', cloud:'السحابة', corporate:'🏢 شركات', services:'🛍 خدمات', languages:'🌐 اللغات' }[k]||null))
+      .filter(Boolean)
       .map(f => `<div class="plan-feat"><span style="color:var(--accent3)">✓</span> ${f}</div>`).join('');
+    const isCorp = p.features?.corporate && p.features?.corp_mode;
     return `
-      <div class="plan-card">
+      <div class="plan-card" style="${isCorp?'border:1.5px solid rgba(249,200,70,.35);background:rgba(249,200,70,.03)':''}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div class="plan-name">${p.icon} ${p.name}</div>
+          <div class="plan-name">${p.icon} ${p.name} ${isCorp?'<span style="font-size:10px;background:rgba(249,200,70,.2);color:#f9c846;padding:2px 7px;border-radius:6px;font-weight:700;vertical-align:middle">🏢 شركات</span>':''}</div>
           <div style="display:flex;gap:5px">
             <button class="btn btn-ghost btn-sm" onclick="editPlan('${p.id}')">✏</button>
             <button class="btn btn-danger btn-sm" onclick="deletePlan('${p.id}')">🗑</button>
@@ -2980,6 +3050,7 @@ function renderPlans() {
         <div style="font-size:12px;color:var(--text3);margin-bottom:10px">${p.desc||''}</div>
         <div class="plan-price">${p.price_monthly ? p.price_monthly+'ج' : 'مجاني'}</div>
         <div style="font-size:11px;color:var(--text3)">/شهر · ${p.price_annual ? p.price_annual+'ج/سنة' : ''}</div>
+        ${isCorp ? `<div style="font-size:11px;color:var(--accent2);margin-top:6px">موظفون: حتى ${p.features.corp_max_employees||'∞'}</div>` : ''}
         <div class="plan-features">${featList}</div>
         <div class="divider"></div>
         <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2)">
@@ -3047,7 +3118,10 @@ function editPlan(id) {
     'inv-create','inv-pdf','inv-whatsapp','inv-contracts','inv-policies',
     'schedule-day','schedule-export','rep-monthly','rep-clients','rep-export','other-on',
     'timetracker','contracts','client-portal',
-    'services','svc-packages','svc-images','svc-order-link','svc-orders','svc-auto-task'
+    'services','svc-packages','svc-images','svc-portfolio','svc-order-link','svc-orders','svc-auto-task','client-portal-svc',
+    'corporate','corp-mode','corp-emp-tasks','corp-emp-projects','corp-emp-files','corp-emp-others','corp-emp-finance','corp-emp-clients','corp-invite-email','corp-invite-accept',
+    'specializations','spec-manage','spec-multi','team-invite','team-invite-accept',
+    'languages','lang-switch','lang-ar','lang-en'
   ];
 
   allChecks.forEach(k => {
@@ -3059,13 +3133,15 @@ function editPlan(id) {
 
   // number fields
   const numFields = [
-    ['max_tasks',        'feat-max-tasks'],
-    ['max_active_tasks', 'feat-max-active-tasks'],
-    ['max_clients_feat', 'feat-max-clients-feat'],
-    ['max_transactions', 'feat-max-transactions'],
-    ['max_invoices',     'feat-max-invoices'],
-    ['max_team',         'feat-max-team'],
-    ['max_services',     'feat-max-services']
+    ['max_tasks',              'feat-max-tasks'],
+    ['max_active_tasks',       'feat-max-active-tasks'],
+    ['max_clients_feat',       'feat-max-clients-feat'],
+    ['max_transactions',       'feat-max-transactions'],
+    ['max_invoices',           'feat-max-invoices'],
+    ['max_team',               'feat-max-team'],
+    ['max_services',           'feat-max-services'],
+    ['corp_max_employees',     'feat-corp-max-employees'],
+    ['corp_max_depts',         'feat-corp-max-depts']
   ];
   numFields.forEach(([fk, elId]) => {
     const el = document.getElementById(elId);
@@ -3168,9 +3244,35 @@ function savePlan() {
     max_services:       _num('feat-max-services'),
     svc_packages:       _chk('feat-svc-packages'),
     svc_images:         _chk('feat-svc-images'),
+    svc_portfolio:      _chk('feat-svc-portfolio'),
     svc_order_link:     _chk('feat-svc-order-link'),
     svc_orders:         _chk('feat-svc-orders'),
     svc_auto_task:      _chk('feat-svc-auto-task'),
+    client_portal_svc:  _chk('feat-client-portal-svc'),
+    // باقة الشركات
+    corporate:          _chk('feat-corporate'),
+    corp_mode:          _chk('feat-corp-mode'),
+    corp_max_employees: _num('feat-corp-max-employees'),
+    corp_max_depts:     _num('feat-corp-max-depts'),
+    corp_emp_tasks:     _chk('feat-corp-emp-tasks'),
+    corp_emp_projects:  _chk('feat-corp-emp-projects'),
+    corp_emp_files:     _chk('feat-corp-emp-files'),
+    corp_emp_others:    _chk('feat-corp-emp-others'),
+    corp_emp_finance:   _chk('feat-corp-emp-finance'),
+    corp_emp_clients:   _chk('feat-corp-emp-clients'),
+    corp_invite_email:  _chk('feat-corp-invite-email'),
+    corp_invite_accept: _chk('feat-corp-invite-accept'),
+    // التخصصات
+    specializations:    _chk('feat-specializations'),
+    spec_manage:        _chk('feat-spec-manage'),
+    spec_multi:         _chk('feat-spec-multi'),
+    team_invite:        _chk('feat-team-invite'),
+    team_invite_accept: _chk('feat-team-invite-accept'),
+    // اللغات
+    languages:          _chk('feat-languages'),
+    lang_switch:        _chk('feat-lang-switch'),
+    lang_ar:            _chk('feat-lang-ar'),
+    lang_en:            _chk('feat-lang-en'),
   };
 
   const mc = features.max_clients_feat || 0;
