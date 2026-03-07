@@ -3252,6 +3252,53 @@ setTimeout(window._showApp, 4000);
       </button>
     </div>
   </div>
+
+<!-- ═══════════════════════════════════════════════════
+     SERVICES & PACKAGES PAGE
+═══════════════════════════════════════════════════ -->
+<div class="page" id="page-services">
+  <div class="page-header">
+    <div>
+      <div class="page-title">🛍 خدماتي والباقات</div>
+      <div class="page-subtitle">أضف خدماتك وأرسل لينك الطلب لعملائك</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="openSvcOrderLink()" class="btn btn-ghost btn-sm" style="gap:6px">🔗 لينك الطلب</button>
+      <button onclick="openSvcModal()" class="btn btn-primary btn-sm">+ خدمة جديدة</button>
+    </div>
+  </div>
+
+  <!-- Order Link Banner -->
+  <div id="svc-link-banner" style="background:linear-gradient(135deg,rgba(124,111,247,.12),rgba(79,209,165,.08));border:1.5px solid var(--accent);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px">
+      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px">🔗 لينك طلب الخدمة الخاص بك</div>
+      <div id="svc-link-text" style="font-size:11px;color:var(--text3);font-family:var(--mono);word-break:break-all">جاري التحميل...</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button onclick="svcCopyLink()" class="btn btn-primary btn-sm">📋 نسخ</button>
+      <button onclick="svcShareWhatsApp()" class="btn btn-ghost btn-sm" style="background:#25D366;color:#fff;border:none">📲 واتساب</button>
+    </div>
+  </div>
+
+  <!-- Pending Orders Alert -->
+  <div id="svc-orders-alert" style="display:none;background:rgba(247,201,72,.1);border:1.5px solid rgba(247,201,72,.4);border-radius:12px;padding:12px 16px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:13px;font-weight:700;color:var(--accent3)">⏳ طلبات جديدة تنتظر موافقتك</div>
+      <span id="svc-orders-badge" style="background:var(--accent4);color:#fff;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700">0</span>
+    </div>
+    <div id="svc-orders-list" style="margin-top:10px;display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+
+  <!-- Services Grid -->
+  <div id="svc-grid" class="grid grid-3">
+    <div class="empty card" style="grid-column:span 3">
+      <div class="empty-icon">🛍</div>
+      لا خدمات بعد — أضف خدمتك الأولى<br>
+      <button onclick="openSvcModal()" class="btn btn-primary" style="margin-top:12px">+ خدمة جديدة</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- end app-body -->
 </div><!-- end app-shell -->
 
@@ -3770,51 +3817,6 @@ setTimeout(window._showApp, 4000);
 </div>
 
 
-<!-- ═══════════════════════════════════════════════════
-     SERVICES & PACKAGES PAGE
-═══════════════════════════════════════════════════ -->
-<div class="page" id="page-services">
-  <div class="page-header">
-    <div>
-      <div class="page-title">🛍 خدماتي والباقات</div>
-      <div class="page-subtitle">أضف خدماتك وأرسل لينك الطلب لعملائك</div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button onclick="openSvcOrderLink()" class="btn btn-ghost btn-sm" style="gap:6px">🔗 لينك الطلب</button>
-      <button onclick="openSvcModal()" class="btn btn-primary btn-sm">+ خدمة جديدة</button>
-    </div>
-  </div>
-
-  <!-- Order Link Banner -->
-  <div id="svc-link-banner" style="background:linear-gradient(135deg,rgba(124,111,247,.12),rgba(79,209,165,.08));border:1.5px solid var(--accent);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-    <div style="flex:1;min-width:200px">
-      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px">🔗 لينك طلب الخدمة الخاص بك</div>
-      <div id="svc-link-text" style="font-size:11px;color:var(--text3);font-family:var(--mono);word-break:break-all">جاري التحميل...</div>
-    </div>
-    <div style="display:flex;gap:6px;flex-shrink:0">
-      <button onclick="svcCopyLink()" class="btn btn-primary btn-sm">📋 نسخ</button>
-      <button onclick="svcShareWhatsApp()" class="btn btn-ghost btn-sm" style="background:#25D366;color:#fff;border:none">📲 واتساب</button>
-    </div>
-  </div>
-
-  <!-- Pending Orders Alert -->
-  <div id="svc-orders-alert" style="display:none;background:rgba(247,201,72,.1);border:1.5px solid rgba(247,201,72,.4);border-radius:12px;padding:12px 16px;margin-bottom:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:13px;font-weight:700;color:var(--accent3)">⏳ طلبات جديدة تنتظر موافقتك</div>
-      <span id="svc-orders-badge" style="background:var(--accent4);color:#fff;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700">0</span>
-    </div>
-    <div id="svc-orders-list" style="margin-top:10px;display:flex;flex-direction:column;gap:8px"></div>
-  </div>
-
-  <!-- Services Grid -->
-  <div id="svc-grid" class="grid grid-3">
-    <div class="empty card" style="grid-column:span 3">
-      <div class="empty-icon">🛍</div>
-      لا خدمات بعد — أضف خدمتك الأولى<br>
-      <button onclick="openSvcModal()" class="btn btn-primary" style="margin-top:12px">+ خدمة جديدة</button>
-    </div>
-  </div>
-</div>
 
 <!-- SERVICE MODAL -->
 <div class="modal-overlay" id="modal-svc">
@@ -13811,8 +13813,6 @@ function incReceiptClear(){
     if(!myEmail) return;
     myEmail = myEmail.toLowerCase().trim();
     try {
-      // Search all studio_data records for teams that have this email as a member
-      // We search Supabase for all users' data
       const { data: allRows, error } = await supa.from('studio_data').select('user_id, data');
       if(error || !allRows) return;
 
@@ -13824,24 +13824,35 @@ function incReceiptClear(){
           if(!ud || !ud.teams) return;
           ud.teams.forEach(function(team){
             (team.members||[]).forEach(function(m){
-              if(m.email && m.email.toLowerCase().trim() === myEmail){
-                // Found! This user is in this team
+              // Match by email OR by name if email matches login email pattern
+              var emailMatch = m.email && m.email.toLowerCase().trim() === myEmail;
+              // Also match if the member name matches any part of the email (username@...)
+              var emailUser = myEmail.split('@')[0].toLowerCase();
+              var nameMatch = m.name && (
+                m.name.toLowerCase() === emailUser ||
+                m.name.toLowerCase().replace(/\s+/g,'') === emailUser
+              );
+              if(emailMatch || (nameMatch && !m.email)){
                 var myTasks = (ud.tasks||[]).filter(function(t){
                   return t.workerMember && (t.workerMember.toLowerCase()===m.name.toLowerCase() || t.workerMember===m.name) && !t.done;
                 });
                 var myDoneTasks = (ud.tasks||[]).filter(function(t){
                   return t.workerMember && (t.workerMember.toLowerCase()===m.name.toLowerCase() || t.workerMember===m.name) && t.done;
                 });
-                memberships.push({
-                  ownerId: row.user_id,
-                  ownerName: (ud.settings&&ud.settings.name)||'مشرف',
-                  ownerLogo: (ud.settings&&ud.settings.logo)||'',
-                  teamName: team.name||'الفريق',
-                  memberName: m.name,
-                  role: m.role||'',
-                  tasks: myTasks,
-                  doneTasks: myDoneTasks
-                });
+                // Avoid duplicates
+                var alreadyAdded = memberships.find(function(x){ return x.ownerId===row.user_id && x.teamName===team.name; });
+                if(!alreadyAdded){
+                  memberships.push({
+                    ownerId: row.user_id,
+                    ownerName: (ud.settings&&ud.settings.name)||'مشرف',
+                    ownerLogo: (ud.settings&&ud.settings.logo)||'',
+                    teamName: team.name||'الفريق',
+                    memberName: m.name,
+                    role: m.role||'',
+                    tasks: myTasks,
+                    doneTasks: myDoneTasks
+                  });
+                }
               }
             });
           });
@@ -13849,9 +13860,68 @@ function incReceiptClear(){
       });
 
       window._myTeamMemberships = memberships;
-      if(memberships.length) _showTeamMembershipBanner(memberships);
+      if(memberships.length){
+        _showTeamMembershipBanner(memberships);
+        // Show toast if first time detecting membership
+        var knownKey = 'known_teams_' + (typeof _supaUserId !== 'undefined' ? _supaUserId : 'guest');
+        var knownTeams = JSON.parse(localStorage.getItem(knownKey)||'[]');
+        var newTeams = memberships.filter(function(m){ return !knownTeams.includes(m.ownerId+'_'+m.teamName); });
+        if(newTeams.length){
+          newTeams.forEach(function(m){
+            if(typeof showMiniNotif === 'function') showMiniNotif('👥 أنت عضو في فريق "'+m.teamName+'" — '+m.ownerName);
+          });
+          localStorage.setItem(knownKey, JSON.stringify(memberships.map(function(m){ return m.ownerId+'_'+m.teamName; })));
+        }
+      }
     } catch(e){ console.warn('_checkTeamMembership error:', e); }
   };
+
+  // Poll for new notifications every 60 seconds (team tasks + messages)
+  (function _startNotifPolling(){
+    if(typeof _supaUserId === 'undefined' || !_supaUserId) {
+      setTimeout(_startNotifPolling, 5000);
+      return;
+    }
+    async function _poll(){
+      try {
+        var { data } = await supa.from('studio_data').select('data').eq('user_id', _supaUserId).single();
+        if(!data) return;
+        var ud = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+        if(!ud) return;
+        // Sync pending notifications
+        if(ud._pending_notifications && ud._pending_notifications.length){
+          var newCount = 0;
+          ud._pending_notifications.forEach(function(n){
+            var exists = _notifications.find(function(x){ return x.id === 'pn_'+n.id; });
+            if(!exists){
+              _notifications.unshift({
+                id: 'pn_'+n.id,
+                msg: (n.title?'**'+n.title+'**\n':'')+n.body,
+                type: n.type||'message',
+                time: n.created_at, read: false
+              });
+              if(!n.read) newCount++;
+            }
+          });
+          if(newCount > 0){
+            if(typeof _saveNotifications === 'function') _saveNotifications();
+            if(typeof _updateNotifBell === 'function') _updateNotifBell();
+            if(typeof showMiniNotif === 'function') showMiniNotif('🔔 لديك '+newCount+' إشعار جديد');
+            // Clear from cloud
+            ud._pending_notifications = [];
+            await supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',_supaUserId);
+          }
+        }
+        // Re-check team memberships (tasks might have changed)
+        if(window._myTeamMemberships && window._myTeamMemberships.length){
+          var anyChanged = false;
+          // quick check: just re-run membership check
+        }
+      } catch(e){}
+    }
+    _poll();
+    setInterval(_poll, 60000); // poll every 60 seconds
+  })();
 
   window._showTeamMembershipBanner = function(memberships){
     // Add "فريقي" section to the sidebar if not already there
