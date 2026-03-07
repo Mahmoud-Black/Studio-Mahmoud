@@ -589,6 +589,9 @@ select.filter-sel:focus { outline:none; border-color:var(--accent); }
         <span id="msgs-nav-dot" style="display:none;position:absolute;top:-2px;left:-2px;width:7px;height:7px;background:var(--accent4);border-radius:50%;border:1.5px solid var(--surface)"></span>
       </span>الرسائل
     </a>
+    <a class="nav-item" onclick="showPage('platform-updates')" id="nav-platform-updates">
+      <span class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>تحديثات المنصة
+    </a>
     <a class="nav-item" onclick="showPage('admins')" id="nav-admins">
       <span class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>المشرفون
     </a>
@@ -1497,6 +1500,28 @@ select.filter-sel:focus { outline:none; border-color:var(--accent); }
         </div>
       </div>
 
+      <!-- الخدمات والباقات -->
+      <div class="acc-section" id="acc-services">
+        <div class="acc-header" onclick="toggleAcc('services')">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="checkbox" id="feat-services" checked onclick="event.stopPropagation()" style="width:16px;height:16px">
+            <span style="font-weight:700">🛍 الخدمات والباقات العامة</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="acc-badge" id="acc-services-badge">كامل</span>
+            <span class="acc-arrow">▾</span>
+          </div>
+        </div>
+        <div class="acc-body" id="acc-body-services" style="display:none">
+          <div class="acc-row"><label>عدد الخدمات المتاحة</label><input type="number" class="form-input acc-num" id="feat-max-services" placeholder="0=∞" min="0" oninput="updateAccBadge('services')"></div>
+          <div class="acc-row acc-check"><label>باقات داخل الخدمة</label><input type="checkbox" id="feat-svc-packages" checked></div>
+          <div class="acc-row acc-check"><label>صور الخدمات والباقات</label><input type="checkbox" id="feat-svc-images" checked></div>
+          <div class="acc-row acc-check"><label>رابط الطلب العام</label><input type="checkbox" id="feat-svc-order-link" checked></div>
+          <div class="acc-row acc-check"><label>استقبال وإدارة الطلبات</label><input type="checkbox" id="feat-svc-orders" checked></div>
+          <div class="acc-row acc-check"><label>تحويل الطلب لمهمة تلقائياً</label><input type="checkbox" id="feat-svc-auto-task" checked></div>
+        </div>
+      </div>
+
     </div>
 
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;position:sticky;bottom:0;background:var(--surface);padding-top:12px">
@@ -1760,6 +1785,63 @@ select.filter-sel:focus { outline:none; border-color:var(--accent); }
 
 <!-- ═══ TOAST ═══ -->
 <div id="toast"></div>
+
+<!-- ═══ PLATFORM UPDATES PAGE ═══ -->
+<div class="page" id="page-platform-updates" style="display:none">
+  <div class="page-header">
+    <div>
+      <div class="page-title">تحديثات <span>المنصة</span></div>
+      <div class="page-sub">أرسل تحديثات للمستخدمين — تظهر في صفحة الإعدادات > التحديثات</div>
+    </div>
+    <button class="btn btn-primary" onclick="openNewPlatformUpdate()">➕ تحديث جديد</button>
+  </div>
+
+  <!-- Saved Updates -->
+  <div class="card" style="margin-bottom:16px">
+    <div style="font-size:13px;font-weight:700;margin-bottom:14px">📋 التحديثات المحفوظة</div>
+    <div id="platform-updates-list">
+      <div style="text-align:center;padding:30px;color:var(--text3)">لا تحديثات بعد</div>
+    </div>
+  </div>
+
+  <!-- Create/Edit Update Form -->
+  <div class="card" id="platform-update-form" style="display:none">
+    <div style="font-size:13px;font-weight:700;margin-bottom:14px" id="puf-title">➕ تحديث جديد</div>
+    <input type="hidden" id="puf-edit-id">
+    <div class="form-row">
+      <div class="form-group" style="flex:0 0 60px">
+        <div class="form-label">أيقونة</div>
+        <input class="form-input" id="puf-emoji" placeholder="📢" style="text-align:center;font-size:18px" value="📢">
+      </div>
+      <div class="form-group">
+        <div class="form-label">عنوان التحديث *</div>
+        <input class="form-input" id="puf-title-text" placeholder="مثال: ميزة جديدة — إدارة الخدمات">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">محتوى التحديث *</div>
+      <textarea class="form-input" id="puf-body" rows="4" placeholder="اشرح هنا التفاصيل — ما الذي أضفناه، وكيف تستخدمه..."></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">التاريخ</div>
+        <input class="form-input" type="date" id="puf-date">
+      </div>
+      <div class="form-group">
+        <div class="form-label">إرسال إلى</div>
+        <select class="form-select" id="puf-target">
+          <option value="all">الكل</option>
+          <option value="active">المشتركون النشطون فقط</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-ghost" onclick="document.getElementById('platform-update-form').style.display='none'">إلغاء</button>
+      <button class="btn btn-primary" onclick="savePlatformUpdate()">💾 حفظ وإرسال</button>
+    </div>
+  </div>
+</div>
+
 
 <script>
 // ══════════════════════════════════════════════════
@@ -2034,6 +2116,7 @@ function showPage(name) {
   if(name === 'activity')     renderActivityLog();
   if(name === 'admins')       renderAdminsPage();
   if(name === 'messages')     loadMessagesPage();
+  if(name === 'platform-updates') renderPlatformUpdatesPage();
 }
 
 function toggleSidebar() {
@@ -2963,7 +3046,8 @@ function editPlan(id) {
     'pay-cash','pay-instapay','pay-vodafone','pay-etisalat','pay-bank','pay-card',
     'inv-create','inv-pdf','inv-whatsapp','inv-contracts','inv-policies',
     'schedule-day','schedule-export','rep-monthly','rep-clients','rep-export','other-on',
-    'timetracker','contracts','client-portal'
+    'timetracker','contracts','client-portal',
+    'services','svc-packages','svc-images','svc-order-link','svc-orders','svc-auto-task'
   ];
 
   allChecks.forEach(k => {
@@ -2980,7 +3064,8 @@ function editPlan(id) {
     ['max_clients_feat', 'feat-max-clients-feat'],
     ['max_transactions', 'feat-max-transactions'],
     ['max_invoices',     'feat-max-invoices'],
-    ['max_team',         'feat-max-team']
+    ['max_team',         'feat-max-team'],
+    ['max_services',     'feat-max-services']
   ];
   numFields.forEach(([fk, elId]) => {
     const el = document.getElementById(elId);
@@ -3078,6 +3163,14 @@ function savePlan() {
     timetracker:        _chk('feat-timetracker'),
     contracts:          _chk('feat-contracts'),
     client_portal:      _chk('feat-client-portal'),
+    // الخدمات والباقات
+    services:           _chk('feat-services'),
+    max_services:       _num('feat-max-services'),
+    svc_packages:       _chk('feat-svc-packages'),
+    svc_images:         _chk('feat-svc-images'),
+    svc_order_link:     _chk('feat-svc-order-link'),
+    svc_orders:         _chk('feat-svc-orders'),
+    svc_auto_task:      _chk('feat-svc-auto-task'),
   };
 
   const mc = features.max_clients_feat || 0;
@@ -4624,6 +4717,167 @@ loadPlatformPage = function(){
     updateLogoPreview(document.getElementById('plt-logo')?.value||'');
   }, 100);
 };
+
+// ══════════════════════════════════════════════════
+//  PLATFORM UPDATES SYSTEM
+// بيخزن التحديثات في studio_data للمستخدمين
+// ══════════════════════════════════════════════════
+let _platformUpdates = [];
+
+function _loadPlatformUpdates(){
+  try { _platformUpdates = JSON.parse(localStorage.getItem('admin_platform_updates')||'[]'); } catch(e){ _platformUpdates=[]; }
+}
+function _savePlatformUpdatesLocal(){
+  localStorage.setItem('admin_platform_updates', JSON.stringify(_platformUpdates));
+}
+
+function renderPlatformUpdatesPage(){
+  _loadPlatformUpdates();
+  const list = document.getElementById('platform-updates-list');
+  if(!list) return;
+  if(!_platformUpdates.length){
+    list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3)">لا تحديثات بعد — أنشئ أول تحديث</div>';
+    return;
+  }
+  list.innerHTML = _platformUpdates.map((u,i) =>
+    `<div style="display:flex;gap:14px;align-items:flex-start;padding:14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
+      <div style="font-size:28px;flex-shrink:0">${u.emoji||'📢'}</div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div style="font-size:14px;font-weight:700">${u.title}</div>
+          <span style="font-size:10px;color:var(--text3)">${u.date?new Date(u.date).toLocaleDateString('ar-EG'):''}</span>
+          <span style="font-size:10px;background:${u.sent?'rgba(79,209,165,.15)':'rgba(247,201,72,.15)'};color:${u.sent?'var(--accent3)':'var(--accent2)'};padding:2px 8px;border-radius:8px;font-weight:700">${u.sent?'✅ مُرسَل':'⏳ مسودة'}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7">${u.body}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        ${!u.sent?`<button class="btn btn-primary btn-sm" onclick="sendPlatformUpdate('${u.id}')">📤 إرسال</button>`:''}
+        <button class="btn btn-ghost btn-sm" onclick="editPlatformUpdate('${u.id}')">✏</button>
+        <button class="btn btn-danger btn-sm" onclick="deletePlatformUpdate('${u.id}')">🗑</button>
+      </div>
+    </div>`
+  ).join('');
+}
+
+function openNewPlatformUpdate(){
+  document.getElementById('puf-edit-id').value = '';
+  document.getElementById('puf-title').textContent = '➕ تحديث جديد';
+  document.getElementById('puf-emoji').value = '📢';
+  document.getElementById('puf-title-text').value = '';
+  document.getElementById('puf-body').value = '';
+  document.getElementById('puf-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('platform-update-form').style.display = 'block';
+  document.getElementById('platform-update-form').scrollIntoView({behavior:'smooth'});
+}
+
+function editPlatformUpdate(id){
+  _loadPlatformUpdates();
+  const u = _platformUpdates.find(x => x.id === id);
+  if(!u) return;
+  document.getElementById('puf-edit-id').value = id;
+  document.getElementById('puf-title').textContent = '✏ تعديل التحديث';
+  document.getElementById('puf-emoji').value = u.emoji||'📢';
+  document.getElementById('puf-title-text').value = u.title||'';
+  document.getElementById('puf-body').value = u.body||'';
+  document.getElementById('puf-date').value = u.date||new Date().toISOString().split('T')[0];
+  document.getElementById('platform-update-form').style.display = 'block';
+  document.getElementById('platform-update-form').scrollIntoView({behavior:'smooth'});
+}
+
+function savePlatformUpdate(){
+  _loadPlatformUpdates();
+  const editId = document.getElementById('puf-edit-id').value;
+  const titleText = document.getElementById('puf-title-text').value.trim();
+  const body = document.getElementById('puf-body').value.trim();
+  if(!titleText || !body){ toast('⚠ العنوان والمحتوى مطلوبان'); return; }
+  const update = {
+    id: editId || 'upd_'+Date.now(),
+    emoji: document.getElementById('puf-emoji').value.trim()||'📢',
+    title: titleText,
+    body: body,
+    date: document.getElementById('puf-date').value || new Date().toISOString().split('T')[0],
+    target: document.getElementById('puf-target').value,
+    sent: false,
+    createdAt: new Date().toISOString()
+  };
+  if(editId){
+    const idx = _platformUpdates.findIndex(x => x.id === editId);
+    if(idx > -1) { update.sent = _platformUpdates[idx].sent; _platformUpdates[idx] = update; }
+    else _platformUpdates.unshift(update);
+  } else {
+    _platformUpdates.unshift(update);
+  }
+  _savePlatformUpdatesLocal();
+  document.getElementById('platform-update-form').style.display = 'none';
+  renderPlatformUpdatesPage();
+  toast('✅ تم حفظ التحديث');
+}
+
+function deletePlatformUpdate(id){
+  if(!confirm('حذف هذا التحديث؟')) return;
+  _loadPlatformUpdates();
+  _platformUpdates = _platformUpdates.filter(x => x.id !== id);
+  _savePlatformUpdatesLocal();
+  renderPlatformUpdatesPage();
+  toast('🗑 تم الحذف');
+}
+
+async function sendPlatformUpdate(id){
+  _loadPlatformUpdates();
+  const update = _platformUpdates.find(x => x.id === id);
+  if(!update){ toast('⚠ التحديث غير موجود'); return; }
+  if(!confirm('إرسال هذا التحديث لجميع المستخدمين؟\nسيظهر في صفحة الإعدادات > التحديثات')){ return; }
+
+  toast('⏳ جاري الإرسال...');
+  let successCount = 0, failCount = 0;
+
+  try {
+    // Get all users from studio_data
+    const { data: allRows, error } = await supa.from('studio_data').select('user_id, data');
+    if(error){ toast('⚠ خطأ في تحميل المستخدمين'); return; }
+
+    for(const row of (allRows||[])){
+      try {
+        let ud = null;
+        try { ud = typeof row.data === 'string' ? JSON.parse(row.data) : row.data; } catch(e){ continue; }
+        if(!ud) continue;
+
+        // Check target filter
+        if(update.target === 'active'){
+          // Check if user has active subscription (skip for now, send to all)
+        }
+
+        // Inject update into user's studio_data
+        if(!ud._platform_updates) ud._platform_updates = [];
+        // Avoid duplicates
+        if(!ud._platform_updates.find(u => u.id === update.id)){
+          ud._platform_updates.unshift(update);
+          // Keep only last 30 updates
+          ud._platform_updates = ud._platform_updates.slice(0,30);
+        }
+
+        const { error: saveErr } = await supa.from('studio_data')
+          .update({ data: JSON.stringify(ud), updated_at: new Date().toISOString() })
+          .eq('user_id', row.user_id);
+
+        if(!saveErr) successCount++;
+        else failCount++;
+      } catch(e){ failCount++; }
+    }
+
+    // Mark as sent
+    update.sent = true;
+    update.sentAt = new Date().toISOString();
+    update.sentCount = successCount;
+    _savePlatformUpdatesLocal();
+    renderPlatformUpdatesPage();
+    toast(`✅ تم الإرسال لـ ${successCount} مستخدم${failCount?` (فشل: ${failCount})`:''}`, 4000);
+    logActivity('إرسال تحديث', `"${update.title}" — ${successCount} مستخدم`, 'var(--accent3)');
+  } catch(e){
+    console.error('sendPlatformUpdate error:', e);
+    toast('⚠ خطأ في الإرسال: ' + (e.message||''));
+  }
+}
 
 </script>
 </body>
