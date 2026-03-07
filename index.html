@@ -4310,6 +4310,10 @@ function showPage(id,el){
   window.scrollTo(0,0);
   // sync platform name on every page change
   applyPlatformConfig();
+  // Force re-render for specific pages
+  if(id === 'services' && typeof renderServices === 'function'){
+    setTimeout(function(){ renderServices(); }, 50);
+  }
 }
 
 function _hideLock(){
@@ -14163,11 +14167,15 @@ function incReceiptClear(){
 
   // ─── Main render ───
   window.renderServices = function(){
+    try {
     if(!document.getElementById('page-services')) return;
 
     // Update link display
     var linkEl = document.getElementById('svc-link-text');
-    if(linkEl) linkEl.textContent = getSvcLink();
+    if(linkEl) { try { linkEl.textContent = getSvcLink(); } catch(e){} }
+
+    // Guard S
+    if(typeof S === 'undefined') return;
 
     // Show banner if exists
     var banner = S && S.settings && S.settings.svc_banner;
@@ -14248,6 +14256,7 @@ function incReceiptClear(){
         '</div>'+
       '</div>';
     }).join('');
+    } catch(e){ console.error('renderServices error:', e); }
   };
 
   // ─── Service detail modal (owner view) ───
