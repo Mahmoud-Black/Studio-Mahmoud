@@ -3304,7 +3304,50 @@ setTimeout(window._showApp, 4000);
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">تاريخ الطلب</label><input class="form-input" type="date" id="t-order"></div>
-      <div class="form-group"><label class="form-label">تاريخ التسليم</label><input class="form-input" type="date" id="t-deadline"></div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+          <span>⏰ وعد التسليم</span>
+          <button type="button" id="t-deadline-log-btn" style="display:none;font-size:10px;color:var(--accent3);background:none;border:none;cursor:pointer;font-family:var(--font)" onclick="_showDeadlineLog()">📋 سجل التغييرات</button>
+        </label>
+        <input class="form-input" type="date" id="t-deadline" onchange="_onDeadlineChanged(this.value)">
+        <div id="t-deadline-reason-wrap" style="display:none;margin-top:5px">
+          <input class="form-input" id="t-deadline-reason" placeholder="✍ سبب تغيير الموعد... (مهم للالتزام)" style="font-size:12px;border-color:var(--accent2)">
+        </div>
+      </div>
+    </div>
+    <!-- 🔁 مهام متكررة -->
+    <div style="background:rgba(79,209,165,.06);border:1px solid rgba(79,209,165,.22);border-radius:10px;padding:10px 14px;margin-bottom:10px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="t-recurring" style="width:15px;height:15px;accent-color:var(--accent3)" onchange="toggleRecurring()">
+        <span style="font-size:12px;font-weight:700;color:var(--accent3)">🔁 مهمة متكررة (Retainer / Recurring)</span>
+      </label>
+      <div id="t-recurring-opts" style="display:none;margin-top:10px;display:none">
+        <div class="form-row" style="margin-bottom:4px">
+          <div class="form-group">
+            <label class="form-label">التكرار كل</label>
+            <select class="form-select" id="t-recurring-interval">
+              <option value="weekly">أسبوعياً</option>
+              <option value="biweekly">كل أسبوعين</option>
+              <option value="monthly" selected>شهرياً</option>
+              <option value="quarterly">كل 3 أشهر</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">عدد مرات التكرار</label>
+            <input class="form-input" type="number" id="t-recurring-count" value="6" min="2" max="60" placeholder="6">
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--text3)">💡 سيتم إنشاء نسخ تلقائية من المهمة — كل نسخة بتاريخ تسليم مختلف</div>
+      </div>
+    </div>
+    <!-- 🏁 Milestones -->
+    <div style="background:rgba(100,181,246,.06);border:1px solid rgba(100,181,246,.22);border-radius:10px;padding:10px 14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:12px;font-weight:700;color:#64b5f6">🏁 مراحل التسليم (Milestones)</span>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addMilestone()">+ مرحلة</button>
+      </div>
+      <div id="t-milestones-list" style="min-height:0"></div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">اختياري — قسّم المشروع الكبير لمراحل بمواعيد منفصلة</div>
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">الأولوية</label><select class="form-select" id="t-priority"><option value="high">🔴 عالية — عاجل</option><option value="med" selected="">🟡 متوسطة</option><option value="low">🟢 منخفضة</option></select></div>
@@ -3507,8 +3550,38 @@ setTimeout(window._showApp, 4000);
     </div>
 
     <div class="form-group"><label class="form-label">ملاحظات</label><textarea class="form-textarea" id="c-notes" placeholder="تفاصيل، اهتمامات، تاريخ التعامل..."></textarea></div>
-
-    <!-- ── منصات السوشيال ── -->
+    <!-- 🧬 DNA العميل -->
+    <div style="background:rgba(247,201,72,.05);border:1px solid rgba(247,201,72,.2);border-radius:12px;padding:12px 14px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:800;color:var(--accent2);margin-bottom:10px">🧬 DNA العميل — شخصيته وطريقة تعامله</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">أسلوب التعامل</label>
+          <select class="form-select" id="c-dna-style">
+            <option value="">— اختر —</option>
+            <option value="easy">😊 سهل ومريح</option>
+            <option value="detail">🔍 يهتم بالتفاصيل</option>
+            <option value="reviews">🔄 يطلب ريفيوز كتير</option>
+            <option value="quick">⚡ يريد تسليم سريع</option>
+            <option value="vague">🌫 تعليماته مش واضحة</option>
+            <option value="demanding">😤 مطالب ومرهق</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">سجل الدفع</label>
+          <select class="form-select" id="c-dna-payment">
+            <option value="">— اختر —</option>
+            <option value="instant">✅ يدفع فوري دايماً</option>
+            <option value="normal">🕐 يدفع في وقته</option>
+            <option value="late">⚠ بيتأخر أحياناً</option>
+            <option value="very_late">🚨 بيتأخر كتير</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">ملاحظات DNA سرية</label>
+        <textarea class="form-textarea" id="c-dna-notes" placeholder='مثال: "بيطلب تعديلات بعد التسليم" / "بيدفع بعد شهر" / "عميل ممتاز يستحق أولوية"' style="min-height:55px"></textarea>
+      </div>
+    </div>
     <div style="background:rgba(124,111,247,.06);border:1px solid rgba(124,111,247,.2);border-radius:var(--r2);padding:12px 14px;margin-bottom:10px">
       <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px">🌐 حسابات السوشيال ميديا</div>
       <div id="c-socials-list" style="margin-bottom:10px"></div>
@@ -5659,8 +5732,14 @@ function openClientModal(id){
     // restore socials
     renderClientSocials(c.socials||[]);
     document.getElementById('c-followup-msg').value=c.followupMsg||'';
+    // DNA
+    if(document.getElementById('c-dna-style')) document.getElementById('c-dna-style').value=c.dnaStyle||'';
+    if(document.getElementById('c-dna-payment')) document.getElementById('c-dna-payment').value=c.dnaPayment||'';
+    if(document.getElementById('c-dna-notes')) document.getElementById('c-dna-notes').value=c.dnaNotes||'';
   } else {
-    ['c-name','c-phone','c-email','c-field','c-notes','c-salary'].forEach(f=>{const e=document.getElementById(f);if(e)e.value='';});
+    ['c-name','c-phone','c-email','c-field','c-notes','c-salary','c-dna-notes'].forEach(f=>{const e=document.getElementById(f);if(e)e.value='';});
+    if(document.getElementById('c-dna-style')) document.getElementById('c-dna-style').value='';
+    if(document.getElementById('c-dna-payment')) document.getElementById('c-dna-payment').value='';
     document.getElementById('c-type').value='شركة';
     document.getElementById('c-channel').value='واتساب';
     document.getElementById('c-worktype').value='freelance';
@@ -5694,6 +5773,9 @@ function saveClient(){
     followupEnabled: document.getElementById('c-followup-enabled')?.value||'off',
     followupMonths: Math.max(1, +(document.getElementById('c-followup-months')?.value)||3),
     followupMsg: document.getElementById('c-followup-msg')?.value||'',
+    dnaStyle: document.getElementById('c-dna-style')?.value||'',
+    dnaPayment: document.getElementById('c-dna-payment')?.value||'',
+    dnaNotes: document.getElementById('c-dna-notes')?.value||'',
     socials: [...(document.querySelectorAll('#c-socials-list .social-tag')||[])].map(el=>({
       platform:el.dataset.platform, icon:el.dataset.icon, url:el.dataset.url
     })),
@@ -7448,18 +7530,24 @@ function showToast(msg,dur=3000){
 // DASHBOARD
 // ============================================================
 var _WIDGET_DEFS = [
-  {id:'stats',       label:'📊 الإحصائيات',      full:true,  visible:true,  row:0},
-  {id:'overdue',     label:'⚠ مهام متأخرة',       full:false, visible:true,  row:1},
-  {id:'subs',        label:'🔔 اشتراكات قريبة',   full:false, visible:true,  row:1},
-  {id:'kanban',      label:'⚡ المهام النشطة',     full:false, visible:true,  row:2},
-  {id:'uncollected', label:'💸 مبالغ لم تُحصَّل', full:false, visible:true,  row:2},
-  {id:'team',        label:'👥 مهام الفريق',       full:false, visible:true,  row:3},
-  {id:'teampay',     label:'💰 مستحقات الفريق',   full:false, visible:true,  row:3},
-  {id:'tasks',       label:'📋 آخر المهام',        full:false, visible:true,  row:4},
-  {id:'schedule',    label:'🗓 جدول اليوم',        full:false, visible:true,  row:4},
-  {id:'invoices',    label:'🧾 فواتير معلقة',      full:false, visible:true,  row:5},
-  {id:'goals',       label:'🎯 أهداف التطوير',    full:false, visible:true,  row:5},
-  {id:'meetings',    label:'📅 الميتنجات',         full:true,  visible:true,  row:6},
+  {id:'stats',       label:'📊 الإحصائيات',          full:true,  visible:true,  row:0},
+  {id:'commitment',  label:'🎯 مؤشر الالتزام',        full:false, visible:true,  row:0},
+  {id:'momentum',    label:'⚡ مقياس الزخم',           full:false, visible:true,  row:0},
+  {id:'challenge',   label:'🏆 تحدي الأسبوع',          full:false, visible:true,  row:0},
+  {id:'upcoming',    label:'⏰ مواعيد قريبة',           full:false, visible:true,  row:1},
+  {id:'overdue',     label:'⚠ مهام متأخرة',            full:false, visible:true,  row:1},
+  {id:'subs',        label:'🔔 اشتراكات قريبة',        full:false, visible:true,  row:1},
+  {id:'silent',      label:'🔕 العملاء الهادئون',       full:false, visible:true,  row:1},
+  {id:'expected',    label:'💰 الدخل المتوقع وسعة العمل', full:true, visible:true, row:2},
+  {id:'kanban',      label:'⚡ المهام النشطة',          full:false, visible:true,  row:3},
+  {id:'uncollected', label:'💸 مبالغ لم تُحصَّل',      full:false, visible:true,  row:3},
+  {id:'team',        label:'👥 مهام الفريق',            full:false, visible:true,  row:4},
+  {id:'teampay',     label:'💰 مستحقات الفريق',        full:false, visible:true,  row:4},
+  {id:'tasks',       label:'📋 آخر المهام',             full:false, visible:true,  row:5},
+  {id:'schedule',    label:'🗓 جدول اليوم',             full:false, visible:true,  row:5},
+  {id:'invoices',    label:'🧾 فواتير معلقة',           full:false, visible:true,  row:6},
+  {id:'goals',       label:'🎯 أهداف التطوير',         full:false, visible:true,  row:6},
+  {id:'meetings',    label:'📅 الميتنجات',              full:true,  visible:true,  row:7},
 ];
 
 function _getDashLayout(){
@@ -10481,6 +10569,829 @@ function renderDashAlerts(){
 
 
 // ============================================================
+// ✅ NEW FEATURES BLOCK — v3
+// ============================================================
+
+// ────────────────────────────────
+// 🔁 RECURRING TASKS
+// ────────────────────────────────
+function toggleRecurring(){
+  const cb=document.getElementById('t-recurring');
+  const opts=document.getElementById('t-recurring-opts');
+  if(!opts) return;
+  opts.style.display=cb?.checked?'block':'none';
+}
+
+function _createRecurringInstances(baseTask, interval, count){
+  const instances=[];
+  const msMap={weekly:7,biweekly:14,monthly:30,quarterly:90};
+  const days=msMap[interval]||30;
+  for(let i=1;i<=count;i++){
+    const base=baseTask.deadline?new Date(baseTask.deadline):new Date();
+    base.setDate(base.getDate()+days*i);
+    const dl=base.toISOString().split('T')[0];
+    const inst={...baseTask,id:Date.now()+i,deadline:dl,
+      title:baseTask.title+' ('+(i+1)+')',
+      recurringParent:baseTask.id,done:false,paymentCollected:false};
+    instances.push(inst);
+  }
+  return instances;
+}
+
+// ────────────────────────────────
+// ⏰ DEADLINE PROMISE LOG
+// ────────────────────────────────
+let _origDeadline='';
+
+function _onDeadlineChanged(newVal){
+  const reasonWrap=document.getElementById('t-deadline-reason-wrap');
+  const logBtn=document.getElementById('t-deadline-log-btn');
+  const eid=document.getElementById('task-eid')?.value;
+  if(eid && _origDeadline && newVal && newVal!==_origDeadline){
+    if(reasonWrap) reasonWrap.style.display='block';
+  } else {
+    if(reasonWrap) reasonWrap.style.display='none';
+  }
+  const t=eid?S.tasks.find(x=>x.id==eid):null;
+  if(logBtn) logBtn.style.display=(t&&t.deadlineLog&&t.deadlineLog.length)?'inline-block':'none';
+}
+
+function _showDeadlineLog(){
+  const eid=document.getElementById('task-eid')?.value;
+  const t=eid?S.tasks.find(x=>x.id==eid):null;
+  if(!t||!t.deadlineLog||!t.deadlineLog.length){alert('لا يوجد سجل تغييرات للموعد بعد');return;}
+  let msg='📋 سجل تغييرات موعد التسليم:\n\n';
+  t.deadlineLog.forEach((l,i)=>{
+    msg+=`${i+1}. ${l.changedAt?.slice(0,10)||'—'}\n   من: ${l.from||'غير محدد'} → إلى: ${l.to}\n   السبب: ${l.reason||'لم يذكر'}\n\n`;
+  });
+  alert(msg);
+}
+
+// ────────────────────────────────
+// 🏁 MILESTONES
+// ────────────────────────────────
+function addMilestone(){
+  const list=document.getElementById('t-milestones-list');if(!list)return;
+  const idx=list.children.length;
+  const row=document.createElement('div');
+  row.className='milestone-row';
+  row.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:6px';
+  row.innerHTML=`<input class="form-input" style="flex:2;font-size:12px" placeholder="اسم المرحلة" data-ml-title>
+    <input class="form-input" type="date" style="flex:1;font-size:12px" data-ml-date>
+    <select class="form-select" style="flex:0 0 80px;font-size:11px" data-ml-status>
+      <option value="pending">⏳ معلقة</option><option value="done">✅ منتهية</option>
+    </select>
+    <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">🗑</button>`;
+  list.appendChild(row);
+}
+
+function collectMilestones(){
+  return [...document.querySelectorAll('.milestone-row')].map(r=>({
+    title:r.querySelector('[data-ml-title]')?.value||'',
+    date:r.querySelector('[data-ml-date]')?.value||'',
+    status:r.querySelector('[data-ml-status]')?.value||'pending'
+  })).filter(m=>m.title);
+}
+
+function renderMilestonesForm(milestones=[]){
+  const list=document.getElementById('t-milestones-list');if(!list)return;
+  list.innerHTML='';
+  milestones.forEach(m=>{
+    const row=document.createElement('div');
+    row.className='milestone-row';
+    row.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:6px';
+    row.innerHTML=`<input class="form-input" style="flex:2;font-size:12px" placeholder="اسم المرحلة" data-ml-title value="${m.title||''}">
+      <input class="form-input" type="date" style="flex:1;font-size:12px" data-ml-date value="${m.date||''}">
+      <select class="form-select" style="flex:0 0 80px;font-size:11px" data-ml-status>
+        <option value="pending" ${m.status!=='done'?'selected':''}>⏳ معلقة</option>
+        <option value="done" ${m.status==='done'?'selected':''}>✅ منتهية</option>
+      </select>
+      <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">🗑</button>`;
+    list.appendChild(row);
+  });
+}
+
+// Patch milestones into openTaskModal
+(function(){
+  const _orig=window.openTaskModal;
+  window.openTaskModal=function(id){
+    _orig(id);
+    const cb=document.getElementById('t-recurring');
+    if(cb) cb.checked=false;
+    const opts=document.getElementById('t-recurring-opts');
+    if(opts) opts.style.display='none';
+    if(id){
+      const t=S.tasks.find(x=>x.id===id);
+      if(t){
+        renderMilestonesForm(t.milestones||[]);
+        _origDeadline=t.deadline||'';
+        // show log btn if log exists
+        const logBtn=document.getElementById('t-deadline-log-btn');
+        if(logBtn) logBtn.style.display=(t.deadlineLog&&t.deadlineLog.length)?'inline-block':'none';
+        if(t.recurringInterval){
+          if(cb) cb.checked=true;
+          if(opts) opts.style.display='block';
+          const iv=document.getElementById('t-recurring-interval');if(iv)iv.value=t.recurringInterval;
+          const ct=document.getElementById('t-recurring-count');if(ct)ct.value=t.recurringCount||6;
+        }
+      }
+    } else {
+      renderMilestonesForm([]);
+      _origDeadline='';
+      const reasonWrap=document.getElementById('t-deadline-reason-wrap');
+      if(reasonWrap) reasonWrap.style.display='none';
+      const logBtn=document.getElementById('t-deadline-log-btn');
+      if(logBtn) logBtn.style.display='none';
+    }
+  };
+})();
+
+// Patch milestones + recurring + deadline log into saveTask
+(function(){
+  const _orig=window.saveTask;
+  window.saveTask=function(){
+    // Collect milestones before original runs
+    const milestones=collectMilestones();
+    const isRecurring=document.getElementById('t-recurring')?.checked;
+    const interval=document.getElementById('t-recurring-interval')?.value||'monthly';
+    const count=+(document.getElementById('t-recurring-count')?.value)||6;
+    const newDeadline=document.getElementById('t-deadline')?.value||'';
+    const reason=document.getElementById('t-deadline-reason')?.value||'';
+    const eid=document.getElementById('task-eid')?.value;
+
+    _orig();
+
+    // After save, patch the last saved task
+    setTimeout(()=>{
+      const arr=S.tasks;
+      const target=eid ? arr.find(t=>t.id==eid) : arr[arr.length-1];
+      if(!target) return;
+      target.milestones=milestones;
+      if(isRecurring){target.recurringInterval=interval;target.recurringCount=count;}
+      // Deadline log
+      if(eid && _origDeadline && newDeadline && newDeadline!==_origDeadline){
+        if(!target.deadlineLog) target.deadlineLog=[];
+        target.deadlineLog.push({from:_origDeadline,to:newDeadline,reason,changedAt:new Date().toISOString()});
+      }
+      lsSave();cloudSave(S);
+      // Create recurring instances (new tasks only)
+      if(!eid && isRecurring && count>0){
+        const instances=_createRecurringInstances(target,interval,count);
+        instances.forEach(inst=>S.tasks.push(inst));
+        lsSave();cloudSave(S);
+        renderAll();
+        if(typeof showMiniNotif==='function') showMiniNotif('🔁 تم إنشاء '+count+' نسخة متكررة');
+      }
+    }, 150);
+  };
+})();
+
+// ────────────────────────────────
+// 🎯 COMMITMENT % (مؤشر الالتزام)
+// ────────────────────────────────
+function _calcCommitmentPct(){
+  const now=new Date();
+  const curM=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const monthDone=S.tasks.filter(t=>t.done && (t.doneAt||'').startsWith(curM));
+  if(!monthDone.length) return null;
+  const onTime=monthDone.filter(t=>{
+    if(!t.deadline||!t.doneAt) return true; // no deadline = not counted against
+    return t.doneAt.slice(0,10)<=t.deadline;
+  });
+  return Math.round((onTime.length/monthDone.length)*100);
+}
+
+function renderCommitmentWidget(){
+  const el=document.getElementById('dash-commitment-inner');if(!el)return;
+  const pct=_calcCommitmentPct();
+  if(pct===null){el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px 0">لا مهام مكتملة هذا الشهر بعد</div>';return;}
+  const color=pct>=90?'var(--accent3)':pct>=70?'var(--accent2)':'var(--accent4)';
+  const msg=pct>=90?'🏆 ممتاز! أنت تلتزم بمواعيدك بشكل رائع':pct>=70?'👍 جيد — حاول تحسين الالتزام أكثر':'⚠ انتبه! الالتزام منخفض — راجع أولوياتك';
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <div style="font-size:32px;font-weight:900;color:${color}">${pct}%</div>
+      <div style="flex:1">
+        <div style="height:8px;background:var(--surface2);border-radius:8px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:8px;transition:width .5s"></div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">التزام بمواعيد التسليم هذا الشهر</div>
+      </div>
+    </div>
+    <div style="font-size:11px;padding:6px 10px;border-radius:8px;background:${pct<70?'rgba(247,111,124,.1)':'rgba(79,209,165,.08)'};color:${color}">${msg}</div>`;
+}
+
+// ────────────────────────────────
+// ⚡ MOMENTUM METER (مقياس الزخم)
+// ────────────────────────────────
+function _calcMomentum(){
+  const now=new Date();
+  const week=7*24*60*60*1000;
+  const recent7=S.tasks.filter(t=>t.done && t.doneAt && (now-new Date(t.doneAt))<week);
+  const recentNew=S.tasks.filter(t=>!t.done && t.id && (now-t.id)<week);
+  const recentIncome=S.transactions.filter(t=>t.type==='income'&&t.isoDate&&(now-new Date(t.isoDate))<week);
+  const score=Math.min(100, recent7.length*15 + recentNew.length*5 + recentIncome.length*10);
+  return {score, done:recent7.length, newTasks:recentNew.length, income:recentIncome.length};
+}
+
+function renderMomentumWidget(){
+  const el=document.getElementById('dash-momentum-inner');if(!el)return;
+  const {score,done,newTasks,income}=_calcMomentum();
+  const color=score>=70?'var(--accent3)':score>=40?'var(--accent)':'var(--accent4)';
+  const emoji=score>=80?'🔥':score>=50?'⚡':score>=25?'🌱':'😴';
+  const label=score>=80?'زخم عالي!':score>=50?'نشاط جيد':score>=25?'بداية جيدة':'نشاطك منخفض — ابدأ مهمة جديدة!';
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="font-size:28px">${emoji}</div>
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:11px;font-weight:700;color:${color}">${label}</span>
+          <span style="font-size:14px;font-weight:900;color:${color}">${score}</span>
+        </div>
+        <div style="height:7px;background:var(--surface2);border-radius:8px;overflow:hidden">
+          <div style="height:100%;width:${score}%;background:${color};border-radius:8px;transition:width .5s"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;font-size:10px;color:var(--text3)">
+      <span>✅ ${done} مكتملة</span><span>📋 ${newTasks} جديدة</span><span>💰 ${income} إيراد</span>
+      <span style="color:var(--text3)">— آخر 7 أيام</span>
+    </div>`;
+}
+
+// ────────────────────────────────
+// 💰 EXPECTED INCOME (الدخل المتوقع)
+// ────────────────────────────────
+function _calcExpectedIncome(){
+  const now=new Date();
+  const curM=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const nextM=new Date(now.getFullYear(), now.getMonth()+1, 1);
+  const nextMS=`${nextM.getFullYear()}-${String(nextM.getMonth()+1).padStart(2,'0')}`;
+
+  // المهام النشطة غير المكتملة
+  const active=S.tasks.filter(t=>!t.done&&t.value>0);
+  const activeVal=active.reduce((s,t)=>s+t.value,0);
+
+  // الفواتير المعلقة
+  const pendInv=S.invoices.filter(i=>i.status==='pending').reduce((s,i)=>s+i.total,0);
+
+  // المهام المتكررة للشهر القادم
+  const recurringNext=S.tasks.filter(t=>t.recurringInterval&&!t.done&&t.value>0);
+  const recurVal=recurringNext.reduce((s,t)=>s+(t.value||0),0);
+
+  // متوسط الدخل الشهري (آخر 3 أشهر)
+  const months3=[];
+  for(let i=1;i<=3;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const mk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const mv=S.transactions.filter(t=>t.type==='income'&&(t.isoDate||'').startsWith(mk)).reduce((s,t)=>s+t.amount,0);
+    months3.push(mv);
+  }
+  const avg3=months3.length?Math.round(months3.reduce((a,b)=>a+b,0)/months3.length):0;
+
+  // نشاط الأوردرات
+  const monthOrders=S.tasks.filter(t=>(t.isoDate||t.orderDate||'').startsWith(curM)).length;
+  const avgMonthlyOrders=avg3>0?Math.ceil(monthOrders):0;
+
+  // هل في وقت لقبول أوردر جديد؟
+  const activeCount=S.tasks.filter(t=>!t.done&&(t.status==='progress'||t.status==='new')).length;
+  const capacity=S.settings?.monthlyCapacity||10;
+  const canAccept=activeCount<capacity;
+  const recommendation=canAccept?
+    (activeCount<capacity*0.5?'🟢 عندك وقت — مناسب تقبل أوردرات جديدة':'🟡 محمّل نسبياً — ممكن تقبل أوردر أو اتنين'):
+    '🔴 مشغول — مش مناسب تقبل أوردرات جديدة دلوقتي';
+
+  return {activeVal,pendInv,recurVal,avg3,activeCount,capacity,canAccept,recommendation,monthOrders};
+}
+
+function renderExpectedWidget(){
+  const el=document.getElementById('dash-expected-inner');if(!el)return;
+  const {activeVal,pendInv,avg3,activeCount,capacity,recommendation,monthOrders}=_calcExpectedIncome();
+  const total=activeVal+pendInv;
+  const isWeak=total<avg3*0.7&&avg3>0;
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div style="background:var(--surface2);border-radius:8px;padding:9px;text-align:center">
+        <div style="font-size:16px;font-weight:900;color:var(--accent3)">${total.toLocaleString()} ج</div>
+        <div style="font-size:9px;color:var(--text3)">💰 متوقع هذا الشهر</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:9px;text-align:center">
+        <div style="font-size:16px;font-weight:900;color:var(--accent)">${avg3.toLocaleString()} ج</div>
+        <div style="font-size:9px;color:var(--text3)">📊 متوسط آخر 3 أشهر</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:9px;text-align:center">
+        <div style="font-size:16px;font-weight:900;color:var(--accent2)">${activeCount}</div>
+        <div style="font-size:9px;color:var(--text3)">📋 مهام نشطة الآن</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:9px;text-align:center">
+        <div style="font-size:16px;font-weight:900;color:var(--text2)">${monthOrders}</div>
+        <div style="font-size:9px;color:var(--text3)">🗂 أوردرات هذا الشهر</div>
+      </div>
+    </div>
+    ${isWeak?`<div style="background:rgba(247,111,124,.1);border:1px solid rgba(247,111,124,.2);border-radius:8px;padding:7px 10px;font-size:11px;color:var(--accent4);margin-bottom:7px">⚠ الشهر ده هيكون ضعيف — فكر تقبل أوردرات جديدة</div>`:''}
+    <div style="background:${activeCount<capacity*0.5?'rgba(79,209,165,.08)':activeCount<capacity?'rgba(247,201,72,.08)':'rgba(247,111,124,.08)'};border-radius:8px;padding:7px 10px;font-size:11px">${recommendation}</div>`;
+}
+
+// ────────────────────────────────
+// ⏰ UPCOMING DEADLINES (24/48h)
+// ────────────────────────────────
+function renderUpcomingWidget(){
+  const el=document.getElementById('dash-upcoming-inner');if(!el)return;
+  const now=new Date();
+  const in48=new Date(now.getTime()+48*60*60*1000);
+  const upcoming=S.tasks.filter(t=>{
+    if(t.done||!t.deadline) return false;
+    const d=new Date(t.deadline+'T23:59:59');
+    return d>=now && d<=in48;
+  }).sort((a,b)=>a.deadline.localeCompare(b.deadline));
+
+  if(!upcoming.length){
+    el.innerHTML='<div class="empty" style="padding:8px 0"><div class="empty-icon" style="font-size:18px">✅</div><div style="font-size:12px">لا مواعيد خلال 48 ساعة</div></div>';
+    return;
+  }
+  el.innerHTML=upcoming.map(t=>{
+    const hrs=Math.max(0,Math.ceil((new Date(t.deadline+'T23:59:59')-now)/(1000*60*60)));
+    const urgent=hrs<=24;
+    return `<div onclick="openTaskDetail(${t.id})" class="task-clickable" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(42,42,58,.25);cursor:pointer">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.title}</div>
+        <div style="font-size:10px;color:var(--text3)">${t.client||'—'}</div>
+      </div>
+      <span style="font-size:11px;font-weight:800;white-space:nowrap;padding:2px 8px;border-radius:10px;background:${urgent?'rgba(247,111,124,.15)':'rgba(247,201,72,.12)'};color:${urgent?'var(--accent4)':'var(--accent2)'}">⏰ ${hrs}س</span>
+    </div>`;
+  }).join('');
+}
+
+// ────────────────────────────────
+// 🧬 VALUE SCORE (تقييم العميل)
+// ────────────────────────────────
+function _calcClientScore(c){
+  const cTasks=S.tasks.filter(t=>t.client===c.name);
+  const cInvs=S.invoices.filter(i=>i.client===c.name);
+  let score=0;
+  // كمية الشغل (40 نقطة)
+  score+=Math.min(40, cTasks.length*4);
+  // الانتظام في الدفع (30 نقطة)
+  const payMap={instant:30,normal:20,late:5,very_late:0,undefined:15};
+  score+=payMap[c.dnaPayment]??15;
+  // سهولة التعامل (30 نقطة)
+  const styleMap={easy:30,detail:22,reviews:15,quick:25,vague:10,demanding:5};
+  score+=styleMap[c.dnaStyle]??20;
+  return Math.min(100,score);
+}
+
+function _clientScoreBadge(score){
+  if(score>=80) return '<span style="font-size:10px;padding:1px 7px;border-radius:8px;background:rgba(247,201,72,.2);color:#c8a400;font-weight:800">⭐ ذهبي</span>';
+  if(score>=60) return '<span style="font-size:10px;padding:1px 7px;border-radius:8px;background:rgba(79,209,165,.15);color:var(--accent3);font-weight:700">💎 ممتاز</span>';
+  if(score>=40) return '<span style="font-size:10px;padding:1px 7px;border-radius:8px;background:rgba(124,111,247,.12);color:var(--accent);font-weight:700">✅ جيد</span>';
+  return '<span style="font-size:10px;padding:1px 7px;border-radius:8px;background:rgba(247,111,124,.12);color:var(--accent4);font-weight:700">⚠ منخفض</span>';
+}
+
+// ────────────────────────────────
+// 🔕 SILENT CLIENT ALERT (العميل الهادي)
+// ────────────────────────────────
+function _checkSilentClients(){
+  const now=new Date();
+  const alerts=[];
+  S.clients.forEach(c=>{
+    const tasks=S.tasks.filter(t=>t.client===c.name);
+    if(!tasks.length) return;
+    const dates=tasks.map(t=>(t.orderDate||t.isoDate||t.doneAt||'')).filter(Boolean).sort().reverse();
+    const lastDate=dates[0];
+    if(!lastDate) return;
+    const daysDiff=Math.floor((now-new Date(lastDate))/(1000*60*60*24));
+    if(daysDiff>=30) alerts.push({client:c,days:daysDiff});
+  });
+  return alerts.sort((a,b)=>b.days-a.days);
+}
+
+// ────────────────────────────────
+// 🏆 WEEKLY CHALLENGE (تحدي الأسبوع)
+// ────────────────────────────────
+function _getWeeklyChallenge(){
+  const saved=JSON.parse(localStorage.getItem('_weekChallenge')||'{}');
+  const weekKey=_getWeekKey();
+  if(saved.week===weekKey) return saved;
+
+  const now=new Date();
+  const activeCount=S.tasks.filter(t=>!t.done).length;
+  const monthIncome=S.transactions.filter(t=>{
+    const d=new Date(); return t.type==='income'&&(t.isoDate||'').startsWith(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }).reduce((s,t)=>s+t.amount,0);
+  const avg=_calcExpectedIncome().avg3||1000;
+
+  const challenges=[
+    {title:'سلّم 3 مهام في موعدها هذا الأسبوع',type:'on_time',target:3},
+    {title:`وصّل دخلك لـ ${Math.round(avg*0.3).toLocaleString()} ج هذا الأسبوع`,type:'income',target:Math.round(avg*0.3)},
+    {title:'أنهِ 5 مهام نشطة هذا الأسبوع',type:'complete',target:5},
+    {title:'لا تقبل أوردر جديد دون تسليم مهمة قديمة أولاً',type:'discipline',target:1},
+    {title:'تواصل مع 2 من عملائك القدامى هذا الأسبوع',type:'contact',target:2},
+  ];
+  const ch=challenges[now.getDay()%challenges.length];
+  const challenge={...ch, week:weekKey, done:false, progress:0, badge:'🏅'};
+  localStorage.setItem('_weekChallenge',JSON.stringify(challenge));
+  return challenge;
+}
+
+function _getWeekKey(){
+  const d=new Date();
+  const start=new Date(d); start.setDate(d.getDate()-d.getDay());
+  return start.toISOString().slice(0,10);
+}
+
+function _updateWeeklyChallengeProgress(){
+  const ch=_getWeeklyChallenge();if(ch.done)return;
+  const weekKey=_getWeekKey();
+  const weekStart=new Date(weekKey);
+  let progress=0;
+  if(ch.type==='complete'){
+    progress=S.tasks.filter(t=>t.done&&t.doneAt&&new Date(t.doneAt)>=weekStart).length;
+  } else if(ch.type==='income'){
+    progress=S.transactions.filter(t=>t.type==='income'&&new Date(t.isoDate||t.date||0)>=weekStart).reduce((s,t)=>s+t.amount,0);
+  } else if(ch.type==='on_time'){
+    progress=S.tasks.filter(t=>t.done&&t.doneAt&&t.deadline&&t.doneAt.slice(0,10)<=t.deadline&&new Date(t.doneAt)>=weekStart).length;
+  }
+  const done=progress>=ch.target;
+  if(done&&!ch.done){
+    ch.done=true;
+    setTimeout(()=>{
+      if(typeof showMiniNotif==='function') showMiniNotif('🏆 أحسنت! أتممت تحدي الأسبوع! '+ch.badge);
+    },500);
+  }
+  ch.progress=progress;
+  localStorage.setItem('_weekChallenge',JSON.stringify(ch));
+}
+
+function renderWeeklyChallengeWidget(){
+  const el=document.getElementById('dash-challenge-inner');if(!el)return;
+  _updateWeeklyChallengeProgress();
+  const ch=_getWeeklyChallenge();
+  const pct=Math.min(100,Math.round((ch.progress/ch.target)*100));
+  el.innerHTML=`
+    <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px">
+      <div style="font-size:22px">${ch.done?'🏆':'🎯'}</div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:700;line-height:1.5">${ch.title}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">تحدي هذا الأسبوع · ${ch.done?'✅ مكتمل!':'جارٍ'}</div>
+      </div>
+    </div>
+    <div style="height:7px;background:var(--surface2);border-radius:8px;overflow:hidden;margin-bottom:5px">
+      <div style="height:100%;width:${pct}%;background:${ch.done?'var(--accent3)':'var(--accent)'};border-radius:8px;transition:width .5s"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3)">
+      <span>${ch.progress} / ${ch.target}</span>
+      <span>${pct}%</span>
+    </div>`;
+}
+
+// ────────────────────────────────
+// RENDER ALL NEW WIDGETS
+// ────────────────────────────────
+function renderNewWidgets(){
+  renderCommitmentWidget();
+  renderMomentumWidget();
+  renderExpectedWidget();
+  renderUpcomingWidget();
+  renderWeeklyChallengeWidget();
+  _renderSilentClientsWidget();
+}
+
+function _renderSilentClientsWidget(){
+  const el=document.getElementById('dash-silent-clients');if(!el)return;
+  const alerts=_checkSilentClients().slice(0,4);
+  if(!alerts.length){el.innerHTML='<div style="font-size:11px;color:var(--text3)">✅ كل عملائك في تواصل منتظم</div>';return;}
+  el.innerHTML=alerts.map(({client:c,days})=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(42,42,58,.2)">
+      <div style="font-size:12px;font-weight:600;cursor:pointer;color:var(--text)" onclick="openClientProfile(${c.id})">${c.name}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:10px;color:var(--accent4)">منذ ${days} يوم</span>
+        ${c.phone?`<a href="https://wa.me/${(c.phone||'').replace(/\D/g,'')}" target="_blank" style="font-size:10px;color:var(--accent3);text-decoration:none">💬</a>`:''}
+      </div>
+    </div>`).join('');
+}
+
+// Patch renderDashAlerts to include new widgets
+(function(){
+  const _orig=window.renderDashAlerts;
+  window.renderDashAlerts=function(){
+    _orig();
+    renderNewWidgets();
+  };
+})();
+
+// ────────────────────────────────
+// 🧬 DNA DISPLAY IN CLIENT PROFILE OVERVIEW
+// ────────────────────────────────
+const _dnaStyleMap={easy:'😊 سهل ومريح',detail:'🔍 يهتم بالتفاصيل',reviews:'🔄 يطلب ريفيوز كتير',quick:'⚡ يريد تسليم سريع',vague:'🌫 تعليماته مش واضحة',demanding:'😤 مطالب'};
+const _dnaPayMap={instant:'✅ يدفع فوري',normal:'🕐 يدفع في وقته',late:'⚠ بيتأخر أحياناً',very_late:'🚨 بيتأخر كتير'};
+
+// Patch _renderProfileTab overview to show DNA + score
+(function(){
+  const _orig=window._renderProfileTab;
+  window._renderProfileTab=function(tab,id){
+    _orig(tab,id);
+    if(tab==='overview'){
+      const c=S.clients.find(x=>x.id===id);if(!c)return;
+      const body=document.getElementById('profile-body');if(!body)return;
+      const score=_calcClientScore(c);
+      const scoreBadge=_clientScoreBadge(score);
+      const dnaHtml=`
+        <div style="background:rgba(247,201,72,.05);border:1px solid rgba(247,201,72,.18);border-radius:10px;padding:12px 14px;margin-top:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:12px;font-weight:800;color:var(--accent2)">🧬 DNA العميل</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              ${scoreBadge}
+              <span style="font-size:11px;font-weight:700;color:var(--text3)">نقاط: ${score}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;margin-bottom:${c.dnaNotes?'8px':'0'}">
+            ${c.dnaStyle?`<span style="background:var(--surface2);padding:3px 10px;border-radius:20px">${_dnaStyleMap[c.dnaStyle]||c.dnaStyle}</span>`:''}
+            ${c.dnaPayment?`<span style="background:var(--surface2);padding:3px 10px;border-radius:20px">${_dnaPayMap[c.dnaPayment]||c.dnaPayment}</span>`:''}
+          </div>
+          ${c.dnaNotes?`<div style="font-size:12px;color:var(--text2);font-style:italic;border-top:1px solid var(--border);padding-top:7px;margin-top:4px">${c.dnaNotes}</div>`:''}
+          ${(!c.dnaStyle&&!c.dnaPayment&&!c.dnaNotes)?`<div style="font-size:11px;color:var(--text3)">لم تضف بيانات DNA بعد — <span style="color:var(--accent);cursor:pointer" onclick="closeM('modal-client-profile');openClientModal(${id})">أضفها الآن</span></div>`:''}
+        </div>`;
+      body.insertAdjacentHTML('beforeend', dnaHtml);
+
+      // Payment warning if bad payer
+      if(c.dnaPayment==='very_late'){
+        body.insertAdjacentHTML('beforeend',`<div style="background:rgba(247,111,124,.1);border:1px solid rgba(247,111,124,.3);border-radius:8px;padding:9px 12px;margin-top:8px;font-size:12px;color:var(--accent4)">🚨 تحذير: هذا العميل لديه سجل دفع سيء — ضع في حسبانك طلب عربون مقدماً</div>`);
+      }
+
+      // Silent client warning
+      const silent=_checkSilentClients().find(x=>x.client.id===id);
+      if(silent){
+        body.insertAdjacentHTML('beforeend',`<div style="background:rgba(247,201,72,.08);border:1px solid rgba(247,201,72,.2);border-radius:8px;padding:9px 12px;margin-top:8px;font-size:12px;color:var(--accent2)">🔕 عميل هادي — آخر تواصل منذ ${silent.days} يوم · <a href="https://wa.me/${(c.phone||'').replace(/\D/g,'')}" target="_blank" style="color:var(--accent3)">تواصل الآن 💬</a></div>`);
+      }
+
+      // Monthly orders + capacity recommendation
+      const {monthOrders,recommendation}=_calcExpectedIncome();
+      const cMonthOrders=S.tasks.filter(t=>t.client===c.name&&(t.orderDate||t.isoDate||'').startsWith(new Date().toISOString().slice(0,7))).length;
+      const allMonths=[...new Set(S.tasks.filter(t=>t.client===c.name).map(t=>(t.orderDate||t.isoDate||'').slice(0,7)).filter(Boolean))];
+      const avgMonthOrders=allMonths.length?Math.round(S.tasks.filter(t=>t.client===c.name).length/allMonths.length*10)/10:0;
+      body.insertAdjacentHTML('beforeend',`
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+          <div style="background:var(--surface2);border-radius:8px;padding:9px;text-align:center">
+            <div style="font-size:18px;font-weight:900;color:var(--accent)">${cMonthOrders}</div>
+            <div style="font-size:9px;color:var(--text3)">أوردرات هذا الشهر</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:9px;text-align:center">
+            <div style="font-size:18px;font-weight:900;color:var(--accent2)">${avgMonthOrders}</div>
+            <div style="font-size:9px;color:var(--text3)">متوسط الأوردرات/شهر</div>
+          </div>
+        </div>`);
+    }
+  };
+})();
+
+// ────────────────────────────────
+// 📊 CLIENT REPORT (تقرير العميل)
+// ────────────────────────────────
+function openClientReport(id){
+  const c=S.clients.find(x=>x.id===id);if(!c)return;
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:5100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)';
+  overlay.id='_client-report-overlay';
+  const now=new Date();
+  const defFrom=`${now.getFullYear()-1}-01-01`;
+  const defTo=now.toISOString().split('T')[0];
+  overlay.innerHTML=`<div style="background:var(--surface);border-radius:16px;padding:24px;width:480px;max-width:96vw;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:800">📊 تقرير العميل — ${c.name}</div>
+      <button onclick="document.getElementById('_client-report-overlay').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">من تاريخ</label>
+        <input type="date" id="_report-from" value="${defFrom}" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-family:var(--font);font-size:13px"></div>
+      <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">إلى تاريخ</label>
+        <input type="date" id="_report-to" value="${defTo}" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-family:var(--font);font-size:13px"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer" onclick="_printClientReport(${id})">🖨 طباعة التقرير</button>
+      <button style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 14px;font-family:var(--font);font-size:13px;cursor:pointer;color:var(--text2)" onclick="document.getElementById('_client-report-overlay').remove()">إلغاء</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function _printClientReport(id){
+  const c=S.clients.find(x=>x.id===id);if(!c)return;
+  const from=document.getElementById('_report-from')?.value||'';
+  const to=document.getElementById('_report-to')?.value||'';
+  document.getElementById('_client-report-overlay')?.remove();
+
+  const inRange=d=>(!from||d>=from)&&(!to||d<=to);
+  const subClients=S.clients.filter(sc=>String(sc.parentClientId)===String(c.id));
+  const allNames=[c.name,...subClients.map(sc=>sc.name)];
+  const tasks=S.tasks.filter(t=>allNames.includes(t.client)&&inRange((t.orderDate||t.isoDate||'').slice(0,10)));
+  const invs=S.invoices.filter(i=>allNames.includes(i.client)&&inRange((i.isoDate||i.date||'').slice(0,10)));
+  const stmts=(_stmtsData?_stmtsData():[]).filter(s=>s.client===c.name&&inRange(s.from||''));
+  const totalVal=tasks.reduce((s,t)=>s+(t.value||0),0);
+  const totalPaid=invs.filter(i=>i.status==='paid').reduce((s,i)=>s+i.total,0);
+  const totalPend=invs.filter(i=>i.status==='pending').reduce((s,i)=>s+i.total,0);
+  const score=_calcClientScore(c);
+  const studio=S.settings?.name||'نظام إدارة الأعمال';
+
+  // Group by month
+  const byMonth={};
+  tasks.forEach(t=>{const mk=(t.orderDate||t.isoDate||'').slice(0,7);if(mk){if(!byMonth[mk])byMonth[mk]=[];byMonth[mk].push(t);}});
+
+  const html=`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تقرير ${c.name}</title>
+  <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Cairo',Arial,sans-serif;background:#f5f6fa;color:#1a1a2e;padding:30px}
+  .page{background:#fff;max-width:860px;margin:0 auto;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  h1{font-size:22px;font-weight:900;color:#7c6ff7}h2{font-size:12px;color:#888;margin-bottom:20px}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px}
+  .card{background:#f0f2f8;border-radius:10px;padding:12px;text-align:center}.card .v{font-size:18px;font-weight:900;color:#7c6ff7}.card .l{font-size:10px;color:#888;margin-top:2px}
+  .sec{font-size:13px;font-weight:800;color:#7c6ff7;border-bottom:2px solid #e8eaf0;padding-bottom:5px;margin:18px 0 10px}
+  .dna{background:#fffbe6;border:1px solid #ffe082;border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:11px}th{background:#f0f2f8;padding:6px 8px;text-align:right;font-weight:700}
+  td{padding:6px 8px;border-bottom:1px solid #eee}.badge{display:inline-block;padding:1px 7px;border-radius:7px;font-size:10px;font-weight:700}
+  .paid{background:rgba(79,209,165,.15);color:#2db87c}.pend{background:rgba(247,201,72,.15);color:#d49e00}.done{background:rgba(79,209,165,.15);color:#2db87c}
+  .month-header{background:#f0f2f8;font-weight:800;padding:6px 8px;font-size:12px}
+  footer{margin-top:28px;padding-top:14px;border-top:2px solid #e8eaf0;display:flex;justify-content:space-between;font-size:10px;color:#aaa}
+  @media print{body{padding:0;background:#fff}.page{box-shadow:none;border-radius:0}}</style></head>
+  <body><div class="page">
+  <h1>📊 تقرير العميل — ${c.name}</h1>
+  <h2>${studio} · ${from||'—'} → ${to||'—'} · صادر ${new Date().toLocaleDateString('ar-EG')}</h2>
+  <div class="dna">
+    <b style="color:#b8860b">🧬 DNA العميل</b> &nbsp;
+    ${c.dnaStyle?`أسلوبه: ${_dnaStyleMap[c.dnaStyle]||c.dnaStyle}`:''} 
+    ${c.dnaPayment?`· الدفع: ${_dnaPayMap[c.dnaPayment]||c.dnaPayment}`:''}
+    · <b>Value Score: ${score}/100</b> ${score>=80?'⭐ ذهبي':score>=60?'💎 ممتاز':score>=40?'✅ جيد':'⚠ منخفض'}
+    ${c.dnaNotes?`<br><i style="color:#888">${c.dnaNotes}</i>`:''}
+  </div>
+  <div class="cards">
+    <div class="card"><div class="v">${tasks.length}</div><div class="l">مشاريع</div></div>
+    <div class="card"><div class="v" style="color:#2db87c">${totalVal.toLocaleString()} ج</div><div class="l">إجمالي قيمة</div></div>
+    <div class="card"><div class="v" style="color:#2db87c">${totalPaid.toLocaleString()} ج</div><div class="l">✅ محصّل</div></div>
+    <div class="card"><div class="v" style="color:#d49e00">${totalPend.toLocaleString()} ج</div><div class="l">⏳ معلق</div></div>
+  </div>
+  <div class="sec">📋 تفاصيل المشاريع حسب الشهر</div>
+  <table><thead><tr><th>المشروع</th><th>التاريخ</th><th>التسليم</th><th>القيمة</th><th>الحالة</th></tr></thead><tbody>
+  ${Object.keys(byMonth).sort().reverse().map(mk=>`
+    <tr><td class="month-header" colspan="5">📅 ${mk}</td></tr>
+    ${byMonth[mk].map(t=>`<tr><td>${t.title}</td><td>${t.orderDate||'—'}</td><td>${t.deadline||'—'}</td><td>${t.value?(t.value.toLocaleString()+' ج'):'—'}</td><td><span class="badge ${t.done?'done':''}">${t.done?'✅ مكتمل':t.status||'—'}</span></td></tr>`).join('')}
+  `).join('')}
+  </tbody></table>
+  ${invs.length?`<div class="sec">🧾 الفواتير</div>
+  <table><thead><tr><th>رقم</th><th>التاريخ</th><th>الإجمالي</th><th>الحالة</th></tr></thead><tbody>
+  ${invs.map(i=>`<tr><td>#${i.num||'—'}</td><td>${i.date||'—'}</td><td>${i.total.toLocaleString()} ج</td><td><span class="badge ${i.status==='paid'?'paid':'pend'}">${i.status==='paid'?'مدفوع':'معلق'}</span></td></tr>`).join('')}
+  </tbody></table>`:''}
+  <footer><span>${studio}</span><span>تقرير العميل: ${c.name}</span></footer>
+  </div><${'script'}>window.onload=()=>setTimeout(()=>window.print(),400)</${'script'}></body></html>`;
+  const w=window.open('','_blank');w.document.write(html);w.document.close();
+}
+
+// ────────────────────────────────
+// PATCH openClientProfile: add Report button
+// ────────────────────────────────
+(function(){
+  const _orig=window.openClientProfile;
+  window.openClientProfile=function(id){
+    _orig(id);
+    // inject report button into header actions
+    setTimeout(()=>{
+      const actDiv=document.querySelector('#modal-client-profile .profile-header-actions');
+      if(actDiv&&!actDiv.querySelector('[data-report-btn]')){
+        const btn=document.createElement('button');
+        btn.className='btn btn-ghost btn-sm';
+        btn.setAttribute('data-report-btn','1');
+        btn.title='تقرير طباعي للعميل';
+        btn.textContent='📊 تقرير';
+        btn.onclick=()=>openClientReport(id);
+        actDiv.insertBefore(btn, actDiv.firstChild);
+      }
+    },100);
+  };
+})();
+
+// ────────────────────────────────
+// WIDGET HTML for new widgets
+// ────────────────────────────────
+(function(){
+  const _orig=window._widgetInnerHTML;
+  window._widgetInnerHTML=function(id){
+    if(id==='commitment'){
+      return '<div class="card" style="height:100%;border-color:rgba(79,209,165,.3)"><div class="section-title" style="color:var(--accent3)">🎯 مؤشر الالتزام بالمواعيد</div><div id="dash-commitment-inner"><div class="empty" style="padding:8px 0"><div style="font-size:12px">لا بيانات كافية</div></div></div></div>';
+    }
+    if(id==='momentum'){
+      return '<div class="card" style="height:100%;border-color:rgba(124,111,247,.3)"><div class="section-title" style="color:var(--accent)">⚡ مقياس الزخم (آخر 7 أيام)</div><div id="dash-momentum-inner"><div class="empty" style="padding:8px 0"><div style="font-size:12px">جارٍ الحساب...</div></div></div></div>';
+    }
+    if(id==='expected'){
+      return '<div class="card" style="height:100%;border-color:rgba(247,201,72,.3)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="section-title" style="margin:0;color:var(--accent2)">💰 الدخل المتوقع وسعة العمل</div><button onclick="document.getElementById(\'_capacity-modal\')&&(document.getElementById(\'_capacity-modal\').style.display=\'flex\')" class="btn btn-ghost btn-sm" style="font-size:10px">⚙</button></div><div id="dash-expected-inner"><div class="empty" style="padding:8px 0"><div style="font-size:12px">جارٍ الحساب...</div></div></div></div>';
+    }
+    if(id==='upcoming'){
+      return '<div class="card" style="height:100%;border-color:rgba(247,111,124,.3)"><div class="section-title" style="color:var(--accent4)">⏰ مواعيد خلال 48 ساعة</div><div id="dash-upcoming-inner"><div class="empty" style="padding:8px 0"><div class="empty-icon" style="font-size:18px">✅</div><div style="font-size:12px">لا مواعيد قريبة</div></div></div></div>';
+    }
+    if(id==='challenge'){
+      return '<div class="card" style="height:100%;border-color:rgba(247,201,72,.3)"><div class="section-title" style="color:var(--accent2)">🏆 تحدي الأسبوع</div><div id="dash-challenge-inner"><div class="empty" style="padding:8px 0"><div style="font-size:12px">جارٍ تحضير التحدي...</div></div></div></div>';
+    }
+    if(id==='silent'){
+      return '<div class="card" style="height:100%;border-color:rgba(124,111,247,.25)"><div class="section-title" style="color:var(--accent)">🔕 العملاء الهادئون (30+ يوم)</div><div id="dash-silent-clients"><div class="empty" style="padding:8px 0"><div style="font-size:12px">✅ كل العملاء في تواصل</div></div></div></div>';
+    }
+    return _orig(id);
+  };
+})();
+
+// ────────────────────────────────
+// UPCOMING DEADLINE BANNER on Tasks page
+// ────────────────────────────────
+function _renderTasksUpcomingBanner(){
+  let banner=document.getElementById('_tasks-deadline-banner');
+  const now=new Date();
+  const in48=new Date(now.getTime()+48*60*60*1000);
+  const urgent=S.tasks.filter(t=>{
+    if(t.done||!t.deadline)return false;
+    const d=new Date(t.deadline+'T23:59:59');
+    return d>=now&&d<=in48;
+  });
+  if(!urgent.length){if(banner)banner.remove();return;}
+  if(!banner){
+    banner=document.createElement('div');
+    banner.id='_tasks-deadline-banner';
+    const tasksPage=document.getElementById('page-tasks');
+    if(!tasksPage)return;
+    const firstChild=tasksPage.querySelector('.page-header');
+    if(firstChild)firstChild.insertAdjacentElement('afterend',banner);
+    else tasksPage.prepend(banner);
+  }
+  banner.innerHTML=`<div style="background:rgba(247,111,124,.1);border:1.5px solid rgba(247,111,124,.3);border-radius:12px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span style="font-size:15px">⏰</span>
+    <span style="font-size:12px;font-weight:700;color:var(--accent4)">تحذير مواعيد: ${urgent.length} مهمة موعدها خلال 48 ساعة —</span>
+    ${urgent.slice(0,3).map(t=>`<span onclick="openTaskDetail(${t.id})" style="font-size:11px;background:rgba(247,111,124,.15);padding:2px 10px;border-radius:20px;cursor:pointer;color:var(--accent4)">${t.title.slice(0,25)}</span>`).join('')}
+  </div>`;
+}
+
+// Patch renderAll / showPage to call banner
+(function(){
+  const _origRA=window.renderAll;
+  window.renderAll=function(){
+    _origRA();
+    _renderTasksUpcomingBanner();
+    renderNewWidgets();
+  };
+})();
+
+// ────────────────────────────────
+// CAPACITY SETTINGS MODAL (mini)
+// ────────────────────────────────
+(function(){
+  const modal=document.createElement('div');
+  modal.id='_capacity-modal';
+  modal.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5050;align-items:center;justify-content:center';
+  modal.innerHTML=`<div style="background:var(--surface);border-radius:14px;padding:20px;width:340px;max-width:95vw">
+    <div style="font-size:14px;font-weight:800;margin-bottom:12px">⚙ إعداد طاقة العمل الشهرية</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">كم مهمة نشطة تستطيع إدارتها في نفس الوقت؟</div>
+    <input id="_cap-input" type="number" min="1" max="50" class="form-input" style="margin-bottom:12px" placeholder="مثال: 10">
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="_saveCapacity()">💾 حفظ</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('_capacity-modal').style.display='none'">إلغاء</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  // init value
+  setTimeout(()=>{const inp=document.getElementById('_cap-input');if(inp)inp.value=S.settings?.monthlyCapacity||10;},500);
+})();
+
+function _saveCapacity(){
+  const v=+(document.getElementById('_cap-input')?.value)||10;
+  if(!S.settings)S.settings={};
+  S.settings.monthlyCapacity=v;
+  lsSave();cloudSave(S);
+  document.getElementById('_capacity-modal').style.display='none';
+  renderExpectedWidget();
+  if(typeof showMiniNotif==='function') showMiniNotif('✅ تم حفظ طاقة العمل: '+v+' مهمة');
+}
+
+// ────────────────────────────────
+// AUTO NOTIFICATIONS — patch existing checker
+// ────────────────────────────────
+(function(){
+  const _origCheck=window._autoCheckNotifications||window.checkAutoNotifs;
+  // Also add a new interval check for upcoming deadlines
+  const _origSetup=window.setupAutoNotifications||function(){};
+  setTimeout(function(){
+    const now=new Date();
+    const in24=new Date(now.getTime()+24*60*60*1000);
+    const in48=new Date(now.getTime()+48*60*60*1000);
+    const urgent24=S.tasks.filter(t=>{if(t.done||!t.deadline)return false;const d=new Date(t.deadline+'T23:59:59');return d>=now&&d<=in24;});
+    const urgent48=S.tasks.filter(t=>{if(t.done||!t.deadline)return false;const d=new Date(t.deadline+'T23:59:59');return d>in24&&d<=in48;});
+    if(urgent24.length&&typeof addNotification==='function'){
+      addNotification('🚨 '+urgent24.length+' مهمة موعدها خلال 24 ساعة!','warning');
+    }
+    if(urgent48.length&&typeof addNotification==='function'){
+      addNotification('⏰ '+urgent48.length+' مهمة موعدها خلال 48 ساعة','info');
+    }
+    // Silent clients
+    const silent=_checkSilentClients();
+    if(silent.length>0&&typeof addNotification==='function'){
+      addNotification('🔕 '+silent.length+' عميل لم يتواصل معك منذ أكثر من 30 يوم','info');
+    }
+    // Weekly challenge
+    _updateWeeklyChallengeProgress();
+  },2000);
+})();
+
+// ============================================================
 // KANBAN DRAG & DROP
 // ============================================================
 let _kbDragId = null;
@@ -12787,17 +13698,21 @@ window.addEventListener('load', function(){
 var _DASH_PRESETS_MAP = {
   default: [
     {id:'stats',       visible:true,  row:0, full:true},
+    {id:'commitment',  visible:true,  row:0, full:false},
+    {id:'momentum',    visible:true,  row:0, full:false},
+    {id:'upcoming',    visible:true,  row:1, full:false},
     {id:'overdue',     visible:true,  row:1, full:false},
     {id:'subs',        visible:true,  row:1, full:false},
-    {id:'kanban',      visible:true,  row:2, full:false},
-    {id:'uncollected', visible:true,  row:2, full:false},
-    {id:'team',        visible:true,  row:3, full:false},
-    {id:'teampay',     visible:true,  row:3, full:false},
-    {id:'tasks',       visible:true,  row:4, full:false},
-    {id:'schedule',    visible:true,  row:4, full:false},
-    {id:'invoices',    visible:true,  row:5, full:false},
-    {id:'goals',       visible:true,  row:5, full:false},
-    {id:'meetings',    visible:true,  row:6, full:true},
+    {id:'expected',    visible:true,  row:2, full:true},
+    {id:'kanban',      visible:true,  row:3, full:false},
+    {id:'uncollected', visible:true,  row:3, full:false},
+    {id:'team',        visible:true,  row:4, full:false},
+    {id:'teampay',     visible:true,  row:4, full:false},
+    {id:'tasks',       visible:true,  row:5, full:false},
+    {id:'schedule',    visible:true,  row:5, full:false},
+    {id:'invoices',    visible:true,  row:6, full:false},
+    {id:'goals',       visible:true,  row:6, full:false},
+    {id:'meetings',    visible:true,  row:7, full:true},
   ],
   compact: [
     {id:'stats',       visible:true,  row:0, full:true},
