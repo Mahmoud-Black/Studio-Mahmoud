@@ -13076,6 +13076,10 @@ function renderDashMeetings(){
 let _authInitialized = false;
 
 supa.auth.onAuthStateChange(async (event, session) => {
+  // ── Public service/portal pages: skip all auth handling ──
+  var _pup = new URLSearchParams(window.location.search);
+  if(_pup.get('svcorder') || (_pup.get('portal') && _pup.get('uid'))){ if(window._showApp) window._showApp(); return; }
+
   console.log('Auth event:', event, session?.user?.email);
 
   // TOKEN_REFRESHED = الـ session اتجدد تلقائياً — مش محتاج login جديد
@@ -13144,6 +13148,10 @@ supa.auth.onAuthStateChange(async (event, session) => {
 
 // initAuth — render UI and set fallback timeout
 async function initAuthFallback(){
+  // ── Public pages: skip all auth/dashboard init entirely ──
+  var _pu = new URLSearchParams(window.location.search);
+  if(_pu.get('svcorder') || (_pu.get('portal') && _pu.get('uid'))){ return; }
+
   loadThemePreferences();
   renderAll();
   updateHeader('dashboard');
@@ -15296,7 +15304,8 @@ function _checkSvcOrderUrl(){
   var portalId=params.get('portal');
   if(portalId && params.get('uid')) { _buildClientPortalPage(params.get('uid'), portalId); return; }
   if(!uid) return;
-  // Immediately replace body to avoid showing dashboard
+  // Show body (was hidden) then replace content
+  if(window._showApp) window._showApp();
   document.body.innerHTML='<div style="position:fixed;inset:0;background:#f0f0f8;display:flex;align-items:center;justify-content:center;font-family:Cairo,Tajawal,sans-serif;direction:rtl"><div style="text-align:center"><div style="font-size:36px;margin-bottom:12px">⏳</div><div style="font-size:14px;color:#666">جاري تحميل الصفحة...</div></div></div>';
   document.body.style.cssText='margin:0;padding:0;background:#f0f0f8;font-family:Cairo,Tajawal,sans-serif;direction:rtl';
   _buildSvcOrderPage(uid);
@@ -15305,10 +15314,10 @@ function _checkSvcOrderUrl(){
 (function(){
   var p=new URLSearchParams(window.location.search);
   if(p.get('svcorder')||( p.get('portal')&&p.get('uid') )){
-    // hide everything immediately
-    document.documentElement.style.visibility='hidden';
+    // Mark as public page — auth functions check this flag
+    window._isPublicPage = true;
+    // body is already visibility:hidden from HTML attr — just call check on DOM ready
     document.addEventListener('DOMContentLoaded',function(){
-      document.documentElement.style.visibility='';
       _checkSvcOrderUrl();
     });
   }
