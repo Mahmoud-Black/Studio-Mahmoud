@@ -2257,7 +2257,13 @@ setTimeout(window._showApp, 4000);
 <div class="page" id="page-team">
   <div class="page-header">
     <div><div class="page-title">فريق <span>العمل</span></div><div class="page-subtitle">تابع أعضاء الفريق ومشاريعهم</div></div>
-    <button class="btn btn-primary" onclick="openTeamModal()">+ فريق جديد</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-ghost btn-sm" onclick="openTeamInviteInbox()" id="team-invite-inbox-btn" style="position:relative">
+        📬 الدعوات
+        <span id="team-invite-inbox-badge" style="display:none;position:absolute;top:-5px;left:-5px;background:var(--accent4);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center">0</span>
+      </button>
+      <button class="btn btn-primary" onclick="openTeamModal()">+ فريق جديد</button>
+    </div>
   </div>
 
   <!-- Team Member Profile (hidden by default) -->
@@ -2341,6 +2347,16 @@ setTimeout(window._showApp, 4000);
 
   <!-- Teams Grid (shown by default) -->
   <div id="teams-grid-view">
+    <!-- فرق أنت عضو فيها -->
+    <div id="my-member-teams-section" style="display:none;margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:800;color:var(--accent3)">👥 الفرق التي أنا عضو فيها</div>
+        <span id="my-member-teams-count" style="background:rgba(79,209,165,.15);color:var(--accent3);font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">0</span>
+      </div>
+      <div id="my-member-teams-grid" class="grid grid-3"></div>
+      <div style="height:1px;background:var(--border);margin-bottom:20px;margin-top:4px"></div>
+    </div>
+    <!-- فرقك أنت -->
     <div id="teams-grid" class="grid grid-3">
       <div class="empty card" style="grid-column:span 3"><div class="empty-icon">👥</div>لا فرق بعد — أضف فريق عمل<br><div style="margin-top:12px"><button class="btn btn-primary" onclick="openTeamModal()">+ فريق جديد</button></div></div>
     </div>
@@ -4307,9 +4323,11 @@ function showPage(id,el){
   applyPlatformConfig();
   // After page is active, force-render the specific page
   if(id === 'services'){
+    // Immediate + delayed render to ensure S is loaded
+    if(typeof window.renderServices === 'function') window.renderServices();
     setTimeout(function(){
       if(typeof window.renderServices === 'function') window.renderServices();
-    }, 30);
+    }, 300);
   }
 }
 
@@ -10465,6 +10483,9 @@ function renderTeams(){
   const badge = document.getElementById('team-badge');
   if(badge){ badge.textContent=totalMembers; badge.style.display=totalMembers?'inline-block':'none'; }
 
+  // Also render "teams I'm a member of"
+  renderMyMemberTeams();
+
   grid.innerHTML = S.teams.map(team=>`
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
@@ -13899,6 +13920,252 @@ function incReceiptClear(){
 }
 
 // ═══════════════════════════════════════════════════
+// TEAM INVITE INBOX + MEMBER PROFILE ENHANCED
+// ═══════════════════════════════════════════════════
+
+// ─── Inbox: show pending invites in a modal ───
+window.openTeamInviteInbox = function(){
+  var invites = window._pendingTeamInvites || [];
+  var memberships = window._myTeamMemberships || [];
+  
+  var ex = document.getElementById('_team-inbox-overlay');
+  if(ex) ex.remove();
+  
+  var overlay = document.createElement('div');
+  overlay.id = '_team-inbox-overlay';
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex';
+  
+  var pendingHtml = invites.length ? invites.map(function(inv,i){
+    var roleMatch = inv.body && inv.body.match(/كـ (.+?) في فريق/);
+    var roleText = roleMatch ? roleMatch[1] : 'عضو';
+    return '<div style="background:var(--surface2);border:1.5px solid rgba(124,111,247,.25);border-radius:14px;padding:16px;margin-bottom:10px">'
+      +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'
+        +'<div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent3));display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🏢</div>'
+        +'<div style="flex:1">'
+          +'<div style="font-size:14px;font-weight:800">'+escapeHtml(inv.ownerName||'مشرف')+'</div>'
+          +'<div style="font-size:12px;color:var(--text3)">دعوة للانضمام لـ <strong style="color:var(--accent)">'+escapeHtml(inv.teamName||'فريق')+'</strong> · دورك: '+escapeHtml(roleText)+'</div>'
+        +'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:8px">'
+        +'<button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" data-inv-idx="'+i+'" onclick="window._inboxRejectInvite(+this.dataset.invIdx)">✕ رفض</button>'
+        +'<button class="btn btn-primary btn-sm" style="flex:2;justify-content:center" data-inv-idx="'+i+'" onclick="window._inboxAcceptInvite(+this.dataset.invIdx)">✅ قبول الدعوة</button>'
+      +'</div>'
+    +'</div>';
+  }).join('') : '<div style="text-align:center;padding:24px;color:var(--text3)"><div style="font-size:36px;margin-bottom:10px">📭</div><div style="font-size:13px">لا توجد دعوات معلقة</div></div>';
+
+  var membersHtml = memberships.length ? '<div style="margin-top:8px">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:10px">✅ الفرق التي أنا عضو فيها</div>'
+    +memberships.map(function(m){
+      var tc = m.tasks ? m.tasks.length : 0;
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(79,209,165,.06);border:1px solid rgba(79,209,165,.2);border-radius:10px;margin-bottom:6px">'
+        +'<span style="font-size:18px">🏢</span>'
+        +'<div style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--accent3)">'+escapeHtml(m.ownerName)+'</div><div style="font-size:11px;color:var(--text3)">'+escapeHtml(m.teamName)+' · '+escapeHtml(m.role||'عضو')+'</div></div>'
+        +(tc ? '<span style="font-size:10px;background:rgba(247,201,72,.2);color:var(--accent2);padding:2px 8px;border-radius:8px;font-weight:700">'+tc+' مهام</span>' : '<span style="font-size:10px;color:var(--accent3)">✓ محدث</span>')
+      +'</div>';
+    }).join('')
+  +'</div>' : '';
+
+  overlay.innerHTML = '<div class="modal" style="max-width:480px;max-height:88vh;overflow-y:auto">'
+    +'<div class="modal-header" style="position:sticky;top:0;background:var(--surface);z-index:2">'
+      +'<div class="modal-title">📬 صندوق الدعوات</div>'
+      +'<button class="close-btn" id="_inbox-close-btn">✕</button>'
+    +'</div>'
+    +(invites.length ? '<div style="background:rgba(124,111,247,.07);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--accent)">🔔 لديك <strong>'+invites.length+'</strong> دعوة جديدة تنتظر ردك</div>' : '')
+    +pendingHtml
+    +membersHtml
+  +'</div>';
+  
+  document.body.appendChild(overlay);
+  overlay.querySelector('#_inbox-close-btn').onclick = function(){ overlay.remove(); };
+  overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+};
+
+window._inboxAcceptInvite = function(idx){
+  var invites = window._pendingTeamInvites || [];
+  var inv = invites[idx]; if(!inv) return;
+  invites.splice(idx, 1);
+  window._pendingTeamInvites = invites;
+  _updateInboxBadge();
+  // Re-check membership
+  var em = null;
+  try{ var _s=JSON.parse(localStorage.getItem('studioOS_auth_v1')||'{}'); em=_s&&_s.email?_s.email:null; }catch(e){}
+  if(em) window._checkTeamMembership(em);
+  showMiniNotif('🎉 انضممت لفريق "'+inv.teamName+'"!');
+  var inbox = document.getElementById('_team-inbox-overlay');
+  if(inbox) inbox.remove();
+  setTimeout(function(){ renderTeams(); renderMyMemberTeams(); openTeamInviteInbox(); }, 600);
+};
+
+window._inboxRejectInvite = function(idx){
+  var invites = window._pendingTeamInvites || [];
+  var inv = invites[idx]; if(!inv) return;
+  invites.splice(idx, 1);
+  window._pendingTeamInvites = invites;
+  _updateInboxBadge();
+  showMiniNotif('تم رفض دعوة "'+inv.teamName+'"');
+  var inbox = document.getElementById('_team-inbox-overlay');
+  if(inbox) inbox.remove();
+  setTimeout(openTeamInviteInbox, 200);
+};
+
+function _updateInboxBadge(){
+  var invites = window._pendingTeamInvites || [];
+  var badge = document.getElementById('team-invite-inbox-badge');
+  if(!badge) return;
+  if(invites.length){
+    badge.textContent = invites.length;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// ─── Render member teams in team page ───
+function renderMyMemberTeams(){
+  var section = document.getElementById('my-member-teams-section');
+  var grid    = document.getElementById('my-member-teams-grid');
+  var countEl = document.getElementById('my-member-teams-count');
+  var memberships = window._myTeamMemberships || [];
+  
+  if(!section || !grid) return;
+  
+  if(!memberships.length){
+    section.style.display = 'none';
+    return;
+  }
+  
+  section.style.display = '';
+  if(countEl) countEl.textContent = memberships.length;
+  
+  grid.innerHTML = memberships.map(function(m){
+    var tasks = m.tasks || [];
+    var doneTasks = m.doneTasks || [];
+    var lateTasks = tasks.filter(function(t){ return t.deadline && new Date(t.deadline) < new Date(); });
+    return '<div class="card" style="cursor:pointer;transition:border-color .15s,transform .15s" data-oid="'+m.ownerId+'" onclick="openMyMemberTeamProfile(this.dataset.oid)" onmouseenter="this.style.borderColor=\'var(--accent3)\';this.style.transform=\'translateY(-2px)\'" onmouseleave="this.style.borderColor=\'\';this.style.transform=\'\'">'
+      +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
+        +(m.ownerLogo ? '<img src="'+escapeHtml(m.ownerLogo)+'" style="width:44px;height:44px;border-radius:12px;object-fit:cover;flex-shrink:0">'
+          : '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent3));display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🏢</div>')
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:15px;font-weight:800;color:var(--accent3)">'+escapeHtml(m.ownerName)+'</div>'
+          +'<div style="font-size:11px;color:var(--text3)">'+escapeHtml(m.teamName)+'</div>'
+        +'</div>'
+        +'<span style="font-size:10px;background:rgba(79,209,165,.12);color:var(--accent3);padding:3px 10px;border-radius:8px;font-weight:700">'+escapeHtml(m.role||'عضو')+'</span>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">'
+        +'<div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center">'
+          +'<div style="font-size:20px;font-weight:900;color:var(--accent4)">'+tasks.length+'</div>'
+          +'<div style="font-size:10px;color:var(--text3)">نشطة</div>'
+        +'</div>'
+        +'<div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center">'
+          +'<div style="font-size:20px;font-weight:900;color:var(--accent3)">'+doneTasks.length+'</div>'
+          +'<div style="font-size:10px;color:var(--text3)">مكتملة</div>'
+        +'</div>'
+        +'<div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center">'
+          +'<div style="font-size:20px;font-weight:900;color:'+(lateTasks.length?'var(--accent4)':'var(--accent3)')+'">'+lateTasks.length+'</div>'
+          +'<div style="font-size:10px;color:var(--text3)">متأخرة</div>'
+        +'</div>'
+      +'</div>'
+      +(tasks.length ? '<div style="font-size:11px;color:var(--text3);border-top:1px solid var(--border);padding-top:10px">👆 اضغط لعرض مهامك التفصيلية</div>' : '<div style="font-size:11px;color:var(--accent3);border-top:1px solid var(--border);padding-top:10px">✅ لا مهام نشطة حاليًا</div>')
+    +'</div>';
+  }).join('');
+}
+
+// ─── Full profile modal for "teams I'm a member of" ───
+window.openMyMemberTeamProfile = function(ownerId){
+  var membership = (window._myTeamMemberships||[]).find(function(m){ return m.ownerId===ownerId; });
+  if(!membership) return;
+  
+  var tasks = membership.tasks || [];
+  var doneTasks = membership.doneTasks || [];
+  
+  var ex = document.getElementById('_member-team-modal');
+  if(ex) ex.remove();
+  
+  var overlay = document.createElement('div');
+  overlay.id = '_member-team-modal';
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex';
+  
+  var tasksHtml = tasks.length ? tasks.map(function(t){
+    var isLate = t.deadline && new Date(t.deadline) < new Date();
+    var daysLeft = t.deadline ? Math.ceil((new Date(t.deadline) - new Date()) / 864e5) : null;
+    var stepsTotal = t.steps ? t.steps.length : 0;
+    var stepsDone  = t.steps ? t.steps.filter(function(s){ return s.done; }).length : 0;
+    var pct = stepsTotal ? Math.round(stepsDone / stepsTotal * 100) : 0;
+    var stMap = {new:'📋 جديد', progress:'⚡ جاري', review:'🔍 مراجعة', paused:'⏸ موقوف', done:'✅ مكتمل'};
+    return '<div style="background:var(--surface2);border:1px solid var(--border);border-right:3px solid '+(isLate?'var(--accent4)':'var(--accent)')+';border-radius:12px;padding:12px 14px;margin-bottom:8px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
+        +'<div style="flex:1">'
+          +'<div style="font-size:14px;font-weight:700;margin-bottom:3px">'+escapeHtml(t.title)+'</div>'
+          +'<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--text3)">'
+            +(t.client ? '<span>👤 '+escapeHtml(t.client)+'</span>' : '')
+            +'<span>'+( stMap[t.status||'new'] )+'</span>'
+            +(t.workerAmount ? '<span style="color:var(--accent4);font-weight:700">مستحق: '+Number(t.workerAmount).toLocaleString()+' ج</span>' : '')
+          +'</div>'
+        +'</div>'
+        +'<div style="text-align:left;flex-shrink:0;padding-right:8px">'
+          +(t.deadline ? '<div style="font-size:11px;font-weight:700;color:'+(isLate?'var(--accent4)':(daysLeft<=2?'var(--accent2)':'var(--accent3)'))+'">'+(isLate?'⚠ متأخرة':daysLeft+' يوم')+'</div>' : '')
+        +'</div>'
+      +'</div>'
+      +(stepsTotal ? '<div>'
+        +'<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:3px"><span>خطوات التنفيذ</span><span>'+stepsDone+'/'+stepsTotal+' ('+pct+'%)</span></div>'
+        +'<div style="height:5px;background:var(--surface3);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,var(--accent),var(--accent3));border-radius:3px;transition:.3s"></div></div>'
+        +'<div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">'
+          +t.steps.map(function(s){
+            return '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:'+(s.done?'var(--accent3)':'var(--text2)')+'">'
+              +'<div style="width:14px;height:14px;border-radius:3px;border:1.5px solid '+(s.done?'var(--accent3)':'var(--border)')+';background:'+(s.done?'var(--accent3)':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px">'+(s.done?'✓':'')+'</div>'
+              +'<span style="'+(s.done?'text-decoration:line-through;opacity:.6':'')+'">'+escapeHtml(s.title||s.text||s.name||'خطوة')+'</span>'
+            +'</div>';
+          }).join('')
+        +'</div>'
+      +'</div>' : '')
+    +'</div>';
+  }).join('') : '<div class="empty" style="padding:20px;text-align:center"><div style="font-size:28px;margin-bottom:8px">✅</div><div style="font-size:12px;color:var(--text3)">لا مهام نشطة الآن</div></div>';
+  
+  var doneHtml = doneTasks.slice(0,8).map(function(t){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:5px">'
+      +'<span style="color:var(--accent3);font-size:14px">✓</span>'
+      +'<span style="font-size:12px;color:var(--text2);text-decoration:line-through;flex:1">'+escapeHtml(t.title)+'</span>'
+      +(t.workerAmount ? '<span style="font-size:11px;color:var(--accent3);font-weight:700">'+Number(t.workerAmount).toLocaleString()+' ج</span>' : '')
+    +'</div>';
+  }).join('');
+
+  overlay.innerHTML = '<div class="modal" style="max-width:560px;max-height:92vh;overflow-y:auto;padding:0">'
+    // Header
+    +'<div style="background:linear-gradient(135deg,rgba(124,111,247,.12),rgba(79,209,165,.08));padding:20px 24px;border-radius:var(--radius) var(--radius) 0 0;position:sticky;top:0;backdrop-filter:blur(8px);z-index:2">'
+      +'<div style="display:flex;align-items:center;gap:14px">'
+        +(membership.ownerLogo ? '<img src="'+escapeHtml(membership.ownerLogo)+'" style="width:52px;height:52px;border-radius:14px;object-fit:cover">'
+          : '<div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent3));display:flex;align-items:center;justify-content:center;font-size:24px">🏢</div>')
+        +'<div style="flex:1">'
+          +'<div style="font-size:17px;font-weight:900">'+escapeHtml(membership.ownerName)+'</div>'
+          +'<div style="font-size:12px;color:var(--text3)">'+escapeHtml(membership.teamName)+' · دورك: <strong style="color:var(--accent)">'+escapeHtml(membership.role||'عضو')+'</strong></div>'
+        +'</div>'
+        +'<button class="close-btn" id="_mmt-close">✕</button>'
+      +'</div>'
+      // Stats row
+      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px">'
+        +'<div style="background:rgba(0,0,0,.2);border-radius:10px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:900;color:var(--accent4)">'+tasks.length+'</div><div style="font-size:10px;color:var(--text3)">مهام نشطة</div></div>'
+        +'<div style="background:rgba(0,0,0,.2);border-radius:10px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:900;color:var(--accent3)">'+doneTasks.length+'</div><div style="font-size:10px;color:var(--text3)">مكتملة</div></div>'
+        +'<div style="background:rgba(0,0,0,.2);border-radius:10px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:900;color:var(--accent2)">'+tasks.filter(function(t){return t.deadline&&new Date(t.deadline)<new Date();}).length+'</div><div style="font-size:10px;color:var(--text3)">متأخرة</div></div>'
+      +'</div>'
+    +'</div>'
+    // Body
+    +'<div style="padding:20px">'
+      // Active tasks
+      +'<div style="font-size:13px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:8px">📋 مهامي النشطة <span style="font-size:10px;background:rgba(247,201,72,.2);color:var(--accent2);padding:2px 8px;border-radius:8px;font-weight:700">'+tasks.length+'</span></div>'
+      +tasksHtml
+      +(doneTasks.length ? '<div style="font-size:13px;font-weight:800;margin-top:16px;margin-bottom:10px;color:var(--accent3)">✅ مكتملة ('+doneTasks.length+')</div>'+doneHtml : '')
+    +'</div>'
+  +'</div>';
+  
+  document.body.appendChild(overlay);
+  overlay.querySelector('#_mmt-close').onclick = function(){ overlay.remove(); };
+  overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+};
+
+
+// ═══════════════════════════════════════════════════
 // TEAM MEMBERSHIP SYSTEM
 // ═══════════════════════════════════════════════════
 (function(){
@@ -13933,6 +14200,8 @@ function incReceiptClear(){
         } catch(e){}
       });
       window._myTeamMemberships = memberships;
+      if(typeof renderMyMemberTeams === 'function') renderMyMemberTeams();
+      _updateInboxBadge();
       if(memberships.length){
         _showTeamMembershipBanner(memberships);
         var knownKey  = 'known_teams_'+(_supaUserId||'g');
@@ -13980,6 +14249,13 @@ function incReceiptClear(){
   })();
 
   window._showTeamInviteDialog = function(invites){
+    // Store for inbox button
+    if(!window._pendingTeamInvites) window._pendingTeamInvites = [];
+    invites.forEach(function(inv){
+      var exists = window._pendingTeamInvites.find(function(x){ return x.id===inv.id; });
+      if(!exists) window._pendingTeamInvites.push(inv);
+    });
+    _updateInboxBadge();
     var existing = document.getElementById('_team-invite-overlay');
     if(existing) existing.remove();
     var invite = invites[0];
@@ -14191,7 +14467,8 @@ function clearSvcBanner(){
 
 function renderServices(){
   try {
-    if(!document.getElementById('page-services')) return;
+    var pg = document.getElementById('page-services');
+    if(!pg) return;
     if(typeof S==='undefined') return;
     var linkEl=document.getElementById('svc-link-text');
     if(linkEl){ try{ linkEl.textContent=getSvcLink(); }catch(e){ linkEl.textContent='—'; } }
