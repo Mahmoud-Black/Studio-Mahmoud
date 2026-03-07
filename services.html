@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>خدماتنا</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c28;
+    --border: rgba(255,255,255,.08);
+    --text: #f0f0f5;
+    --text2: #a0a0b8;
+    --text3: #5a5a72;
+    --accent: #7c6ff7;
+    --accent2: #f9c846;
+    --accent3: #4fd1a5;
+    --accent4: #f76f7c;
+    --grad: linear-gradient(135deg, #7c6ff7 0%, #4fd1a5 100%);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Cairo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Background mesh ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 20%, rgba(124,111,247,.12) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 35% at 80% 80%, rgba(79,209,165,.08) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 30% at 60% 10%, rgba(249,200,70,.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ── Loader ── */
+  #loader {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    transition: opacity .5s;
+  }
+  #loader.hidden { opacity: 0; pointer-events: none; }
+  .loader-ring {
+    width: 48px; height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Error / Empty ── */
+  #error-page, #empty-page {
+    position: fixed; inset: 0; z-index: 999;
+    background: var(--bg);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 30px;
+  }
+  #error-page.show, #empty-page.show { display: flex; }
+  .error-icon { font-size: 64px; margin-bottom: 20px; }
+  .error-title { font-size: 22px; font-weight: 900; margin-bottom: 8px; }
+  .error-sub { font-size: 14px; color: var(--text3); }
+
+  /* ── Main app wrapper ── */
+  #app { position: relative; z-index: 1; display: none; min-height: 100vh; }
+  #app.show { display: block; }
+
+  /* ── HEADER ── */
+  .hero {
+    padding: 40px 20px 32px;
+    text-align: center;
+    position: relative;
+  }
+  .studio-logo {
+    width: 72px; height: 72px;
+    border-radius: 20px;
+    object-fit: cover;
+    margin: 0 auto 16px;
+    display: block;
+    border: 2.5px solid rgba(124,111,247,.4);
+    box-shadow: 0 8px 32px rgba(124,111,247,.25);
+  }
+  .studio-logo-placeholder {
+    width: 72px; height: 72px;
+    border-radius: 20px;
+    background: var(--grad);
+    margin: 0 auto 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+    box-shadow: 0 8px 32px rgba(124,111,247,.25);
+  }
+  .studio-name {
+    font-size: 26px; font-weight: 900;
+    background: var(--grad);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+  }
+  .studio-tagline {
+    font-size: 14px; color: var(--text2);
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 14px;
+    padding: 6px 14px;
+    background: rgba(79,209,165,.1);
+    border: 1px solid rgba(79,209,165,.25);
+    border-radius: 20px;
+    font-size: 12px; color: var(--accent3); font-weight: 700;
+  }
+  .hero-badge::before { content: ''; width: 7px; height: 7px; background: var(--accent3); border-radius: 50%; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+
+  /* ── TABS ── */
+  .tabs-bar {
+    display: flex;
+    gap: 0;
+    max-width: 600px;
+    margin: 0 auto 24px;
+    padding: 0 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 12px 8px;
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-family: 'Cairo', sans-serif;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: all .2s;
+    border-radius: 10px;
+    margin: 4px;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(124,111,247,.4);
+  }
+  .tab-btn:hover:not(.active) { color: var(--text); background: var(--surface2); }
+
+  /* ── TAB PANELS ── */
+  .tab-panel { display: none; padding: 0 16px 40px; max-width: 700px; margin: 0 auto; }
+  .tab-panel.active { display: block; }
+
+  /* ── SERVICE CARDS ── */
+  .services-grid {
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .svc-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    transition: transform .2s, border-color .2s, box-shadow .2s;
+    cursor: pointer;
+  }
+  .svc-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(124,111,247,.35);
+    box-shadow: 0 8px 30px rgba(124,111,247,.12);
+  }
+  .svc-card-img {
+    width: 100%; height: 180px;
+    object-fit: cover;
+    display: block;
+  }
+  .svc-card-img-placeholder {
+    width: 100%; height: 120px;
+    background: linear-gradient(135deg, var(--surface2), var(--surface));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px;
+  }
+  .svc-card-body { padding: 16px; }
+  .svc-card-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .svc-card-name { font-size: 16px; font-weight: 800; }
+  .svc-card-price {
+    font-size: 18px; font-weight: 900;
+    color: var(--accent);
+    white-space: nowrap;
+    text-align: left;
+  }
+  .svc-card-price-unit {
+    font-size: 11px; color: var(--text3); font-weight: 500;
+    display: block;
+  }
+  .svc-card-desc { font-size: 12px; color: var(--text2); line-height: 1.7; margin-bottom: 12px; }
+  .svc-card-packages {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .svc-card-packages-title { font-size: 11px; color: var(--text3); font-weight: 700; margin-bottom: 4px; }
+  .pkg-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+  .pkg-row:hover { border-color: rgba(124,111,247,.4); }
+  .pkg-row-img {
+    width: 44px; height: 44px;
+    border-radius: 8px; object-fit: cover; flex-shrink: 0;
+  }
+  .pkg-row-img-ph {
+    width: 44px; height: 44px;
+    border-radius: 8px; background: var(--surface);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .pkg-row-info { flex: 1; }
+  .pkg-row-name { font-size: 13px; font-weight: 700; }
+  .pkg-row-items { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .pkg-row-price {
+    font-size: 15px; font-weight: 900;
+    color: var(--accent3);
+    white-space: nowrap;
+  }
+
+  .order-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--grad);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-family: 'Cairo', sans-serif;
+    font-size: 14px; font-weight: 700;
+    cursor: pointer;
+    margin-top: 14px;
+    transition: opacity .2s, transform .15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .order-btn:hover { opacity: .9; transform: scale(.99); }
+
+  /* ── ORDER PANEL ── */
+  #order-panel {
+    display: none;
+  }
+  #order-panel.active { display: block; }
+  .order-header {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .order-header-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .order-header-svc {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: rgba(124,111,247,.08);
+    border: 1px solid rgba(124,111,247,.2);
+    border-radius: 10px;
+  }
+  .order-header-svc-icon { font-size: 20px; }
+  .order-header-svc-name { font-size: 13px; font-weight: 700; flex: 1; }
+  .order-header-svc-price { font-size: 15px; font-weight: 900; color: var(--accent); }
+
+  .form-label { font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 6px; display: block; }
+  .form-input {
+    width: 100%; padding: 12px 14px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'Cairo', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--text3); }
+  textarea.form-input { resize: vertical; min-height: 80px; }
+  .form-group { margin-bottom: 14px; }
+
+  .submit-btn {
+    width: 100%;
+    padding: 15px;
+    background: var(--grad);
+    border: none;
+    border-radius: 14px;
+    color: #fff;
+    font-family: 'Cairo', sans-serif;
+    font-size: 16px; font-weight: 900;
+    cursor: pointer;
+    transition: opacity .2s, transform .15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-top: 20px;
+  }
+  .submit-btn:hover { opacity: .9; transform: scale(.99); }
+  .submit-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+  .select-first {
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+    padding: 28px 20px;
+    text-align: center;
+    color: var(--text3);
+  }
+  .select-first-icon { font-size: 36px; margin-bottom: 10px; }
+
+  /* ── ABOUT TAB ── */
+  .about-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .about-logo {
+    width: 80px; height: 80px;
+    border-radius: 20px;
+    margin: 0 auto 16px;
+    display: block;
+    object-fit: cover;
+  }
+  .about-logo-ph {
+    width: 80px; height: 80px;
+    border-radius: 20px;
+    background: var(--grad);
+    margin: 0 auto 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+  }
+  .about-name { font-size: 22px; font-weight: 900; margin-bottom: 8px; }
+  .about-desc { font-size: 13px; color: var(--text2); line-height: 1.8; }
+  .contact-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 8px;
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color .15s;
+  }
+  .contact-row:hover { border-color: rgba(124,111,247,.35); }
+  .contact-icon { font-size: 20px; }
+  .contact-label { font-size: 12px; color: var(--text3); }
+  .contact-value { font-size: 13px; font-weight: 700; }
+
+  /* ── SUCCESS SCREEN ── */
+  #success-screen {
+    display: none;
+    position: fixed; inset: 0; z-index: 500;
+    background: var(--bg);
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 30px;
+  }
+  #success-screen.show { display: flex; }
+  .success-icon {
+    font-size: 80px;
+    margin-bottom: 20px;
+    animation: bounceIn .6s cubic-bezier(.3,1.5,.5,1);
+  }
+  @keyframes bounceIn { 0%{transform:scale(0);opacity:0} 100%{transform:scale(1);opacity:1} }
+  .success-title { font-size: 26px; font-weight: 900; color: var(--accent3); margin-bottom: 10px; }
+  .success-sub { font-size: 14px; color: var(--text2); line-height: 1.7; }
+
+  /* ── Animations ── */
+  @keyframes fadeUp { 0%{opacity:0;transform:translateY(20px)} 100%{opacity:1;transform:translateY(0)} }
+  .fade-up { animation: fadeUp .4s ease both; }
+  .delay-1 { animation-delay: .05s; }
+  .delay-2 { animation-delay: .1s; }
+  .delay-3 { animation-delay: .15s; }
+  .delay-4 { animation-delay: .2s; }
+
+  /* ── Notification bar ── */
+  #notif-bar {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 30px;
+    padding: 10px 20px;
+    font-size: 13px; font-weight: 700;
+    z-index: 9999;
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s;
+    white-space: nowrap;
+    box-shadow: 0 8px 30px rgba(0,0,0,.4);
+  }
+  #notif-bar.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- Loader -->
+<div id="loader">
+  <div class="loader-ring"></div>
+  <div style="font-size:13px;color:var(--text3)">جاري التحميل...</div>
+</div>
+
+<!-- Error page -->
+<div id="error-page">
+  <div class="error-icon">🔒</div>
+  <div class="error-title">الرابط غير صالح</div>
+  <div class="error-sub">تحقق من صحة الرابط أو تواصل مع من أرسله لك</div>
+</div>
+
+<!-- Empty page -->
+<div id="empty-page">
+  <div class="error-icon">🛍</div>
+  <div class="error-title">لا خدمات متاحة حالياً</div>
+  <div class="error-sub">سيتم إضافة الخدمات قريباً — تواصل معنا للاستفسار</div>
+</div>
+
+<!-- Success screen -->
+<div id="success-screen">
+  <div class="success-icon">✅</div>
+  <div class="success-title">تم إرسال طلبك!</div>
+  <div class="success-sub">شكراً لك 🙏<br>سيتواصل معك الفريق على واتساب في أقرب وقت</div>
+</div>
+
+<!-- Main App -->
+<div id="app">
+  <!-- Hero -->
+  <div class="hero fade-up">
+    <div id="studio-logo-wrap"></div>
+    <div class="studio-name" id="studio-name-el">الاستوديو</div>
+    <div class="studio-tagline" id="studio-tagline-el">اختر الخدمة التي تحتاجها</div>
+    <div class="hero-badge">متاح الآن للطلب</div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-bar fade-up delay-1">
+    <button class="tab-btn active" onclick="switchTab('services')" id="tab-services">
+      🛍 الخدمات
+    </button>
+    <button class="tab-btn" onclick="switchTab('order')" id="tab-order">
+      📝 اطلب الآن
+    </button>
+    <button class="tab-btn" onclick="switchTab('about')" id="tab-about">
+      ℹ️ من نحن
+    </button>
+  </div>
+
+  <!-- Services Tab -->
+  <div class="tab-panel active" id="panel-services">
+    <div class="services-grid fade-up delay-2" id="services-grid"></div>
+  </div>
+
+  <!-- Order Tab -->
+  <div class="tab-panel" id="panel-order">
+    <div id="selected-svc-display" class="select-first fade-up">
+      <div class="select-first-icon">👆</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px">اختر خدمة أولاً</div>
+      <div style="font-size:12px">اذهب لتبويب الخدمات واختر ما تحتاجه</div>
+    </div>
+
+    <div id="order-form-wrap" style="display:none">
+      <div class="order-header fade-up">
+        <div class="order-header-title">📋 تفاصيل طلبك</div>
+        <div class="order-header-svc">
+          <span class="order-header-svc-icon">🛍</span>
+          <span class="order-header-svc-name" id="order-svc-name">—</span>
+          <span class="order-header-svc-price" id="order-svc-price">—</span>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text3);text-align:center;cursor:pointer" onclick="switchTab('services')">
+          🔄 تغيير الخدمة
+        </div>
+      </div>
+
+      <div class="fade-up delay-1">
+        <div class="form-group">
+          <label class="form-label">اسمك الكريم *</label>
+          <input class="form-input" id="ord-name" placeholder="أدخل اسمك الكامل">
+        </div>
+        <div class="form-group">
+          <label class="form-label">رقم الواتساب *</label>
+          <input class="form-input" id="ord-phone" placeholder="01xxxxxxxxx" type="tel">
+        </div>
+        <div class="form-group">
+          <label class="form-label">البريد الإلكتروني <span style="font-weight:400;color:var(--text3)">(اختياري)</span></label>
+          <input class="form-input" id="ord-email" placeholder="example@email.com" type="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">وصف طلبك</label>
+          <textarea class="form-input" id="ord-desc" placeholder="اشرح ما تحتاجه بالتفصيل، وأي تفاصيل إضافية..."></textarea>
+        </div>
+        <button class="submit-btn" onclick="submitOrder()" id="submit-btn">
+          <span>✅</span> إرسال الطلب
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- About Tab -->
+  <div class="tab-panel" id="panel-about">
+    <div class="about-card fade-up">
+      <div id="about-logo-wrap"></div>
+      <div class="about-name" id="about-name">الاستوديو</div>
+      <div class="about-desc" id="about-desc">نقدم أفضل الخدمات الإبداعية لمساعدتك في تحقيق أهدافك.</div>
+    </div>
+    <div id="contact-links"></div>
+  </div>
+</div>
+
+<!-- Notification bar -->
+<div id="notif-bar"></div>
+
+<script>
+// ── CONFIG ──
+const SUPA_URL  = 'https://mpfmcjgigpvdxbhgzufo.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM';
+const supa = supabase.createClient(SUPA_URL, SUPA_ANON);
+
+let _userId = null;
+let _userData = null;
+let _selectedService = null;
+let _selectedPackage = null;
+
+// ── INIT ──
+window.addEventListener('load', async function(){
+  // Get user ID from URL
+  const params = new URLSearchParams(window.location.search);
+  _userId = params.get('u') || params.get('uid') || params.get('svcorder');
+
+  if(!_userId){
+    showError();
+    return;
+  }
+
+  try {
+    const { data, error } = await supa.from('studio_data').select('data').eq('user_id', _userId).single();
+    if(error || !data){ showError(); return; }
+
+    _userData = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+    if(!_userData){ showError(); return; }
+
+    const services = _userData.services || [];
+    if(!services.length){ showEmpty(); return; }
+
+    initApp();
+  } catch(e){
+    console.error(e);
+    showError();
+  }
+});
+
+function showError(){
+  document.getElementById('loader').classList.add('hidden');
+  document.getElementById('error-page').classList.add('show');
+}
+function showEmpty(){
+  document.getElementById('loader').classList.add('hidden');
+  // Still show app but with empty state
+  initApp();
+}
+
+function initApp(){
+  document.getElementById('loader').classList.add('hidden');
+  document.getElementById('app').classList.add('show');
+
+  const s = _userData.settings || {};
+  const services = _userData.services || [];
+
+  // Studio name + logo
+  document.getElementById('studio-name-el').textContent = s.name || 'الاستوديو';
+  document.getElementById('about-name').textContent = s.name || 'الاستوديو';
+  document.title = (s.name || 'الاستوديو') + ' — الخدمات';
+
+  if(s.logo){
+    document.getElementById('studio-logo-wrap').innerHTML = '<img class="studio-logo" src="'+s.logo+'" alt="logo">';
+    document.getElementById('about-logo-wrap').innerHTML = '<img class="about-logo" src="'+s.logo+'" alt="logo">';
+  } else {
+    document.getElementById('studio-logo-wrap').innerHTML = '<div class="studio-logo-placeholder">🎨</div>';
+    document.getElementById('about-logo-wrap').innerHTML = '<div class="about-logo-ph">🎨</div>';
+  }
+
+  if(s.bio || s.desc){
+    document.getElementById('about-desc').textContent = s.bio || s.desc;
+  }
+
+  // Contact links
+  var contactHtml = '';
+  if(s.phone) contactHtml += '<a href="https://wa.me/'+s.phone.replace(/\D/g,'')+'" target="_blank" class="contact-row"><span class="contact-icon">📱</span><div><div class="contact-label">واتساب</div><div class="contact-value">'+s.phone+'</div></div></a>';
+  if(s.email) contactHtml += '<a href="mailto:'+s.email+'" class="contact-row"><span class="contact-icon">📧</span><div><div class="contact-label">البريد الإلكتروني</div><div class="contact-value">'+s.email+'</div></div></a>';
+  if(s.instagram) contactHtml += '<a href="https://instagram.com/'+s.instagram.replace('@','')+'" target="_blank" class="contact-row"><span class="contact-icon">📸</span><div><div class="contact-label">إنستاجرام</div><div class="contact-value">'+s.instagram+'</div></div></a>';
+  document.getElementById('contact-links').innerHTML = contactHtml;
+
+  // Render services
+  renderServices(services);
+}
+
+function renderServices(services){
+  var grid = document.getElementById('services-grid');
+  if(!services.length){
+    grid.innerHTML = '<div class="select-first"><div class="select-first-icon">🛍</div><div style="font-size:14px;font-weight:700">لا خدمات متاحة حالياً</div><div style="font-size:12px;margin-top:6px">تواصل معنا للاستفسار</div></div>';
+    return;
+  }
+
+  grid.innerHTML = services.map(function(svc, i){
+    var pkgsHtml = '';
+    if(svc.packages && svc.packages.length){
+      pkgsHtml = '<div class="svc-card-packages">'+
+        '<div class="svc-card-packages-title">📦 الباقات المتاحة</div>'+
+        svc.packages.map(function(p){
+          var imgEl = p.image
+            ? '<img class="pkg-row-img" src="'+p.image+'" alt="">'
+            : '<div class="pkg-row-img-ph">📦</div>';
+          var itemsText = p.items && p.items.length ? p.items.slice(0,2).join(' · ')+(p.items.length>2?' · ...':'') : '';
+          return '<div class="pkg-row" onclick="selectService(\''+encodeURIComponent(svc.name)+'\',\''+encodeURIComponent(p.name)+'\','+p.price+')">'+
+            imgEl+
+            '<div class="pkg-row-info"><div class="pkg-row-name">'+p.name+'</div>'+(itemsText?'<div class="pkg-row-items">'+itemsText+'</div>':'')+
+            '</div><div class="pkg-row-price">'+Number(p.price||0).toLocaleString()+' ج</div>'+
+            '</div>';
+        }).join('')+
+      '</div>';
+    }
+
+    var imgHtml = svc.image
+      ? '<img class="svc-card-img" src="'+svc.image+'" alt="'+svc.name+'">'
+      : '<div class="svc-card-img-placeholder">🛍</div>';
+
+    return '<div class="svc-card fade-up" style="animation-delay:'+(i*.07)+'s">'+
+      imgHtml+
+      '<div class="svc-card-body">'+
+        '<div class="svc-card-head">'+
+          '<div class="svc-card-name">'+svc.name+'</div>'+
+          '<div style="text-align:left"><div class="svc-card-price">'+Number(svc.price||0).toLocaleString()+' ج</div><span class="svc-card-price-unit">'+(svc.unit||'')+'</span></div>'+
+        '</div>'+
+        (svc.desc?'<div class="svc-card-desc">'+svc.desc+'</div>':'')+
+        pkgsHtml+
+        '<button class="order-btn" onclick="selectService(\''+encodeURIComponent(svc.name)+'\',\'\','+svc.price+')">📝 اطلب هذه الخدمة</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function selectService(svcEnc, pkgEnc, price){
+  var svcName = decodeURIComponent(svcEnc);
+  var pkgName = decodeURIComponent(pkgEnc);
+  _selectedService = { svcName, pkgName, price };
+
+  var displayName = svcName + (pkgName ? ' — ' + pkgName : '');
+  document.getElementById('order-svc-name').textContent = displayName;
+  document.getElementById('order-svc-price').textContent = Number(price||0).toLocaleString() + ' ج';
+  document.getElementById('selected-svc-display').style.display = 'none';
+  document.getElementById('order-form-wrap').style.display = 'block';
+  switchTab('order');
+}
+
+function switchTab(tab){
+  ['services','order','about'].forEach(function(t){
+    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+    document.getElementById('panel-'+t).classList.toggle('active', t===tab);
+  });
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+async function submitOrder(){
+  var name = document.getElementById('ord-name').value.trim();
+  var phone = document.getElementById('ord-phone').value.trim();
+  var email = document.getElementById('ord-email').value.trim();
+  var desc = document.getElementById('ord-desc').value.trim();
+
+  if(!name){ toast('⚠ أدخل اسمك'); return; }
+  if(!phone){ toast('⚠ أدخل رقم واتساب'); return; }
+  if(!_selectedService){ toast('⚠ اختر خدمة أولاً'); return; }
+
+  var btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="loader-ring" style="width:20px;height:20px;border-width:2px"></div> جاري الإرسال...';
+
+  var order = {
+    id: Date.now(),
+    status: 'pending',
+    client_name: name,
+    client_phone: phone,
+    client_email: email,
+    service_name: _selectedService.svcName + (_selectedService.pkgName ? ' — ' + _selectedService.pkgName : ''),
+    price: _selectedService.price || 0,
+    desc: desc,
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    var { data: rowData, error: fetchErr } = await supa.from('studio_data').select('data').eq('user_id', _userId).single();
+    if(fetchErr || !rowData){ throw new Error('fetch failed'); }
+
+    var ud = typeof rowData.data === 'string' ? JSON.parse(rowData.data) : rowData.data;
+    ud.svc_orders = ud.svc_orders || [];
+    ud.svc_orders.push(order);
+
+    // Add notification for owner
+    ud._pending_notifications = ud._pending_notifications || [];
+    ud._pending_notifications.push({
+      id: Date.now(), title: '🛍 طلب جديد!',
+      body: 'طلب من ' + name + ' — ' + order.service_name,
+      type: 'order', created_at: new Date().toISOString(), read: false
+    });
+
+    var { error: saveErr } = await supa.from('studio_data')
+      .update({ data: JSON.stringify(ud), updated_at: new Date().toISOString() })
+      .eq('user_id', _userId);
+
+    if(saveErr) throw new Error('save failed');
+
+    // Also try user_notifications table
+    try {
+      await supa.from('user_notifications').insert([{
+        user_id: _userId,
+        title: '🛍 طلب جديد!',
+        body: 'طلب من ' + name + ' — ' + order.service_name,
+        type: 'order',
+        read: false,
+        created_at: new Date().toISOString()
+      }]);
+    } catch(e2){}
+
+    showSuccess();
+  } catch(e){
+    console.error(e);
+    btn.disabled = false;
+    btn.innerHTML = '<span>✅</span> إرسال الطلب';
+    toast('⚠ حدث خطأ، حاول مرة أخرى');
+  }
+}
+
+function showSuccess(){
+  document.getElementById('success-screen').classList.add('show');
+  document.getElementById('app').style.display = 'none';
+}
+
+function toast(msg){
+  var bar = document.getElementById('notif-bar');
+  bar.textContent = msg;
+  bar.classList.add('show');
+  setTimeout(function(){ bar.classList.remove('show'); }, 3000);
+}
+</script>
+</body>
+</html>
