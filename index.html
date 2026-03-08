@@ -3209,21 +3209,23 @@ setTimeout(window._showApp, 4000);
      PAGE: SERVICES (خدماتي والباقات)
 ══════════════════════════════════════════════════════ -->
 <div class="page" id="page-services">
-  <div class="page-header">
+
+  <!-- ══ HEADER ══ -->
+  <div class="page-header" style="flex-wrap:wrap;gap:10px">
     <div>
-      <div class="page-title">🛍 خدماتي <span>والباقات</span></div>
-      <div class="page-subtitle">أضف خدماتك واستقبل طلبات العملاء</div>
+      <div class="page-title">🛍 المتجر <span>الإلكتروني</span></div>
+      <div class="page-subtitle">أدر خدماتك، باقاتك، بورتفوليوك، وموقعك العام</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button onclick="svcCopyLink()" class="btn btn-ghost btn-sm">🔗 نسخ الرابط</button>
       <button onclick="openSvcModal()" class="btn btn-primary btn-sm">+ خدمة جديدة</button>
+      <button onclick="openPkgStandaloneModal()" class="btn btn-ghost btn-sm" style="background:rgba(79,209,165,.12);color:var(--accent3);border-color:rgba(79,209,165,.25)">+ إنشاء باقة</button>
     </div>
   </div>
 
-  <!-- Link Banner -->
-  <div style="background:linear-gradient(135deg,rgba(124,111,247,.1),rgba(79,209,165,.07));border:1.5px solid rgba(124,111,247,.25);border-radius:16px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+  <!-- ══ STORE LINK BANNER ══ -->
+  <div style="background:linear-gradient(135deg,rgba(124,111,247,.1),rgba(79,209,165,.07));border:1.5px solid rgba(124,111,247,.25);border-radius:16px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
     <div style="flex:1;min-width:180px">
-      <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:4px">🔗 رابط صفحتك العامة</div>
+      <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:4px">🔗 رابط متجرك العام</div>
       <div id="svc-link-text" style="font-size:11px;color:var(--text3);font-family:var(--mono);word-break:break-all">جاري التحميل...</div>
     </div>
     <div style="display:flex;gap:6px;flex-shrink:0">
@@ -3233,57 +3235,124 @@ setTimeout(window._showApp, 4000);
     </div>
   </div>
 
-  <!-- Banner Upload -->
-  <div style="background:var(--surface2);border:1.5px dashed var(--border);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
-    <div style="flex:1;min-width:160px">
-      <div style="font-size:12px;font-weight:700;margin-bottom:2px">🎨 بانر إعلاني <span style="font-size:10px;color:var(--text3)">(اختياري)</span></div>
-      <div style="font-size:11px;color:var(--text3)">JPG/PNG · أقصى 2MB · يظهر في صفحتك العامة</div>
-    </div>
-    <div style="display:flex;gap:6px;flex-shrink:0">
-      <input type="file" id="svc-banner-input" accept="image/*" style="display:none" onchange="handleSvcBanner(this)">
-      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('svc-banner-input').click()">📁 رفع بانر</button>
-      <button class="btn btn-danger btn-sm" id="svc-banner-clear-btn" style="display:none" onclick="clearSvcBanner()">✕ حذف</button>
-    </div>
-  </div>
-  <div id="svc-banner-preview" style="display:none;border-radius:14px;overflow:hidden;margin-bottom:14px;max-height:130px">
-    <img id="svc-banner-img" src="" style="width:100%;height:130px;object-fit:cover;display:block">
+  <!-- ══ TABS ══ -->
+  <div style="display:flex;gap:0;background:var(--surface2);border-radius:14px;padding:4px;margin-bottom:20px;overflow-x:auto;scrollbar-width:none">
+    <button onclick="switchSvcTab('services')" id="svctab-services" class="btn btn-primary btn-sm" style="border-radius:10px;min-width:90px;justify-content:center;white-space:nowrap;flex-shrink:0">🛍 الخدمات</button>
+    <button onclick="switchSvcTab('packages')" id="svctab-packages" class="btn btn-ghost btn-sm" style="border-radius:10px;min-width:90px;justify-content:center;white-space:nowrap;flex-shrink:0">📦 الباقات</button>
+    <button onclick="switchSvcTab('portfolio')" id="svctab-portfolio" class="btn btn-ghost btn-sm" style="border-radius:10px;min-width:90px;justify-content:center;white-space:nowrap;flex-shrink:0">🖼 البورتفوليو</button>
+    <button onclick="switchSvcTab('website')" id="svctab-website" class="btn btn-ghost btn-sm" style="border-radius:10px;min-width:90px;justify-content:center;white-space:nowrap;flex-shrink:0">🌐 الموقع</button>
+    <button onclick="switchSvcTab('orders')" id="svctab-orders" class="btn btn-ghost btn-sm" style="border-radius:10px;min-width:90px;justify-content:center;white-space:nowrap;flex-shrink:0">📋 الطلبات <span id="svc-orders-tab-badge" style="display:none;background:var(--accent4);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-right:4px">0</span></button>
   </div>
 
-  <!-- Pending Orders Alert -->
-  <div id="svc-orders-alert" style="display:none;background:rgba(247,201,72,.07);border:1.5px solid rgba(247,201,72,.3);border-radius:14px;padding:14px 18px;margin-bottom:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:800">📥 طلبات تنتظر موافقتك</div>
-      <span id="svc-orders-badge" style="background:var(--accent4);color:#fff;border-radius:20px;padding:2px 12px;font-size:11px;font-weight:700">0</span>
-    </div>
-    <div id="svc-orders-list" style="display:flex;flex-direction:column;gap:8px"></div>
-  </div>
-
-  <!-- Tabs: Services / Orders / Portals -->
-  <div style="display:flex;gap:0;background:var(--surface2);border-radius:12px;padding:4px;width:fit-content;margin-bottom:18px">
-    <button onclick="switchSvcTab('services')" id="svctab-services" class="btn btn-primary btn-sm" style="border-radius:8px;min-width:100px;justify-content:center">🛍 الخدمات</button>
-    <button onclick="switchSvcTab('orders')" id="svctab-orders" class="btn btn-ghost btn-sm" style="border-radius:8px;min-width:100px;justify-content:center">📋 الطلبات <span id="svc-orders-tab-badge" style="display:none;background:var(--accent4);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-right:4px">0</span></button>
-    <button onclick="switchSvcTab('portals')" id="svctab-portals" class="btn btn-ghost btn-sm" style="border-radius:8px;min-width:100px;justify-content:center">🔑 بوابات العملاء</button>
-  </div>
-
-  <!-- Services Grid -->
-  <div id="svc-grid-wrap">
-    <div id="svc-grid" class="grid grid-3">
-      <div style="grid-column:span 3;text-align:center;padding:50px 20px;color:var(--text3)">
-        <div style="font-size:36px;margin-bottom:12px;opacity:.35">⏳</div>
-        <div style="font-size:13px">جاري التحميل...</div>
+  <!-- ══ TAB: SERVICES ══ -->
+  <div id="svc-services-wrap">
+    <!-- Pending Orders Alert -->
+    <div id="svc-orders-alert" style="display:none;background:rgba(247,201,72,.07);border:1.5px solid rgba(247,201,72,.3);border-radius:14px;padding:14px 18px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:800">📥 طلبات تنتظر موافقتك</div>
+        <span id="svc-orders-badge" style="background:var(--accent4);color:#fff;border-radius:20px;padding:2px 12px;font-size:11px;font-weight:700">0</span>
       </div>
+      <div id="svc-orders-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div id="svc-grid" class="grid grid-3"></div>
+  </div>
+
+  <!-- ══ TAB: PACKAGES (standalone) ══ -->
+  <div id="svc-packages-wrap" style="display:none">
+    <div id="svc-standalone-pkgs-grid" class="grid grid-3"></div>
+  </div>
+
+  <!-- ══ TAB: PORTFOLIO ══ -->
+  <div id="svc-portfolio-wrap" style="display:none">
+    <!-- Portfolio Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="openPortfolioProjectModal()" class="btn btn-primary btn-sm">+ مشروع جديد</button>
+        <button onclick="openPortfolioCatsSettings()" class="btn btn-ghost btn-sm">⚙ التصنيفات</button>
+      </div>
+      <div id="portfolio-cat-filters" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    </div>
+    <div id="portfolio-projects-grid" class="grid grid-3"></div>
+  </div>
+
+  <!-- ══ TAB: WEBSITE SETTINGS ══ -->
+  <div id="svc-website-wrap" style="display:none">
+    <div style="display:flex;flex-direction:column;gap:14px;max-width:640px">
+
+      <!-- Banner -->
+      <div class="card" style="padding:16px">
+        <div style="font-size:13px;font-weight:800;margin-bottom:12px">🖼 بانر الموقع</div>
+        <div id="svc-banner-preview" style="display:none;border-radius:12px;overflow:hidden;margin-bottom:10px;max-height:160px">
+          <img id="svc-banner-img" src="" style="width:100%;height:160px;object-fit:cover;display:block">
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input type="file" id="svc-banner-input" accept="image/*" style="display:none" onchange="handleSvcBanner(this)">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('svc-banner-input').click()">📁 رفع بانر</button>
+          <button class="btn btn-danger btn-sm" id="svc-banner-clear-btn" style="display:none" onclick="clearSvcBanner()">✕ حذف</button>
+          <span style="font-size:11px;color:var(--text3)">JPG/PNG · أقصى 2MB</span>
+        </div>
+        <!-- Banner Size Option -->
+        <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text3);align-self:center">مقاس البانر:</span>
+          <button onclick="setSvcBannerSize('sm')" id="banner-size-sm" class="filter-chip">صغير</button>
+          <button onclick="setSvcBannerSize('md')" id="banner-size-md" class="filter-chip active">متوسط</button>
+          <button onclick="setSvcBannerSize('lg')" id="banner-size-lg" class="filter-chip">كبير</button>
+        </div>
+      </div>
+
+      <!-- Site Description -->
+      <div class="card" style="padding:16px">
+        <div style="font-size:13px;font-weight:800;margin-bottom:12px">📝 وصف الموقع</div>
+        <textarea class="form-input" id="svc-site-desc" rows="3" placeholder="اكتب وصفاً مختصراً يظهر في الصفحة العامة..." style="resize:vertical"></textarea>
+        <button onclick="saveSiteDesc()" class="btn btn-primary btn-sm" style="margin-top:10px">💾 حفظ الوصف</button>
+      </div>
+
+      <!-- Orders Status -->
+      <div class="card" style="padding:16px">
+        <div style="font-size:13px;font-weight:800;margin-bottom:4px">📥 حالة استقبال الطلبات</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:14px">تحكم في ما إذا كان الموقع يستقبل طلبات جديدة أم لا</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface2);border-radius:12px;border:1.5px solid var(--border)">
+          <div>
+            <div style="font-size:13px;font-weight:800" id="orders-status-label">متاح لاستقبال الطلبات ✅</div>
+            <div style="font-size:11px;color:var(--text3)" id="orders-status-sub">العملاء يمكنهم إرسال طلبات الآن</div>
+          </div>
+          <div onclick="toggleOrdersOpen()" id="orders-open-toggle" style="width:52px;height:28px;border-radius:20px;background:var(--accent3);cursor:pointer;position:relative;transition:.3s;flex-shrink:0">
+            <div id="orders-open-knob" style="position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.3s;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Social Links -->
+      <div class="card" style="padding:16px">
+        <div style="font-size:13px;font-weight:800;margin-bottom:12px">🔗 روابط التواصل الاجتماعي</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="form-row" style="grid-template-columns:auto 1fr;align-items:center;gap:8px">
+            <span style="font-size:18px">📸</span><input class="form-input" id="social-instagram" placeholder="رابط انستجرام">
+          </div>
+          <div class="form-row" style="grid-template-columns:auto 1fr;align-items:center;gap:8px">
+            <span style="font-size:18px">💼</span><input class="form-input" id="social-behance" placeholder="رابط Behance">
+          </div>
+          <div class="form-row" style="grid-template-columns:auto 1fr;align-items:center;gap:8px">
+            <span style="font-size:18px">🎵</span><input class="form-input" id="social-tiktok" placeholder="رابط تيك توك">
+          </div>
+          <div class="form-row" style="grid-template-columns:auto 1fr;align-items:center;gap:8px">
+            <span style="font-size:18px">🐦</span><input class="form-input" id="social-twitter" placeholder="رابط تويتر / X">
+          </div>
+          <div class="form-row" style="grid-template-columns:auto 1fr;align-items:center;gap:8px">
+            <span style="font-size:18px">💬</span><input class="form-input" id="social-whatsapp" placeholder="رقم واتساب">
+          </div>
+        </div>
+        <button onclick="saveSocials()" class="btn btn-primary btn-sm" style="margin-top:12px;width:100%;justify-content:center">💾 حفظ الروابط</button>
+      </div>
+
     </div>
   </div>
 
-  <!-- Orders Table -->
+  <!-- ══ TAB: ORDERS ══ -->
   <div id="svc-orders-wrap" style="display:none">
     <div id="svc-orders-table"></div>
   </div>
 
-  <!-- Client Portals -->
-  <div id="svc-portals-wrap" style="display:none">
-    <div id="svc-portals-grid" class="grid grid-3"></div>
-  </div>
 </div><!-- end page-services -->
 
 <!-- ══════════════════════════════════════════════════════
@@ -3357,6 +3426,25 @@ setTimeout(window._showApp, 4000);
       <div id="svc-portfolio-empty" style="font-size:11px;color:var(--text3);text-align:center;padding:10px 0">لا توجد أعمال — اختر Behance أو Drive</div>
     </div>
 
+    <!-- Portfolio Category Link + Active Toggle -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px;background:var(--surface2);border-radius:10px;margin-bottom:8px">
+      <div style="flex:1;min-width:160px">
+        <label class="form-label" style="margin-bottom:4px">سابقة أعمال (اختياري)</label>
+        <select class="form-input" id="svc-portfolio-cat-link">
+          <option value="">— ربط بتصنيف بورتفوليو —</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label" style="margin-bottom:4px">حالة الخدمة</label>
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface);border-radius:8px;cursor:pointer" onclick="toggleSvcModalActive()">
+          <span id="svc-modal-active-label" style="font-size:12px;font-weight:700">● نشطة</span>
+          <div id="svc-modal-active-toggle" style="width:40px;height:22px;border-radius:20px;background:var(--accent3);position:relative;transition:.3s">
+            <div id="svc-modal-active-knob" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.3s"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <input type="hidden" id="svc-active-flag" value="1">
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="saveSvc()">💾 حفظ الخدمة</button>
       <button class="btn btn-ghost" onclick="closeM('modal-svc')">إلغاء</button>
@@ -4262,7 +4350,7 @@ setTimeout(window._showApp, 4000);
 // CORE STATE
 // ============================================================
 const COLORS=['#7c6ff7','#f7c948','#4fd1a5','#f76f7c','#64b5f6','#ff8a65','#ce93d8','#80cbc4'];
-let S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],teams:[],subscriptions:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:'',taskTypes:['مهمة عامة','مشروع','استشارة','تقرير','متابعة','أخرى']},services:[],svc_orders:[],specializations:[],client_portals:[]};
+let S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],teams:[],subscriptions:[],settings:{name:'',phone:'',email:'',address:'',terms:'',logo:'',taskTypes:['مهمة عامة','مشروع','استشارة','تقرير','متابعة','أخرى'],svc_site_desc:'',svc_orders_open:true,svc_banner_size:'md'},services:[],standalone_packages:[],portfolio_projects:[],svc_orders:[],specializations:[],client_portals:[]};
 
 // ══════════════════════════════════════════════════
 //  SECURITY — XSS Prevention utility
@@ -14709,8 +14797,8 @@ function renderCorpEmployees(){
 // ── Helpers ──
 function getSvcLink(){
   var uid = typeof _supaUserId!=='undefined' ? _supaUserId : '';
-  if(!uid) return window.location.origin + window.location.pathname + '?svcorder=' + uid;
-  return window.location.origin + window.location.pathname + '?svcorder=' + uid;
+  var base = window.location.origin + window.location.pathname.replace(/[^/]*$/, '') + 'store.html';
+  return base + '?uid=' + uid;
 }
 function svcCopyLink(){
   var link = getSvcLink();
@@ -14726,15 +14814,305 @@ function svcShareWhatsApp(){
   window.open('https://wa.me/?text='+encodeURIComponent('🛍 اطلب خدماتي: '+getSvcLink()),'_blank');
 }
 function switchSvcTab(tab){
-  var tabs=['services','orders','portals'];
+  var tabs=['services','packages','portfolio','website','orders'];
   tabs.forEach(function(t){
     var btn=document.getElementById('svctab-'+t);
-    var wrap=document.getElementById('svc-'+t+'-wrap');
+    // services tab maps to svc-services-wrap
+    var wrapId = t==='services' ? 'svc-services-wrap' : 'svc-'+t+'-wrap';
+    var wrap=document.getElementById(wrapId);
     if(btn){ btn.classList.toggle('btn-primary', t===tab); btn.classList.toggle('btn-ghost', t!==tab); }
     if(wrap) wrap.style.display = (t===tab) ? '' : 'none';
   });
   if(tab==='orders') renderSvcOrdersTable();
-  if(tab==='portals') renderClientPortals();
+  if(tab==='packages') renderStandalonePackages();
+  if(tab==='portfolio') renderPortfolioProjects();
+  if(tab==='website') initWebsiteTab();
+}
+
+// ══════════════════════════════════
+// WEBSITE TAB
+// ══════════════════════════════════
+function initWebsiteTab(){
+  var descEl=document.getElementById('svc-site-desc');
+  if(descEl) descEl.value=(S.settings&&S.settings.svc_site_desc)||'';
+  // orders open toggle
+  var isOpen=(S.settings&&S.settings.svc_orders_open!==false);
+  _setOrdersOpenUI(isOpen);
+  // socials
+  var socs=S.settings&&S.settings.socials||[];
+  ['instagram','behance','tiktok','twitter','whatsapp'].forEach(function(k){
+    var el=document.getElementById('social-'+k); if(!el) return;
+    var found=socs.find(function(s){return s.type===k;});
+    el.value=found?found.url:'';
+  });
+  // banner size
+  var sz=(S.settings&&S.settings.svc_banner_size)||'md';
+  ['sm','md','lg'].forEach(function(s){ var b=document.getElementById('banner-size-'+s); if(b){ b.classList.toggle('active',s===sz); } });
+  // banner preview
+  var banner=S.settings&&S.settings.svc_banner;
+  var bannerPv=document.getElementById('svc-banner-preview'); var bannerIm=document.getElementById('svc-banner-img'); var bannerCl=document.getElementById('svc-banner-clear-btn');
+  if(banner){ if(bannerPv) bannerPv.style.display=''; if(bannerIm) bannerIm.src=banner; if(bannerCl) bannerCl.style.display=''; }
+  else { if(bannerPv) bannerPv.style.display='none'; if(bannerCl) bannerCl.style.display='none'; }
+}
+function _setOrdersOpenUI(isOpen){
+  var tog=document.getElementById('orders-open-toggle');
+  var knob=document.getElementById('orders-open-knob');
+  var lbl=document.getElementById('orders-status-label');
+  var sub=document.getElementById('orders-status-sub');
+  if(tog) tog.style.background=isOpen?'var(--accent3)':'var(--border)';
+  if(knob) knob.style.right=isOpen?'3px':'calc(100% - 25px)';
+  if(lbl) lbl.textContent=isOpen?'متاح لاستقبال الطلبات ✅':'مغلق — لا يستقبل طلبات 🔴';
+  if(sub) sub.textContent=isOpen?'العملاء يمكنهم إرسال طلبات الآن':'الموقع لا يستقبل طلبات جديدة حالياً';
+}
+function toggleOrdersOpen(){
+  if(!S.settings) S.settings={};
+  S.settings.svc_orders_open=!(S.settings.svc_orders_open!==false);
+  _setOrdersOpenUI(S.settings.svc_orders_open);
+  lsSave(); cloudSave(S); toast(S.settings.svc_orders_open?'✅ فُتح الاستقبال':'🔴 أُغلق الاستقبال');
+}
+function saveSiteDesc(){
+  if(!S.settings) S.settings={};
+  S.settings.svc_site_desc=(document.getElementById('svc-site-desc')||{}).value||'';
+  lsSave(); cloudSave(S); toast('✅ تم حفظ الوصف');
+}
+function saveSocials(){
+  if(!S.settings) S.settings={};
+  var socs=[];
+  ['instagram','behance','tiktok','twitter','whatsapp'].forEach(function(k){
+    var el=document.getElementById('social-'+k); if(!el) return;
+    var v=(el.value||'').trim(); if(v) socs.push({type:k,url:v});
+  });
+  S.settings.socials=socs;
+  lsSave(); cloudSave(S); toast('✅ تم حفظ الروابط');
+}
+function setSvcBannerSize(sz){
+  if(!S.settings) S.settings={};
+  S.settings.svc_banner_size=sz;
+  ['sm','md','lg'].forEach(function(s){ var b=document.getElementById('banner-size-'+s); if(b) b.classList.toggle('active',s===sz); });
+  lsSave(); cloudSave(S); toast('✅ تم تغيير حجم البانر');
+}
+
+// ══════════════════════════════════
+// STANDALONE PACKAGES
+// ══════════════════════════════════
+var _pkgStActive=true;
+function openPkgStandaloneModal(id){
+  _pkgStActive=true;
+  document.getElementById('pkg-standalone-title').textContent=id?'📦 تعديل الباقة':'📦 باقة جديدة';
+  document.getElementById('pkg-st-id').value=id||'';
+  ['pkg-st-name','pkg-st-price','pkg-st-desc','pkg-st-delivery','pkg-st-revisions'].forEach(function(i){ var el=document.getElementById(i); if(el) el.value=''; });
+  document.getElementById('pkg-st-items').value='';
+  // populate portfolio cats
+  var pfCatSel=document.getElementById('pkg-st-portfolio-cat');
+  if(pfCatSel){
+    var cats=_getPfCats();
+    pfCatSel.innerHTML='<option value="">— ربط بتصنيف بورتفوليو —</option>'+cats.map(function(c){ return '<option value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>'; }).join('');
+  }
+  if(id){
+    var pkg=(S.standalone_packages||[]).find(function(p){return String(p.id)===String(id);});
+    if(pkg){
+      document.getElementById('pkg-st-name').value=pkg.name||'';
+      document.getElementById('pkg-st-price').value=pkg.price||'';
+      document.getElementById('pkg-st-desc').value=pkg.desc||'';
+      document.getElementById('pkg-st-delivery').value=pkg.delivery||'';
+      document.getElementById('pkg-st-revisions').value=pkg.revisions||'';
+      document.getElementById('pkg-st-items').value=(pkg.items||[]).join('\n');
+      if(pfCatSel) pfCatSel.value=pkg.portfolio_cat||'';
+      _pkgStActive=pkg.active!==false;
+    }
+  }
+  _updatePkgStToggle();
+  openM('modal-pkg-standalone');
+}
+function togglePkgStActive(){ _pkgStActive=!_pkgStActive; _updatePkgStToggle(); }
+function _updatePkgStToggle(){
+  var tog=document.getElementById('pkg-st-active-toggle');
+  var knob=document.getElementById('pkg-st-active-knob');
+  if(tog) tog.style.background=_pkgStActive?'var(--accent3)':'var(--border)';
+  if(knob) knob.style.right=_pkgStActive?'3px':'calc(100% - 23px)';
+}
+function savePkgStandalone(){
+  var name=(document.getElementById('pkg-st-name')||{}).value||''; if(!name.trim()){ toast('⚠ أدخل اسم الباقة'); return; }
+  var price=(document.getElementById('pkg-st-price')||{}).value||'';
+  var desc=(document.getElementById('pkg-st-desc')||{}).value||'';
+  var delivery=(document.getElementById('pkg-st-delivery')||{}).value||'';
+  var revisions=(document.getElementById('pkg-st-revisions')||{}).value||'';
+  var itemsRaw=(document.getElementById('pkg-st-items')||{}).value||'';
+  var items=itemsRaw.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+  var pfCat=(document.getElementById('pkg-st-portfolio-cat')||{}).value||'';
+  var eid=(document.getElementById('pkg-st-id')||{}).value||'';
+  var d={name:name.trim(),price:+price||0,desc:desc.trim(),delivery:delivery.trim(),revisions:+revisions||0,items:items,portfolio_cat:pfCat,active:_pkgStActive,updatedAt:new Date().toISOString()};
+  if(!S.standalone_packages) S.standalone_packages=[];
+  if(eid){ var i=S.standalone_packages.findIndex(function(p){return String(p.id)===String(eid);}); if(i>-1){d.id=+eid;d.createdAt=S.standalone_packages[i].createdAt||d.updatedAt;S.standalone_packages[i]=d;} }
+  else { d.id=Date.now(); d.createdAt=d.updatedAt; S.standalone_packages.push(d); }
+  lsSave(); cloudSave(S); closeM('modal-pkg-standalone'); renderStandalonePackages(); toast('✅ تم حفظ الباقة');
+}
+function delPkgStandalone(id){
+  if(!confirm('حذف هذه الباقة؟')) return;
+  S.standalone_packages=(S.standalone_packages||[]).filter(function(p){return String(p.id)!==String(id);});
+  lsSave(); cloudSave(S); renderStandalonePackages(); toast('🗑 تم الحذف');
+}
+function renderStandalonePackages(){
+  var grid=document.getElementById('svc-standalone-pkgs-grid'); if(!grid) return;
+  var pkgs=S.standalone_packages||[];
+  if(!pkgs.length){
+    grid.innerHTML='<div class="empty card" style="grid-column:span 3;padding:50px 20px;text-align:center"><div style="font-size:52px;margin-bottom:14px">📦</div><div style="font-size:17px;font-weight:800;margin-bottom:8px">لا توجد باقات بعد</div><div style="font-size:13px;color:var(--text3);margin-bottom:20px">أنشئ باقاتك وأعرضها في متجرك</div><button onclick="openPkgStandaloneModal()" class="btn btn-primary">+ إنشاء باقة</button></div>';
+    return;
+  }
+  grid.innerHTML=pkgs.map(function(pkg){
+    var isActive=pkg.active!==false;
+    return '<div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;position:relative">'+
+      '<div style="position:absolute;top:12px;left:12px"><span style="font-size:10px;padding:2px 10px;border-radius:20px;font-weight:700;background:'+(isActive?'rgba(79,209,165,.12)':'rgba(255,107,107,.1)')+';color:'+(isActive?'var(--accent3)':'var(--accent4)')+'">'+(isActive?'● نشطة':'○ موقوفة')+'</span></div>'+
+      '<div style="padding-top:16px"><div style="font-size:15px;font-weight:900">'+escapeHtml(pkg.name)+'</div>'+
+      (pkg.desc?'<div style="font-size:11px;color:var(--text3);margin-top:4px">'+escapeHtml(pkg.desc)+'</div>':'')+
+      '</div>'+
+      (pkg.items&&pkg.items.length?'<div style="display:flex;flex-direction:column;gap:5px">'+pkg.items.slice(0,4).map(function(it){return '<div style="font-size:11px;display:flex;align-items:center;gap:6px"><span style="color:var(--accent3)">✓</span>'+escapeHtml(it)+'</div>';}).join('')+(pkg.items.length>4?'<div style="font-size:11px;color:var(--text3)">+ '+(pkg.items.length-4)+' بنود أخرى</div>':'')+'</div>':'')+
+      '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:10px">'+
+        '<div style="font-size:18px;font-weight:900;color:var(--accent)">'+(pkg.price?Number(pkg.price).toLocaleString()+' ج':'مجاني')+'</div>'+
+        '<div style="display:flex;gap:6px">'+
+          '<button data-pid="'+pkg.id+'" onclick="openPkgStandaloneModal(+this.dataset.pid)" class="btn btn-ghost btn-sm">✏</button>'+
+          '<button data-pid="'+pkg.id+'" onclick="delPkgStandalone(+this.dataset.pid)" class="btn btn-danger btn-sm">🗑</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+// ══════════════════════════════════
+// PORTFOLIO PROJECTS
+// ══════════════════════════════════
+var _DEFAULT_PF_CATS=['سوشيال ميديا','تصميم جرافيك','برمجة وتطوير','فيديو وموشن','كتابة ومحتوى','هوية بصرية','أخرى'];
+function _getPfCats(){
+  try{ var c=JSON.parse(localStorage.getItem('_pfCats')||'null'); if(Array.isArray(c)) return c; }catch(e){}
+  return _DEFAULT_PF_CATS.slice();
+}
+function _savePfCats(arr){ localStorage.setItem('_pfCats',JSON.stringify(arr)); }
+var _pfThumbData='';
+function openPortfolioProjectModal(id){
+  _pfThumbData='';
+  document.getElementById('portfolio-project-modal-title').textContent=id?'🖼 تعديل المشروع':'🖼 مشروع جديد';
+  document.getElementById('pf-proj-id').value=id||'';
+  ['pf-proj-name','pf-proj-desc','pf-proj-url'].forEach(function(i){ var el=document.getElementById(i); if(el) el.value=''; });
+  var preview=document.getElementById('pf-proj-thumb-preview'); if(preview){preview.src='';preview.style.display='none';}
+  var nm=document.getElementById('pf-proj-thumb-name'); if(nm) nm.textContent='لا توجد صورة';
+  var cl=document.getElementById('pf-proj-thumb-clear'); if(cl) cl.style.display='none';
+  var inp=document.getElementById('pf-proj-thumb-input'); if(inp) inp.value='';
+  // populate cats
+  var catSel=document.getElementById('pf-proj-cat');
+  if(catSel){
+    var cats=_getPfCats();
+    catSel.innerHTML='<option value="">— اختر —</option>'+cats.map(function(c){return '<option value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>';}).join('');
+  }
+  if(id){
+    var proj=(S.portfolio_projects||[]).find(function(p){return String(p.id)===String(id);});
+    if(proj){
+      document.getElementById('pf-proj-name').value=proj.name||'';
+      document.getElementById('pf-proj-desc').value=proj.desc||'';
+      document.getElementById('pf-proj-url').value=proj.url||'';
+      if(catSel) catSel.value=proj.cat||'';
+      var lt=document.getElementById('pf-proj-link-type'); if(lt) lt.value=proj.link_type||'behance';
+      if(proj.thumb){ _pfThumbData=proj.thumb; var pv=document.getElementById('pf-proj-thumb-preview'); if(pv){pv.src=proj.thumb;pv.style.display='';} var cn=document.getElementById('pf-proj-thumb-name'); if(cn) cn.textContent='صورة محفوظة'; var cc=document.getElementById('pf-proj-thumb-clear'); if(cc) cc.style.display=''; }
+    }
+  }
+  openM('modal-portfolio-project');
+}
+function handlePfProjThumb(input){
+  var file=input.files[0]; if(!file) return;
+  if(file.size>1*1024*1024){ toast('⚠ حجم الصورة أكبر من 1 ميجا'); input.value=''; return; }
+  var r=new FileReader();
+  r.onload=function(e){
+    _pfThumbData=e.target.result;
+    var pv=document.getElementById('pf-proj-thumb-preview'); if(pv){pv.src=e.target.result;pv.style.display='';}
+    var nm=document.getElementById('pf-proj-thumb-name'); if(nm) nm.textContent=file.name;
+    var cl=document.getElementById('pf-proj-thumb-clear'); if(cl) cl.style.display='';
+  };
+  r.readAsDataURL(file);
+}
+function clearPfProjThumb(){
+  _pfThumbData='';
+  var pv=document.getElementById('pf-proj-thumb-preview'); if(pv){pv.src='';pv.style.display='none';}
+  var nm=document.getElementById('pf-proj-thumb-name'); if(nm) nm.textContent='لا توجد صورة';
+  var cl=document.getElementById('pf-proj-thumb-clear'); if(cl) cl.style.display='none';
+  var inp=document.getElementById('pf-proj-thumb-input'); if(inp) inp.value='';
+}
+function savePortfolioProject(){
+  var name=(document.getElementById('pf-proj-name')||{}).value||''; if(!name.trim()){toast('⚠ أدخل اسم المشروع');return;}
+  var cat=(document.getElementById('pf-proj-cat')||{}).value||''; if(!cat){toast('⚠ اختر تصنيفاً');return;}
+  var desc=(document.getElementById('pf-proj-desc')||{}).value||'';
+  var url=(document.getElementById('pf-proj-url')||{}).value||'';
+  var link_type=(document.getElementById('pf-proj-link-type')||{}).value||'behance';
+  var eid=(document.getElementById('pf-proj-id')||{}).value||'';
+  var d={name:name.trim(),cat:cat,desc:desc.trim(),url:url.trim(),link_type:link_type,thumb:_pfThumbData,createdAt:new Date().toISOString()};
+  if(!S.portfolio_projects) S.portfolio_projects=[];
+  if(eid){ var i=S.portfolio_projects.findIndex(function(p){return String(p.id)===String(eid);}); if(i>-1){d.id=+eid;d.createdAt=S.portfolio_projects[i].createdAt||d.createdAt;S.portfolio_projects[i]=d;} }
+  else { d.id=Date.now(); S.portfolio_projects.push(d); }
+  lsSave(); cloudSave(S); closeM('modal-portfolio-project'); renderPortfolioProjects(); toast('✅ تم حفظ المشروع');
+}
+function delPortfolioProject(id){
+  if(!confirm('حذف هذا المشروع؟')) return;
+  S.portfolio_projects=(S.portfolio_projects||[]).filter(function(p){return String(p.id)!==String(id);});
+  lsSave(); cloudSave(S); renderPortfolioProjects(); toast('🗑 تم الحذف');
+}
+var _pfActiveCat='';
+function renderPortfolioProjects(){
+  var cats=_getPfCats();
+  var filterEl=document.getElementById('portfolio-cat-filters');
+  if(filterEl){
+    filterEl.innerHTML='<button onclick="filterPfCat(\'\')" class="filter-chip'+(!_pfActiveCat?' active':'')+'">الكل</button>'+
+      cats.map(function(c){return '<button onclick="filterPfCat(\''+escapeHtml(c)+'\')" class="filter-chip'+(_pfActiveCat===c?' active':'')+'">'+escapeHtml(c)+'</button>';}).join('');
+  }
+  var grid=document.getElementById('portfolio-projects-grid'); if(!grid) return;
+  var projs=(S.portfolio_projects||[]).filter(function(p){return !_pfActiveCat||p.cat===_pfActiveCat;});
+  if(!projs.length){
+    grid.innerHTML='<div class="empty card" style="grid-column:span 3;padding:50px 20px;text-align:center"><div style="font-size:52px;margin-bottom:14px">🖼</div><div style="font-size:17px;font-weight:800;margin-bottom:8px">لا توجد مشاريع بعد</div><div style="font-size:13px;color:var(--text3);margin-bottom:20px">أضف مشاريعك لتعرضها في البورتفوليو</div><button onclick="openPortfolioProjectModal()" class="btn btn-primary">+ مشروع جديد</button></div>';
+    return;
+  }
+  var typeIcon={'behance':'🎨','drive':'📁','other':'🔗'};
+  grid.innerHTML=projs.map(function(proj){
+    return '<div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:16px;overflow:hidden;display:flex;flex-direction:column">'+
+      (proj.thumb?'<img src="'+escapeHtml(proj.thumb)+'" style="width:100%;height:120px;object-fit:cover;display:block" onerror="this.style.display=\'none\'">':'<div style="width:100%;height:80px;background:linear-gradient(135deg,var(--accent)22,var(--accent)0a);display:flex;align-items:center;justify-content:center;font-size:36px">'+(typeIcon[proj.link_type||'other']||'🖼')+'</div>')+
+      '<div style="padding:12px;flex:1;display:flex;flex-direction:column;gap:6px">'+
+        '<div style="font-size:11px;color:var(--accent);font-weight:700">'+escapeHtml(proj.cat||'')+'</div>'+
+        '<div style="font-size:13px;font-weight:800">'+escapeHtml(proj.name)+'</div>'+
+        (proj.desc?'<div style="font-size:11px;color:var(--text3);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">'+escapeHtml(proj.desc)+'</div>':'')+
+        '<div style="display:flex;gap:6px;margin-top:auto;padding-top:8px;border-top:1px solid var(--border)">'+
+          (proj.url?'<a href="'+escapeHtml(proj.url)+'" target="_blank" class="btn btn-ghost btn-sm" style="flex:1;justify-content:center">↗ عرض</a>':'')+
+          '<button data-pid="'+proj.id+'" onclick="openPortfolioProjectModal(+this.dataset.pid)" class="btn btn-ghost btn-sm">✏</button>'+
+          '<button data-pid="'+proj.id+'" onclick="delPortfolioProject(+this.dataset.pid)" class="btn btn-danger btn-sm">🗑</button>'+
+        '</div>'+
+      '</div></div>';
+  }).join('');
+}
+function filterPfCat(cat){ _pfActiveCat=cat; renderPortfolioProjects(); }
+function openPortfolioCatsSettings(){
+  var cats=_getPfCats();
+  var list=document.getElementById('pf-cats-list'); if(!list) return;
+  list.innerHTML=cats.map(function(c,i){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:8px">'+
+      '<span style="flex:1;font-size:13px">'+escapeHtml(c)+'</span>'+
+      '<button data-idx="'+i+'" onclick="_delPfCat(+this.dataset.idx)" class="btn btn-ghost btn-sm" style="color:var(--accent4);padding:3px 8px">✕</button>'+
+    '</div>';
+  }).join('');
+  var inp=document.getElementById('pf-cat-new-input'); if(inp) inp.value='';
+  openM('modal-portfolio-cats');
+}
+function addPfCat(){
+  var inp=document.getElementById('pf-cat-new-input'); if(!inp) return;
+  var val=(inp.value||'').trim(); if(!val){toast('⚠ اكتب اسم التصنيف');return;}
+  var cats=_getPfCats(); if(cats.includes(val)){toast('⚠ التصنيف موجود');return;}
+  cats.push(val); _savePfCats(cats); inp.value='';
+  openPortfolioCatsSettings(); renderPortfolioProjects(); toast('✅ تم إضافة التصنيف');
+}
+function _delPfCat(i){ var cats=_getPfCats(); cats.splice(i,1); _savePfCats(cats); openPortfolioCatsSettings(); renderPortfolioProjects(); }
+
+// ══════════════════════════════════
+// Active Toggle on Services
+// ══════════════════════════════════
+function toggleSvcActive(id,event){
+  event.stopPropagation();
+  var svc=(S.services||[]).find(function(x){return String(x.id)===String(id);}); if(!svc) return;
+  svc.active=!svc.active;
+  lsSave(); cloudSave(S); renderServices(); toast(svc.active?'✅ الخدمة نشطة':'○ الخدمة موقوفة');
 }
 
 // ── Banner ──
@@ -14807,6 +15185,18 @@ function _delSvcCat(i){
 
 // ── Service Modal ──
 var _svcImgData = '';
+var _svcModalActive = true;
+function toggleSvcModalActive(){
+  _svcModalActive=!_svcModalActive;
+  var tog=document.getElementById('svc-modal-active-toggle');
+  var knob=document.getElementById('svc-modal-active-knob');
+  var lbl=document.getElementById('svc-modal-active-label');
+  var flag=document.getElementById('svc-active-flag');
+  if(tog) tog.style.background=_svcModalActive?'var(--accent3)':'var(--border)';
+  if(knob) knob.style.right=_svcModalActive?'2px':'calc(100% - 20px)';
+  if(lbl) lbl.textContent=_svcModalActive?'● نشطة':'○ موقوفة';
+  if(flag) flag.value=_svcModalActive?'1':'0';
+}
 function openSvcModal(id){
   _svcImgData = '';
   document.getElementById('svc-eid').value = id||'';
@@ -14839,6 +15229,16 @@ function openSvcModal(id){
       }
       (svc.packages||[]).forEach(function(p){ addPkgRow(p); });
       (svc.portfolio||[]).forEach(function(p){ _renderPortfolioRow(p); });
+      // portfolio cat link
+      var pfSel=document.getElementById('svc-portfolio-cat-link');
+      if(pfSel){ var pfCats=_getPfCats(); pfSel.innerHTML='<option value="">— ربط بتصنيف بورتفوليو —</option>'+pfCats.map(function(c){return '<option value="'+escapeHtml(c)+'"'+(c===(svc.portfolio_cat||'')?'selected':'')+'>'+escapeHtml(c)+'</option>';}).join(''); }
+      // active
+      _svcModalActive=svc.active!==false;
+      var tog=document.getElementById('svc-modal-active-toggle'); var knob=document.getElementById('svc-modal-active-knob'); var lbl=document.getElementById('svc-modal-active-label'); var flag=document.getElementById('svc-active-flag');
+      if(tog) tog.style.background=_svcModalActive?'var(--accent3)':'var(--border)';
+      if(knob) knob.style.right=_svcModalActive?'2px':'calc(100% - 20px)';
+      if(lbl) lbl.textContent=_svcModalActive?'● نشطة':'○ موقوفة';
+      if(flag) flag.value=_svcModalActive?'1':'0';
     }
   }
   openM('modal-svc');
@@ -15104,7 +15504,8 @@ function renderServices(){
       var minPrice=0;
       if(svc.packages&&svc.packages.length){ var pp=svc.packages.map(function(p){return+p.price||0;}).filter(Boolean); if(pp.length) minPrice=Math.min.apply(null,pp); }
       var ordCount=(S.svc_orders||[]).filter(function(o){return String(o.service_id)===String(svc.id);}).length;
-      return '<div class="svc-card" onclick="openSvcDetail('+svc.id+')" onmouseenter="this.style.borderColor=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'\'" style="border:1.5px solid var(--border);border-radius:16px;overflow:hidden;cursor:pointer;transition:all .18s">'+
+      var isActive=svc.active!==false;
+      return '<div class="svc-card" onclick="openSvcDetail('+svc.id+')" onmouseenter="this.style.borderColor=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'\'" style="border:1.5px solid '+(isActive?'var(--border)':'rgba(255,107,107,.3)')+';border-radius:16px;overflow:hidden;cursor:pointer;transition:all .18s;opacity:'+(isActive?'1':'.7')+'">'+
         '<div class="svc-card-cover">'+(svc.image?'<img src="'+escapeHtml(svc.image)+'" style="width:100%;height:100%;object-fit:cover">':'🛍')+'</div>'+
         '<div class="svc-card-body">'+
           '<div style="font-size:14px;font-weight:800;margin-bottom:4px">'+escapeHtml(svc.name)+'</div>'+
@@ -15119,6 +15520,7 @@ function renderServices(){
           '</div>'+
           '<div style="display:flex;gap:6px;border-top:1px solid var(--border);padding-top:12px" onclick="event.stopPropagation()">'+
             '<button data-sid="'+svc.id+'" onclick="openSvcModal(+this.dataset.sid)" class="btn btn-ghost btn-sm" style="flex:1;justify-content:center">✏ تعديل</button>'+
+            '<button data-sid="'+svc.id+'" data-active="'+(isActive?'1':'0')+'" onclick="toggleSvcActive(+this.dataset.sid,event)" class="btn btn-ghost btn-sm" style="color:'+(isActive?'var(--accent3)':'var(--text3)')+'" title="'+(isActive?'موقف الخدمة':'تفعيل الخدمة')+'">'+(isActive?'● نشطة':'○ موقوفة')+'</button>'+
             '<button data-sid="'+svc.id+'" onclick="delSvc(+this.dataset.sid)" class="btn btn-danger btn-sm">🗑</button>'+
           '</div>'+
         '</div></div>';
@@ -19780,6 +20182,117 @@ function _showTrackingShareModal(t){
   </div>
 </div>
 
+<!-- ═══ PORTFOLIO PROJECT MODAL ═══ -->
+<div class="modal-overlay" id="modal-portfolio-project">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title" id="portfolio-project-modal-title">🖼 مشروع جديد</div>
+      <button class="close-btn" onclick="closeM('modal-portfolio-project')">✕</button>
+    </div>
+    <input type="hidden" id="pf-proj-id">
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">اسم المشروع *</label><input class="form-input" id="pf-proj-name" placeholder="مثال: هوية بصرية لمطعم الريف"></div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+          التصنيف *
+          <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px" onclick="openPortfolioCatsSettings()">⚙ تخصيص</button>
+        </label>
+        <select class="form-input" id="pf-proj-cat"><option value="">— اختر —</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">وصف المشروع</label><textarea class="form-input" id="pf-proj-desc" rows="2" placeholder="وصف مختصر للمشروع..."></textarea></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">رابط المشروع</label>
+        <input class="form-input" id="pf-proj-url" placeholder="رابط Behance أو Drive..." dir="ltr">
+      </div>
+      <div class="form-group">
+        <label class="form-label">نوع الرابط</label>
+        <select class="form-input" id="pf-proj-link-type">
+          <option value="behance">Behance 🎨</option>
+          <option value="drive">Google Drive 📁</option>
+          <option value="other">رابط آخر 🔗</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">صورة مصغرة <span style="color:var(--text3);font-size:10px">(أقصى 1MB)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="file" id="pf-proj-thumb-input" accept="image/*" style="display:none" onchange="handlePfProjThumb(this)">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('pf-proj-thumb-input').click()">📁 رفع صورة</button>
+        <span id="pf-proj-thumb-name" style="font-size:11px;color:var(--text3)">لا توجد صورة</span>
+        <button class="btn btn-danger btn-sm" id="pf-proj-thumb-clear" style="display:none" onclick="clearPfProjThumb()">✕</button>
+      </div>
+      <img id="pf-proj-thumb-preview" src="" style="display:none;margin-top:8px;width:100%;max-height:120px;object-fit:cover;border-radius:10px">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="savePortfolioProject()">💾 حفظ المشروع</button>
+      <button class="btn btn-ghost" onclick="closeM('modal-portfolio-project')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PORTFOLIO CATEGORIES MODAL ═══ -->
+<div class="modal-overlay" id="modal-portfolio-cats">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">⚙ تصنيفات البورتفوليو</div>
+      <button class="close-btn" onclick="closeM('modal-portfolio-cats')">✕</button>
+    </div>
+    <div id="pf-cats-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;max-height:220px;overflow-y:auto"></div>
+    <div style="display:flex;gap:8px">
+      <input class="form-input" id="pf-cat-new-input" placeholder="تصنيف جديد... مثال: سوشيال ميديا" style="flex:1">
+      <button class="btn btn-primary btn-sm" onclick="addPfCat()">+ إضافة</button>
+    </div>
+    <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:10px" onclick="closeM('modal-portfolio-cats')">✅ تم</button>
+  </div>
+</div>
+
+<!-- ═══ STANDALONE PACKAGE MODAL ═══ -->
+<div class="modal-overlay" id="modal-pkg-standalone">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title" id="pkg-standalone-title">📦 باقة جديدة</div>
+      <button class="close-btn" onclick="closeM('modal-pkg-standalone')">✕</button>
+    </div>
+    <input type="hidden" id="pkg-st-id">
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">اسم الباقة *</label><input class="form-input" id="pkg-st-name" placeholder="مثال: باقة التميز"></div>
+      <div class="form-group"><label class="form-label">السعر (ج) *</label><input class="form-input" type="number" id="pkg-st-price" placeholder="0"></div>
+    </div>
+    <div class="form-group"><label class="form-label">وصف الباقة</label><textarea class="form-input" id="pkg-st-desc" rows="2" placeholder="ما الذي يحصل عليه العميل..."></textarea></div>
+    <div class="form-group">
+      <label class="form-label">بنود الباقة <span style="color:var(--text3);font-size:10px">(كل بند في سطر)</span></label>
+      <textarea class="form-input" id="pkg-st-items" rows="4" placeholder="تصميم 8 منشورات شهرياً&#10;إدارة 2 منصة&#10;تقرير شهري&#10;تعديلات غير محدودة"></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">وقت التسليم</label><input class="form-input" id="pkg-st-delivery" placeholder="مثال: 7 أيام"></div>
+      <div class="form-group"><label class="form-label">عدد التعديلات</label><input class="form-input" type="number" id="pkg-st-revisions" placeholder="3"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+        سابقة أعمال (من البورتفوليو)
+      </label>
+      <select class="form-input" id="pkg-st-portfolio-cat">
+        <option value="">— ربط بتصنيف بورتفوليو —</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--surface2);border-radius:10px;margin-bottom:4px">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700">حالة الباقة</div>
+        <div style="font-size:11px;color:var(--text3)">نشطة وتظهر في الموقع العام</div>
+      </div>
+      <div onclick="togglePkgStActive()" id="pkg-st-active-toggle" style="width:46px;height:26px;border-radius:20px;background:var(--accent3);cursor:pointer;position:relative;transition:.3s;flex-shrink:0">
+        <div id="pkg-st-active-knob" style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.3s;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="savePkgStandalone()">💾 حفظ الباقة</button>
+      <button class="btn btn-ghost" onclick="closeM('modal-pkg-standalone')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ CONTRACT MODAL ═══ -->
 <div class="modal-overlay" id="modal-contract">
   <div class="modal" style="max-width:640px">
@@ -19912,4 +20425,3 @@ function _showTrackingShareModal(t){
 </div>
 
 </body></html>
-  
