@@ -198,16 +198,17 @@ function cloudSave(data){
 async function cloudLoad(){
   if(!_supaUserId) { console.warn('cloudLoad: no _supaUserId'); return null; }
   try{
-    // Try fetching the data column
-    const { data, error } = await supa.from('studio_data').select('data').eq('user_id', _supaUserId).single();
+    // Use maybeSingle — avoids PGRST116 error for new users
+    const { data, error } = await supa.from('studio_data').select('data').eq('user_id', _supaUserId).maybeSingle();
     if(error){
       console.error('cloudLoad error:', error.code, error.message);
-      if(error.code === 'PGRST116') return null; // no rows = new user
       // RLS or other error — try alternative query
-      const { data: fullRow, error: e2 } = await supa.from('studio_data').select('*').eq('user_id', _supaUserId).maybeSingle();
-      if(e2 || !fullRow) { console.error('cloudLoad fallback error:', e2?.message); return null; }
-      const raw = fullRow.data;
-      try { return typeof raw === 'string' ? JSON.parse(raw) : (raw || null); } catch(e){ return null; }
+      try {
+        const { data: fullRow, error: e2 } = await supa.from('studio_data').select('*').eq('user_id', _supaUserId).maybeSingle();
+        if(e2 || !fullRow){ console.error('cloudLoad fallback error:', e2?.message); return null; }
+        const raw = fullRow.data;
+        return typeof raw === 'string' ? JSON.parse(raw) : (raw || null);
+      } catch(e2){ return null; }
     }
     if(!data){ console.warn('cloudLoad: no data row'); return null; }
     try {
@@ -9028,8 +9029,10 @@ async function loginWithSupaSession(supaUser, session, userMeta){
 
   updateUserBadge(userObj);
 
-  // ── فحص صلاحية Admin أولاً ──
-  const isAdmin  = meta.role === 'admin' || meta.is_admin === true;
+  // ── فحص صلاحية Admin (app_metadata أو user_metadata) ──
+  const appMeta2 = supaUser.app_metadata || {};
+  const isAdmin  = appMeta2.role === 'admin' || appMeta2.is_admin === true || appMeta2.is_admin === 'true' ||
+                   meta.role === 'admin' || meta.is_admin === true;
   const isViewer = meta.role === 'viewer';
   _isAdminUser = isAdmin || isViewer;
 
@@ -13727,7 +13730,12 @@ supa.auth.onAuthStateChange(async (event, session) => {
     // FIX: Check if this login was manually triggered by the user
     // If admin is logged into admin dashboard in another tab and this tab isn't the source, skip auto-login
     const storedAdminSession = localStorage.getItem('_admin_active_session');
-    const isAdminTabSession  = (session.user.user_metadata?.role === 'admin' || session.user.user_metadata?.is_admin === true);
+    const isAdminTabSession = (
+      session.user.app_metadata?.role === 'admin' ||
+      session.user.app_metadata?.is_admin === true ||
+      session.user.user_metadata?.role === 'admin' ||
+      session.user.user_metadata?.is_admin === true
+    );
     // ALWAYS block admin accounts from auto-logging into user site
     // Admin users should only access via admin.html
     if(isAdminTabSession){
@@ -14982,8 +14990,11 @@ window.openMyMemberTeamProfile = function(ownerId){
       try{ var _as=JSON.parse(localStorage.getItem('studioOS_auth_v1')||'{}'); myEmail=(_as.email||'').toLowerCase().trim(); }catch(e){}
       if(!myEmail && S.settings && S.settings.email) myEmail = (S.settings.email||'').toLowerCase().trim();
       if(!myEmail) return;
-      var { data: pendingInvs } = await supa.from('team_invites')
-        .select('*').eq('to_email', myEmail).eq('status','pending').catch(()=>({data:null}));
+      var pendingInvs = null;
+      try{
+        var _r = await supa.from('team_invites').select('*').eq('to_email', myEmail).eq('status','pending');
+        pendingInvs = _r.data;
+      }catch(e){ return; }
       if(!pendingInvs || !pendingInvs.length) return;
       // Deliver each pending invite as a notification
       for(var pinv of pendingInvs){
@@ -15010,7 +15021,7 @@ window.openMyMemberTeamProfile = function(ownerId){
           setTimeout(function(){ window._showTeamInviteDialog([notif]); }, 2000);
         }
         // Mark as delivered in team_invites table
-        await supa.from('team_invites').update({status:'delivered'}).eq('id',pinv.id).catch(()=>null);
+        try{ await supa.from('team_invites').update({status:'delivered'}).eq('id',pinv.id); }catch(e){}
       }
     }catch(e){ console.warn('_checkPendingTeamInvites:', e); }
   })();
