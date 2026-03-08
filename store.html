@@ -7,7 +7,7 @@
 <title>المتجر</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- No SDK needed - using direct REST API -->
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
@@ -377,10 +377,15 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 const SUPA_URL  = 'https://mpfmcjgigpvdxbhgzufo.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM';
 
-try{ window.BroadcastChannel=undefined; }catch(e){}
-const supa = supabase.createClient(SUPA_URL, SUPA_ANON, {
-  auth:{ persistSession:false, autoRefreshToken:false, detectSessionInUrl:false }
-});
+// Direct REST fetch helpers (no SDK)
+function _supaGet(table, filters){
+  var url=SUPA_URL+'/rest/v1/'+table+'?'+filters+'&limit=1';
+  return fetch(url, {headers:{apikey:SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}}).then(function(r){return r.json();});
+}
+function _supaUpdate(table, match, body){
+  var url=SUPA_URL+'/rest/v1/'+table+'?'+match;
+  return fetch(url, {method:'PATCH',headers:{apikey:SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(body)});
+}
 
 // ══════════════════════════════════════════════════
 // GLOBALS
@@ -413,19 +418,21 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 function loadStoreData(cb){
-  supa.from('studio_data').select('data').eq('user_id',_uid).maybeSingle().then(function(res){
-    if(!res||res.error||!res.data){ showError('تعذّر تحميل بيانات المتجر.'); return; }
-    try{ _ud=typeof res.data.data==='string'?JSON.parse(res.data.data):res.data.data; }catch(e){ showError('خطأ في البيانات.'); return; }
-    _services=(_ud.services||[]).filter(function(s){return s.active!==false;});
-    _packages=(_ud.standalone_packages||[]).filter(function(p){return p.active!==false;});
-    _pfProjects=_ud.portfolio_projects||[];
-    _settings=_ud.settings||{};
-    _socials=_settings.socials||[];
-    _isOrdersOpen=_settings.svc_orders_open!==false;
-    _accentColor=_settings.accentColor||_settings.accent||'#7c6ff7';
-    applyTheme();
-    if(cb) cb();
-  }).catch(function(){ showError('حدث خطأ أثناء الاتصال.'); });
+  _supaGet('studio_data','user_id=eq.'+encodeURIComponent(_uid)+'&select=data')
+    .then(function(rows){
+      if(!rows||!Array.isArray(rows)||!rows.length||!rows[0]||!rows[0].data){ showError('تعذّر تحميل بيانات المتجر. تأكد من الرابط.'); return; }
+      try{ _ud=typeof rows[0].data==='string'?JSON.parse(rows[0].data):rows[0].data; }catch(e){ showError('خطأ في البيانات.'); return; }
+      _services=(_ud.services||[]).filter(function(s){return s.active!==false;});
+      _packages=(_ud.standalone_packages||[]).filter(function(p){return p.active!==false;});
+      _pfProjects=_ud.portfolio_projects||[];
+      _settings=_ud.settings||{};
+      _socials=_settings.socials||[];
+      _isOrdersOpen=_settings.svc_orders_open!==false;
+      _accentColor=_settings.accentColor||_settings.accent||'#7c6ff7';
+      applyTheme();
+      if(cb) cb();
+    })
+    .catch(function(e){ showError('حدث خطأ في الاتصال. تأكد من اتصال الإنترنت.'); });
 }
 
 function applyTheme(){
@@ -510,9 +517,7 @@ function buildHomeSvcs(){
   if(more && _services.length>6) more.style.display='';
   if(!svcs.length){ grid.innerHTML='<div class="_empty"><div class="_empty-icon">🛍</div><div class="_empty-text">لا توجد خدمات بعد</div></div>'; return; }
   grid.innerHTML=svcs.map(function(svc){
-    var minPrice=0;
-    if(svc.packages&&svc.packages.length){ var pp=svc.packages.map(function(p){return+p.price||0;}).filter(Boolean); if(pp.length) minPrice=Math.min.apply(null,pp); }
-    if(!minPrice && svc.price) minPrice=+svc.price;
+    var minPrice=+svc.price||0;
     return '<div class="_svc-card" onclick="openSvcDetailById(\''+svc.id+'\')">'+
       (svc.image?'<img class="_svc-card-img" src="'+escHtml(svc.image)+'" alt="'+escHtml(svc.name)+'" onerror="this.className=\'_svc-card-img-ph\';this.outerHTML=\'<div class=\\"_svc-card-img-ph\\">🛍</div>\'">':'<div class="_svc-card-img-ph">🛍</div>')+
       '<div class="_svc-card-body">'+
@@ -520,7 +525,7 @@ function buildHomeSvcs(){
         '<div class="_svc-name">'+escHtml(svc.name)+'</div>'+
         (svc.desc?'<div class="_svc-desc">'+escHtml(svc.desc)+'</div>':'')+
         '<div class="_svc-footer">'+
-          '<div><div class="_svc-price">'+(minPrice?Number(minPrice).toLocaleString()+' ج':'')+'</div>'+(svc.delivery?'<div class="_svc-price-sub">⏱ '+escHtml(svc.delivery)+'</div>':'')+'</div>'+
+          '<div><div class="_svc-price">'+(minPrice?'يبدأ من '+Number(minPrice).toLocaleString()+' ج':svc.price?Number(svc.price).toLocaleString()+' ج':'')+'</div>'+(svc.delivery?'<div class="_svc-price-sub">⏱ '+escHtml(svc.delivery)+'</div>':'')+'</div>'+
           '<button class="_svc-order-btn" onclick="event.stopPropagation();openSvcDetailById(\''+svc.id+'\')">عرض التفاصيل</button>'+
         '</div>'+
       '</div></div>';
@@ -538,6 +543,7 @@ function buildHomePkgs(){
 
 function buildPkgCardHtml(pkg){
   return '<div class="_pkg-card">'+
+    (pkg.thumb?'<img src="'+escHtml(pkg.thumb)+'" style="width:100%;height:100px;object-fit:cover;border-radius:12px;display:block;margin-bottom:10px" onerror="this.style.display=\"none\"">':'')+
     '<div class="_pkg-badge-wrap"><div class="_pkg-icon">📦</div>'+
       '<div style="font-size:22px;font-weight:900;color:var(--accent3)">'+(pkg.price?Number(pkg.price).toLocaleString()+' ج':'مجاني')+'</div>'+
     '</div>'+
@@ -631,7 +637,11 @@ function openSvcDetailById(id){
   var svcPort=_currentSvc.portfolio||[];
 
   var pkgsHtml='';
-  if(_currentSvc.packages&&_currentSvc.packages.length){
+  if(_currentSvc.terms&&_currentSvc.terms.length){
+    pkgsHtml='<div class="_terms-list"><div class="_terms-title">✓ ما تحصل عليه</div>'+_currentSvc.terms.map(function(t){return '<div class="_term-item">'+escHtml(t)+'</div>';}).join('')+'</div>';
+  }
+  // legacy packages support
+  if(!pkgsHtml && _currentSvc.packages&&_currentSvc.packages.length){
     pkgsHtml='<div style="margin-top:20px"><div class="_terms-title" style="font-size:14px;margin-bottom:12px">📦 الباقات المتاحة</div>'+
       _currentSvc.packages.map(function(p){
         return '<div class="_pkg-card" style="margin-bottom:10px;cursor:pointer;background:rgba(124,111,247,.04)" onclick="quickSelectPkg(\''+escHtml(p.name)+'\','+( +p.price||0)+')">'+
@@ -758,15 +768,17 @@ function submitOrder(){
   var btn=document.getElementById('_order-submit-btn');
   if(btn){btn.disabled=true;btn.textContent='جاري الإرسال...';}
   // load latest ud and push order
-  supa.from('studio_data').select('data').eq('user_id',_uid).maybeSingle().then(function(res){
-    var ud2={}; try{ ud2=typeof res.data.data==='string'?JSON.parse(res.data.data):res.data.data; }catch(e){}
-    if(!ud2.svc_orders) ud2.svc_orders=[];
-    ud2.svc_orders.push(order);
-    // notification
-    if(!ud2._pending_notifications) ud2._pending_notifications=[];
-    ud2._pending_notifications.push({id:order.id+'_n',title:'📥 طلب جديد!',body:'طلب من '+name+': '+svcName,type:'svc_order',created_at:new Date().toISOString(),read:false});
-    return supa.from('studio_data').update({data:JSON.stringify(ud2),updated_at:new Date().toISOString()}).eq('user_id',_uid);
-  }).then(function(){
+  var supaHeaders={'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON,'Content-Type':'application/json'};
+  fetch(SUPA_URL+'/rest/v1/studio_data?user_id=eq.'+encodeURIComponent(_uid)+'&select=data&limit=1',{headers:supaHeaders})
+    .then(function(r){return r.json();})
+    .then(function(rows){
+      var ud2={}; try{ ud2=typeof rows[0].data==='string'?JSON.parse(rows[0].data):rows[0].data; }catch(e){}
+      if(!ud2.svc_orders) ud2.svc_orders=[];
+      ud2.svc_orders.push(order);
+      if(!ud2._pending_notifications) ud2._pending_notifications=[];
+      ud2._pending_notifications.push({id:order.id+'_n',title:'📥 طلب جديد!',body:'طلب من '+name+': '+svcName,type:'svc_order',created_at:new Date().toISOString(),read:false});
+      return fetch(SUPA_URL+'/rest/v1/studio_data?user_id=eq.'+encodeURIComponent(_uid),{method:'PATCH',headers:supaHeaders,body:JSON.stringify({data:JSON.stringify(ud2),updated_at:new Date().toISOString()})});
+    }).then(function(){
     closeOrderSheet();
     if(btn){btn.disabled=false;btn.textContent='✅ إرسال الطلب';}
     showSuccessPage(name);
