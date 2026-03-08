@@ -2160,7 +2160,7 @@ setTimeout(window._showApp, 4000);
       </select>
       <select id="tf-client" onchange="applyTaskFilters()" style="display:none"><option value="">كل العملاء</option></select>
       <select id="tf-year" onchange="applyTaskFilters()" style="display:none"><option value="">كل السنوات</option></select>
-      <input id="tf-search" type="text" placeholder="<i class="fa-solid fa-magnifying-glass"></i> بحث..." oninput="applyTaskFilters()" class="filter-select" style="min-width:140px;background-image:none!important;padding:0 12px!important">
+      <input id="tf-search" type="text" placeholder="🔍 بحث..." oninput="applyTaskFilters()" class="filter-select" style="min-width:140px;background-image:none!important;padding:0 12px!important">
       <button onclick="resetTaskFilters()" style="height:34px;padding:0 12px;border-radius:20px;border:1.5px solid var(--border);background:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:var(--font)"><i class="fa-solid fa-xmark"></i> مسح</button>
       <span class="filter-count" id="tf-count"></span>
     </div>
@@ -2711,6 +2711,15 @@ setTimeout(window._showApp, 4000);
     </div>
   </div>
 
+  <!-- تابات المالية -->
+  <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px;flex-wrap:wrap">
+    <button class="filter-chip active" id="fin-tab-transactions" onclick="switchFinTab('transactions')"><i class="fa-solid fa-list"></i> المعاملات</button>
+    <button class="filter-chip" id="fin-tab-wallets" onclick="switchFinTab('wallets')"><i class="fa-solid fa-wallet"></i> المحافظ والأرصدة</button>
+  </div>
+
+  <!-- محتوى تاب المعاملات -->
+  <div id="fin-panel-transactions">
+
   <!-- فلتر الفترة الزمنية -->
   <div class="filter-bar" style="margin-bottom:16px">
     <select id="fin-filter-month" onchange="applyFinanceFilter()">
@@ -2806,6 +2815,61 @@ setTimeout(window._showApp, 4000);
     </div>
     <div class="table-wrap"><table><thead><tr><th>الوصف</th><th class="hide-mobile">الفئة</th><th>النوع</th><th>المبلغ</th><th class="hide-mobile">التاريخ</th><th>إجراءات</th></tr></thead><tbody id="fin-tbody"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">لا معاملات</td></tr></tbody></table></div>
   </div>
+
+  </div><!-- end fin-panel-transactions -->
+
+  <!-- تاب المحافظ والأرصدة -->
+  <div id="fin-panel-wallets" style="display:none">
+    <!-- كروت المحافظ -->
+    <div id="fin-wallets-grid" class="grid grid-4" style="margin-bottom:16px"></div>
+
+    <!-- تفاصيل المعاملات لمحفظة معينة -->
+    <div class="card" id="fin-wallet-detail-card" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div id="fin-wd-icon" style="font-size:22px"></div>
+          <div>
+            <div id="fin-wd-name" style="font-size:15px;font-weight:800"></div>
+            <div id="fin-wd-balance" style="font-size:12px;color:var(--text3)"></div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('fin-wallet-detail-card').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>الوصف</th><th>النوع</th><th>المبلغ</th><th class="hide-mobile">التاريخ</th></tr></thead>
+        <tbody id="fin-wd-tbody"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text3)">اختر محفظة</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- إضافة رصيد يدوي لمحفظة -->
+    <div class="card" style="margin-top:16px">
+      <div class="section-title" style="margin-bottom:14px"><i class="fa-solid fa-plus-circle"></i> تعديل رصيد محفظة يدوياً</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:1;min-width:140px">
+          <div class="form-label">المحفظة</div>
+          <select id="fin-manual-wallet" class="form-input" style="height:38px"></select>
+        </div>
+        <div style="flex:1;min-width:120px">
+          <div class="form-label">النوع</div>
+          <select id="fin-manual-type" class="form-input" style="height:38px">
+            <option value="income">+ إيداع</option>
+            <option value="expense">- سحب</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:100px">
+          <div class="form-label">المبلغ (ج)</div>
+          <input id="fin-manual-amount" type="number" class="form-input" placeholder="0" min="0" style="height:38px">
+        </div>
+        <div style="flex:2;min-width:160px">
+          <div class="form-label">الوصف</div>
+          <input id="fin-manual-desc" class="form-input" placeholder="مثال: تحويل من نقدي" style="height:38px">
+        </div>
+        <button class="btn btn-primary" onclick="addManualWalletEntry()" style="height:38px;white-space:nowrap"><i class="fa-solid fa-plus"></i> تسجيل</button>
+      </div>
+    </div>
+  </div><!-- end fin-panel-wallets -->
+
 </div>
 
 <!-- INVOICES -->
@@ -2840,7 +2904,7 @@ setTimeout(window._showApp, 4000);
           <div style="font-size:14px;font-weight:800">العقود</div>
           <div style="font-size:11px;color:var(--text3)" id="contracts-count"></div>
         </div>
-        <input style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);padding:10px 18px;color:var(--text);font-family:var(--font);font-size:12px;outline:none" placeholder="<i class="fa-solid fa-magnifying-glass"></i> بحث..." id="contracts-search" oninput="renderContractsList()">
+        <input style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);padding:10px 18px;color:var(--text);font-family:var(--font);font-size:12px;outline:none" placeholder="🔍 بحث..." id="contracts-search" oninput="renderContractsList()">
         <div id="contracts-list-el" style="max-height:70vh;overflow-y:auto">
           <div class="empty" style="padding:32px 16px"><div class="empty-icon"><i class="fa-solid fa-pen-to-square"></i></div>لا عقود بعد</div>
         </div>
@@ -3285,7 +3349,7 @@ setTimeout(window._showApp, 4000);
       <div style="font-size:12px;font-weight:700;margin-bottom:8px">إضافة تخصص جديد</div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">اسم التخصص *</label><input class="form-input" id="spec-name" placeholder="مثال: تصميم غرافيك"></div>
-        <div class="form-group" style="max-width:90px"><label class="form-label">أيقونة</label><input class="form-input" id="spec-icon" placeholder="<i class="fa-solid fa-palette"></i>" style="text-align:center;font-size:18px"></div>
+        <div class="form-group" style="max-width:90px"><label class="form-label">أيقونة</label><input class="form-input" id="spec-icon" placeholder="🎨" style="text-align:center;font-size:18px"></div>
         <div class="form-group" style="max-width:80px"><label class="form-label">اللون</label><input type="color" class="form-input" id="spec-color" value="#7c6ff7" style="height:42px;padding:4px;cursor:pointer"></div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -3964,7 +4028,7 @@ setTimeout(window._showApp, 4000);
         </label>
         <input class="form-input" type="date" id="t-deadline" onchange="_onDeadlineChanged(this.value)">
         <div id="t-deadline-reason-wrap" style="display:none;margin-top:5px">
-          <input class="form-input" id="t-deadline-reason" placeholder="<i class="fa-solid fa-pen-nib"></i> سبب تغيير الموعد... (مهم للالتزام)" style="font-size:12px;border-color:var(--accent2)">
+          <input class="form-input" id="t-deadline-reason" placeholder="✏ سبب تغيير الموعد... (مهم للالتزام)" style="font-size:12px;border-color:var(--accent2)">
         </div>
       </div>
     </div>
@@ -10549,7 +10613,7 @@ function showMiniNotif(msg){
     n.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--accent3);border-radius:10px;padding:10px 20px;font-size:13px;color:var(--text);z-index:6000;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center';
     document.body.appendChild(n);
   }
-  n.textContent=msg;
+  n.innerHTML=msg;
   n.style.opacity='1';
   clearTimeout(n._t);
   n._t=setTimeout(()=>{n.style.opacity='0';},3500);
@@ -12033,6 +12097,110 @@ function buildDynamicStatusDropdowns(){
 // SAVE doneAt timestamp when task is completed
 // ============================================================
 
+
+// ============================================================
+// WALLETS TAB SYSTEM
+// ============================================================
+function switchFinTab(tab) {
+  var tabs = ['transactions','wallets'];
+  tabs.forEach(function(t) {
+    var btn = document.getElementById('fin-tab-'+t);
+    var panel = document.getElementById('fin-panel-'+t);
+    if(btn) btn.className = t===tab ? 'filter-chip active' : 'filter-chip';
+    if(panel) panel.style.display = t===tab ? 'block' : 'none';
+  });
+  if(tab==='wallets') renderWalletsTab();
+}
+
+function renderWalletsTab() {
+  var methods = getAllPayMethods();
+  var transactions = S.transactions || [];
+  var grid = document.getElementById('fin-wallets-grid');
+  if(!grid) return;
+
+  // Fill manual wallet select
+  var manualSel = document.getElementById('fin-manual-wallet');
+  if(manualSel) {
+    manualSel.innerHTML = methods.map(function(m) {
+      return '<option value="'+m.id+'">'+m.label+'</option>';
+    }).join('');
+  }
+
+  var walletColors = {cash:'#4fd1a5',instapay:'#7c6ff7',vodafone:'#e53935',etisalat:'#1565c0'};
+  var walletIcons  = {cash:'<i class="fa-solid fa-money-bill-wave"></i>',instapay:'<i class="fa-solid fa-mobile"></i>',vodafone:'<i class="fa-brands fa-vimeo" style="color:#e53935"></i>',etisalat:'<i class="fa-solid fa-phone"></i>'};
+
+  grid.innerHTML = methods.map(function(m) {
+    var mTrans = transactions.filter(function(t){ return t.payMethod===m.id || t.method===m.id; });
+    var income  = mTrans.filter(function(t){ return t.type==='income'; }).reduce(function(s,t){ return s+(t.amount||0); }, 0);
+    var expense = mTrans.filter(function(t){ return t.type==='expense'; }).reduce(function(s,t){ return s+(t.amount||0); }, 0);
+    var balance = income - expense;
+    var color   = m.color || walletColors[m.id] || '#7c6ff7';
+    var icon    = m.icon  || walletIcons[m.id]  || '<i class="fa-solid fa-wallet"></i>';
+    var pct     = (income+expense) > 0 ? Math.round(income/(income+expense)*100) : 0;
+    return '<div class="card" style="cursor:pointer;border:1.5px solid '+color+'33;position:relative;overflow:hidden" data-wid="'+m.id+'" onclick="showWalletDetail(this.dataset.wid)">'+
+      '<div style="position:absolute;top:0;right:0;width:100%;height:3px;background:'+color+'"></div>'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
+        '<div style="width:42px;height:42px;border-radius:12px;background:'+color+'22;display:flex;align-items:center;justify-content:center;font-size:20px;color:'+color+'">'+icon+'</div>'+
+        '<div><div style="font-size:13px;font-weight:800">'+m.label+'</div><div style="font-size:10px;color:var(--text3)">'+mTrans.length+' معاملة</div></div>'+
+      '</div>'+
+      '<div style="font-size:22px;font-weight:900;color:'+(balance>=0?'var(--accent3)':'var(--accent4)')+'">'+balance.toLocaleString('ar-EG')+' <span style="font-size:12px;font-weight:400">ج</span></div>'+
+      '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--text3)">'+
+        '<span style="color:var(--accent3)">↑ '+income.toLocaleString('ar-EG')+'</span>'+
+        '<span style="color:var(--accent4)">↓ '+expense.toLocaleString('ar-EG')+'</span>'+
+      '</div>'+
+      '<div style="margin-top:8px;height:4px;background:var(--surface2);border-radius:4px;overflow:hidden">'+
+        '<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:4px;transition:width .5s"></div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function showWalletDetail(methodId) {
+  var card = document.getElementById('fin-wallet-detail-card');
+  var methods = getAllPayMethods();
+  var m = methods.find(function(x){ return x.id===methodId; });
+  if(!m || !card) return;
+  card.style.display = 'block';
+  card.scrollIntoView({behavior:'smooth',block:'nearest'});
+  var mTrans = (S.transactions||[]).filter(function(t){ return t.payMethod===methodId || t.method===methodId; });
+  var income  = mTrans.filter(function(t){ return t.type==='income'; }).reduce(function(s,t){ return s+(t.amount||0); }, 0);
+  var expense = mTrans.filter(function(t){ return t.type==='expense'; }).reduce(function(s,t){ return s+(t.amount||0); }, 0);
+  var balance = income - expense;
+  var iconEl = document.getElementById('fin-wd-icon');
+  var nameEl = document.getElementById('fin-wd-name');
+  var balEl  = document.getElementById('fin-wd-balance');
+  if(iconEl) iconEl.innerHTML = m.icon || '<i class="fa-solid fa-wallet"></i>';
+  if(nameEl) nameEl.textContent = m.label;
+  if(balEl)  balEl.innerHTML = 'الرصيد: <strong style="color:'+(balance>=0?'var(--accent3)':'var(--accent4)')+'">'+balance.toLocaleString('ar-EG')+' ج</strong> &nbsp;|&nbsp; دخل: '+income.toLocaleString('ar-EG')+' ج &nbsp;|&nbsp; صرف: '+expense.toLocaleString('ar-EG')+' ج';
+  var tbody = document.getElementById('fin-wd-tbody');
+  if(!tbody) return;
+  var rows = [...mTrans].sort(function(a,b){ return (b.isoDate||'').localeCompare(a.isoDate||''); });
+  tbody.innerHTML = rows.map(function(t) {
+    return '<tr>'+
+      '<td>'+( t.desc||'—' )+'</td>'+
+      '<td><span class="badge '+(t.type==='income'?'badge-green':'badge-red')+'">'+(t.type==='income'?'دخل':'مصروف')+'</span></td>'+
+      '<td style="font-weight:700;color:'+(t.type==='income'?'var(--accent3)':'var(--accent4)')+'">'+t.amount.toLocaleString('ar-EG')+' ج</td>'+
+      '<td class="hide-mobile" style="font-size:11px;color:var(--text3)">'+(t.isoDate||t.date||'—')+'</td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text3)">لا معاملات لهذه المحفظة</td></tr>';
+}
+
+function addManualWalletEntry() {
+  var method = document.getElementById('fin-manual-wallet')?.value;
+  var type   = document.getElementById('fin-manual-type')?.value;
+  var amount = parseFloat(document.getElementById('fin-manual-amount')?.value) || 0;
+  var desc   = document.getElementById('fin-manual-desc')?.value.trim() || 'إدخال يدوي';
+  if(!method || !amount) { showMiniNotif('<i class="fa-solid fa-triangle-exclamation"></i> اختر المحفظة وأدخل المبلغ'); return; }
+  var today = new Date().toISOString().split('T')[0];
+  var entry = { id: Date.now(), type, amount, desc, payMethod: method, method, source: 'محفظة', isoDate: today, date: today };
+  if(!S.transactions) S.transactions = [];
+  S.transactions.push(entry);
+  lsSave(); cloudSave(S);
+  document.getElementById('fin-manual-amount').value = '';
+  document.getElementById('fin-manual-desc').value   = '';
+  renderWalletsTab();
+  showMiniNotif('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تسجيل المعاملة في ' + (getAllPayMethods().find(m=>m.id===method)?.label||method));
+}
 
 // ============================================================
 // PAYMENT ACCOUNTS (custom wallets/methods)
@@ -13617,7 +13785,7 @@ function _openStepEditorInDetail(courseId, stepIdx){
       </div>
     </div>
     <div style="padding:12px 18px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0">
-      <input id="_se-url" value="${(s.url||'').replace(/"/g,'&quot;')}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--accent3);font-family:var(--mono);width:100%;outline:none;box-sizing:border-box" placeholder="<i class="fa-solid fa-link"></i> رابط الخطوة (اختياري)">
+      <input id="_se-url" value="${(s.url||'').replace(/"/g,'&quot;')}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--accent3);font-family:var(--mono);width:100%;outline:none;box-sizing:border-box" placeholder="🔗 رابط الخطوة (اختياري)">
     </div>
     <!-- Quill Editor -->
     <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column">
@@ -15150,10 +15318,19 @@ window.openMyMemberTeamProfile = function(ownerId){
       if(!myEmail) return;
       var pendingInvs = null;
       try{
-        var _r = await supa.from('team_invites').select('*').eq('to_email', myEmail).eq('status','pending');
+        var _r = await supa.from('team_invites').select('*').eq('to_email', myEmail).in('status',['pending','delivered']);
         pendingInvs = _r.data;
       }catch(e){ return; }
       if(!pendingInvs || !pendingInvs.length) return;
+      // فلترة ما سبق قبوله أو رفضه محلياً
+      var localAccepted = JSON.parse(localStorage.getItem('_accepted_team_invites_'+(_supaUserId||''))||'[]');
+      var localDeclined = JSON.parse(localStorage.getItem('_declined_team_invites_'+(_supaUserId||''))||'[]');
+      pendingInvs = pendingInvs.filter(function(p){
+        var wasAccepted = localAccepted.some(function(a){ return String(a.teamId)===String(p.team_id); });
+        var wasDeclined = localDeclined.includes(String(p.id));
+        return !wasAccepted && !wasDeclined;
+      });
+      if(!pendingInvs.length) return;
       // Deliver each pending invite as a notification
       for(var pinv of pendingInvs){
         var notif;
@@ -15315,6 +15492,12 @@ window.openMyMemberTeamProfile = function(ownerId){
       if(typeof supa!=='undefined' && invite.id){
         supa.from('team_invites').update({status:'declined'}).eq('id', invite.id.replace('pn_','')).catch(()=>null);
       }
+      // حفظ الرفض محلياً لتجنب إعادة العرض
+      var decKey = '_declined_team_invites_'+(_supaUserId||'');
+      var decList = JSON.parse(localStorage.getItem(decKey)||'[]');
+      var rawId = String(invite.id).replace('pn_','');
+      if(!decList.includes(rawId)) decList.push(rawId);
+      localStorage.setItem(decKey, JSON.stringify(decList));
     }
     if(remaining.length) setTimeout(function(){ window._showTeamInviteDialog(remaining); }, 400);
   };
@@ -20105,7 +20288,7 @@ function openStatusPopover(statusId, triggerEl){
       <!-- Add new status -->
       <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">+ إضافة حالة جديدة</div>
       <div class="_sp-new">
-        <input id="_sp-new-icon" placeholder="<i class="fa-solid fa-star"></i>" style="width:34px;text-align:center;font-size:14px" title="رمز اختياري">
+        <input id="_sp-new-icon" placeholder="⭐" style="width:34px;text-align:center;font-size:14px" title="رمز اختياري">
         <input id="_sp-new-label" placeholder="اسم الحالة...">
         <input id="_sp-new-color" type="color" value="#7c6ff7" style="width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;background:none;padding:0;flex-shrink:0">
         <button class="_sp-add-btn" onclick="_spAddNew()">+ إضافة</button>
@@ -20694,7 +20877,7 @@ function _renderStatusMgrModal(){
       <div style="background:var(--surface2);border-radius:12px;padding:14px;border:1px solid var(--border)">
         <div style="font-size:11px;color:var(--text3);font-weight:700;margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px">+ إضافة حالة جديدة</div>
         <div style="display:flex;gap:8px;align-items:center">
-          <input id="_smgr-new-icon" class="form-input" placeholder="<i class="fa-solid fa-star"></i>" style="width:38px;text-align:center;font-size:16px;padding:0 4px;height:34px">
+          <input id="_smgr-new-icon" class="form-input" placeholder="⭐" style="width:38px;text-align:center;font-size:22px;padding:0 4px;height:34px">
           <input id="_smgr-new-label" class="form-input" placeholder="اسم الحالة الجديدة" style="flex:1;height:34px">
           <input id="_smgr-new-color" type="color" value="#7c6ff7" style="width:34px;height:34px;border:none;border-radius:8px;cursor:pointer;padding:0;background:none;flex-shrink:0">
           <button onclick="_smgrAddNew()" class="btn btn-primary" style="height:34px;padding:0 14px;white-space:nowrap">+ إضافة</button>
@@ -20804,15 +20987,22 @@ function _renderCustomKanbanCols(){
     if(!tasks.length){col.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px;text-align:center">لا مهام</div>';return;}
     col.innerHTML=tasks.map(t=>{
       const sp=t.steps||[];const sd=sp.filter(s=>s.done).length;const pct=sp.length?Math.round(sd/sp.length*100):0;
+      const prioColors={'high':'rgba(247,111,124,.2)','med':'rgba(247,201,72,.2)','low':'rgba(79,209,165,.2)'};
+      const prioText={'high':'var(--accent4)','med':'var(--accent2)','low':'var(--accent3)'};
+      const prioLabel={'high':'<i class="fa-solid fa-circle"></i> عاجل','med':'<i class="fa-solid fa-circle"></i> متوسط','low':'<i class="fa-solid fa-circle"></i> عادي'};
       return `<div class="kb-card" draggable="true" data-task-id="${t.id}" ondragstart="kbDragStart(event,${t.id})" onclick="openTaskDetail(${t.id})">
-        <div style="font-size:12px;font-weight:700;margin-bottom:5px">${t.title}</div>
-        <div style="font-size:10px;color:var(--text3)">${t.client||''}</div>
-        ${sp.length?`<div style="display:flex;align-items:center;gap:5px;margin-top:6px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:5px;line-height:1.4">${t.title}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:${sp.length?'6px':'0'}">
+          ${t.client?`<span style="font-size:10px;color:var(--text3);background:rgba(255,255,255,.05);padding:1px 6px;border-radius:8px">${t.client}</span>`:''}
+          ${t.priority?`<span style="font-size:10px;background:${prioColors[t.priority]||'rgba(0,0,0,.2)'};color:${prioText[t.priority]||'var(--text3)'};padding:1px 6px;border-radius:8px">${prioLabel[t.priority]||''}</span>`:''}
+          ${t.value?`<span style="font-size:10px;color:var(--accent3);font-weight:700;margin-right:auto">${t.value.toLocaleString()} ج</span>`:''}
+        </div>
+        ${sp.length?`<div style="display:flex;align-items:center;gap:5px;margin-top:2px">
           <div style="flex:1;height:3px;background:var(--surface3);border-radius:2px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${cs.color};border-radius:2px"></div>
+            <div style="height:100%;width:${pct}%;background:${pct===100?'var(--accent3)':cs.color};border-radius:2px;transition:width .3s"></div>
           </div><span style="font-size:10px;color:var(--text3)">${sd}/${sp.length}</span></div>`:''}
-        <div style="margin-top:5px;display:flex;justify-content:space-between">
-          <button onclick="event.stopPropagation();openCardStatusRename('${cs.id}',this)" style="background:rgba(255,255,255,.06);border:none;border-radius:6px;color:var(--text3);font-size:11px;padding:2px 7px;cursor:pointer"><i class="fa-solid fa-gear"></i></button>
+        <div style="font-size:10px;margin-top:5px;display:flex;justify-content:space-between;align-items:center">
+          <button onclick="event.stopPropagation();openCardStatusRename('${cs.id}',this)" style="background:rgba(255,255,255,.06);border:none;border-radius:6px;color:var(--text3);font-size:11px;padding:2px 7px;cursor:pointer" title="تعديل الحالة"><i class="fa-solid fa-gear"></i></button>
           <button onclick="event.stopPropagation();kbShowMoveMenu(event,${t.id})" style="background:${cs.color}22;border:none;border-radius:6px;color:${cs.color};font-size:10px;padding:2px 7px;cursor:pointer;font-weight:700">نقل ▾</button>
         </div>
       </div>`;
