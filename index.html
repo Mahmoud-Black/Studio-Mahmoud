@@ -76,10 +76,16 @@ function applyPlatformConfig() {
   const hexEl = document.getElementById('_logo-mark-hex');
   if(imgEl && platformLogo){
     imgEl.src = platformLogo;
-    imgEl.style.cssText = 'width:auto;height:34px;max-width:120px;object-fit:contain;display:block;border-radius:0;background:transparent;border:none;box-shadow:none';
+    imgEl.style.cssText = 'width:auto;height:36px;max-width:130px;object-fit:contain;display:block;border-radius:0;background:transparent;border:none;box-shadow:none';
     if(hexEl) hexEl.style.display = 'none';
     const wrap = document.getElementById('_logo-mark-wrap');
-    if(wrap){ wrap.style.width='auto'; wrap.style.height='auto'; wrap.style.maxWidth='120px'; wrap.style.background='transparent'; wrap.style.borderRadius='0'; wrap.style.border='none'; wrap.style.boxShadow='none'; wrap.style.padding='0'; wrap.style.overflow='visible'; }
+    if(wrap){
+      wrap.classList.add('has-logo');
+      wrap.style.width='auto'; wrap.style.height='auto'; wrap.style.maxWidth='130px';
+      wrap.style.background='transparent'; wrap.style.borderRadius='0';
+      wrap.style.border='none'; wrap.style.boxShadow='none';
+      wrap.style.padding='0'; wrap.style.overflow='visible';
+    }
     // sidebar name stays visible
   } else if(imgEl){
     imgEl.style.display = 'none';
@@ -649,14 +655,24 @@ body {
   flex-shrink: 0;
   overflow: hidden;
 }
+/* When custom logo image is loaded — remove shape/background */
+.logo-mark.has-logo {
+  width: auto !important;
+  height: auto !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+  box-shadow: none !important;
+}
 /* When studio logo is loaded, expand to show full logo */
 #_sidebar-logo-img {
   width: auto !important;
-  height: auto !important;
-  max-height: 44px !important;
+  height: 36px !important;
+  max-height: 36px !important;
   max-width: 130px !important;
   object-fit: contain !important;
   display: block;
+  border-radius: 0 !important;
 }
 .logo-text { flex: 1; overflow: hidden; }
 .logo-title { font-size: 16px; font-weight: 900; color: var(--accent); line-height: 1.2; }
@@ -1783,8 +1799,8 @@ setTimeout(window._showApp, 4000);
 <!-- ╔══ SIDEBAR ══╗ -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo" id="_sidebar-logo-wrap">
-    <div class="logo-mark" id="_logo-mark-wrap" style="overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-      <img id="_sidebar-logo-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none" onerror="this.style.display='none';document.getElementById('_logo-mark-hex').style.display='flex'">
+    <div class="logo-mark" id="_logo-mark-wrap" style="display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <img id="_sidebar-logo-img" src="" alt="" style="display:none" onerror="this.style.display='none';document.getElementById('_logo-mark-hex').style.display='flex';document.getElementById('_logo-mark-wrap').classList.remove('has-logo')">
       <span id="_logo-mark-hex" style="font-size:18px;font-weight:900;color:#fff">⬡</span>
     </div>
     <div class="logo-text">
@@ -3391,10 +3407,15 @@ setTimeout(window._showApp, 4000);
             <span style="font-size:10px;color:var(--text3)">JPG/PNG · 2MB</span>
           </div>
           <div style="font-size:11px;color:var(--text3);margin-bottom:6px">مقاس البانر:</div>
-          <div style="display:flex;gap:6px">
-            <button onclick="setSvcBannerSize('sm')" id="banner-size-sm" class="filter-chip" style="flex:1;justify-content:center">صغير</button>
-            <button onclick="setSvcBannerSize('md')" id="banner-size-md" class="filter-chip active" style="flex:1;justify-content:center">متوسط</button>
-            <button onclick="setSvcBannerSize('lg')" id="banner-size-lg" class="filter-chip" style="flex:1;justify-content:center">كبير</button>
+          <div style="display:flex;gap:6px;margin-bottom:8px">
+            <button onclick="setSvcBannerSize('sm')" id="banner-size-sm" class="filter-chip" style="flex:1;justify-content:center">صغير<span style="display:block;font-size:9px;color:var(--text3)">160px</span></button>
+            <button onclick="setSvcBannerSize('md')" id="banner-size-md" class="filter-chip active" style="flex:1;justify-content:center">متوسط<span style="display:block;font-size:9px;color:var(--text3)">260px</span></button>
+            <button onclick="setSvcBannerSize('lg')" id="banner-size-lg" class="filter-chip" style="flex:1;justify-content:center">كبير<span style="display:block;font-size:9px;color:var(--text3)">400px</span></button>
+            <button onclick="setSvcBannerSize('custom')" id="banner-size-custom" class="filter-chip" style="flex:1;justify-content:center">مخصص</button>
+          </div>
+          <div id="banner-custom-px-wrap" style="display:none;align-items:center;gap:8px">
+            <input type="number" class="form-input" id="banner-custom-px" placeholder="ارتفاع البانر" min="80" max="800" step="10" style="flex:1;height:34px" oninput="saveBannerCustomPx()">
+            <span style="font-size:12px;color:var(--text3);flex-shrink:0">px</span>
           </div>
         </div>
 
@@ -15067,7 +15088,13 @@ function initWebsiteTab(){
   });
   // banner size
   var sz=(S.settings&&S.settings.svc_banner_size)||'md';
-  ['sm','md','lg'].forEach(function(s){ var b=document.getElementById('banner-size-'+s); if(b){ b.classList.toggle('active',s===sz); } });
+  ['sm','md','lg','custom'].forEach(function(s){ var b=document.getElementById('banner-size-'+s); if(b){ b.classList.toggle('active',s===sz); } });
+  var customWrap=document.getElementById('banner-custom-px-wrap');
+  if(customWrap) customWrap.style.display=(sz==='custom'?'flex':'none');
+  if(sz==='custom'){
+    var inp=document.getElementById('banner-custom-px');
+    if(inp) inp.value=(S.settings&&S.settings.svc_banner_custom_px)||300;
+  }
   // banner preview
   var banner=S.settings&&S.settings.svc_banner;
   var bannerPv=document.getElementById('svc-banner-preview'); var bannerIm=document.getElementById('svc-banner-img'); var bannerCl=document.getElementById('svc-banner-clear-btn');
@@ -15108,8 +15135,21 @@ function saveSocials(){
 function setSvcBannerSize(sz){
   if(!S.settings) S.settings={};
   S.settings.svc_banner_size=sz;
-  ['sm','md','lg'].forEach(function(s){ var b=document.getElementById('banner-size-'+s); if(b) b.classList.toggle('active',s===sz); });
+  ['sm','md','lg','custom'].forEach(function(s){ var b=document.getElementById('banner-size-'+s); if(b) b.classList.toggle('active',s===sz); });
+  var customWrap=document.getElementById('banner-custom-px-wrap');
+  if(customWrap) customWrap.style.display=(sz==='custom'?'flex':'none');
+  if(sz==='custom'){
+    var inp=document.getElementById('banner-custom-px');
+    if(inp) inp.value=S.settings.svc_banner_custom_px||300;
+  }
   lsSave(); cloudSave(S); toast('✅ تم تغيير حجم البانر');
+}
+function saveBannerCustomPx(){
+  if(!S.settings) S.settings={};
+  var v=parseInt((document.getElementById('banner-custom-px')||{}).value)||300;
+  if(v<80) v=80; if(v>800) v=800;
+  S.settings.svc_banner_custom_px=v;
+  lsSave(); cloudSave(S);
 }
 
 // ══════════════════════════════════
@@ -16309,7 +16349,8 @@ function _buildSvcOrderPage(userId){
     var accent=settings.accent||settings.accentColor||'#7c6ff7';
     var banner=settings.svc_banner||'';
     var bannerSize=settings.svc_banner_size||'md';
-    var bannerH={sm:'160px',md:'260px',lg:'400px'}[bannerSize]||'260px';
+    var bannerCustomPx=settings.svc_banner_custom_px||300;
+    var bannerH={sm:'160px',md:'260px',lg:'400px',custom:bannerCustomPx+'px'}[bannerSize]||'260px';
     var logo=settings.logo||'';
     var studioName=settings.name||'Studio';
     var phone=settings.phone||'';
@@ -16350,7 +16391,7 @@ function _buildSvcOrderPage(userId){
       '._nav{position:sticky;top:0;z-index:1000;background:'+navBg+';backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid '+borderC+';padding:0 20px}'+
       '._nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:60px;gap:16px}'+
       '._nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}'+
-      '._nav-logo-img{width:38px;height:38px;border-radius:10px;object-fit:cover;border:2px solid '+accent+'55}'+
+      '._nav-logo-img{height:36px;width:auto;max-width:140px;border-radius:0;object-fit:contain;border:none;background:transparent;display:block}'+
       '._nav-logo-ph{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,'+accent+','+accent+'99);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:900}'+
       '._nav-name{font-size:16px;font-weight:900;color:'+textMain+'}'+
       '._nav-links{display:flex;align-items:center;gap:4px}'+
@@ -16529,15 +16570,18 @@ function _buildSvcOrderPage(userId){
     // ── SERVICES section ──
     var svcsHtml=services.slice(0,6).map(function(svc,idx){
       var priceDisplay=svc.price&&+svc.price?Number(svc.price).toLocaleString()+' ج':'عند الطلب';
-      return '<div class="_svc-card" onclick="_openSvcPage('+idx+')">'+
-        (svc.image?'<img class="_svc-img" src="'+escapeHtml(svc.image)+'" alt="" loading="lazy">':'<div class="_svc-img-ph">'+(svc.icon||'🛍')+'</div>')+
+      return '<div class="_svc-card">'+
+        (svc.image?'<img class="_svc-img" src="'+escapeHtml(svc.image)+'" alt="" loading="lazy" onclick="_openSvcPage('+idx+')" style="cursor:pointer">':'<div class="_svc-img-ph" onclick="_openSvcPage('+idx+')" style="cursor:pointer">'+(svc.icon||'🛍')+'</div>')+
         '<div class="_svc-body">'+
-          (svc.cat?'<div class="_svc-cat">'+escapeHtml(svc.cat)+'</div>':'')+
-          '<div class="_svc-name">'+escapeHtml(svc.name)+'</div>'+
-          (svc.desc?'<div class="_svc-desc">'+escapeHtml(svc.desc)+'</div>':'')+
+          (svc.cat?'<div class="_svc-cat" onclick="_openSvcPage('+idx+')" style="cursor:pointer">'+escapeHtml(svc.cat)+'</div>':'')+
+          '<div class="_svc-name" onclick="_openSvcPage('+idx+')" style="cursor:pointer">'+escapeHtml(svc.name)+'</div>'+
+          (svc.desc?'<div class="_svc-desc" onclick="_openSvcPage('+idx+')" style="cursor:pointer">'+escapeHtml(svc.desc)+'</div>':'')+
           '<div class="_svc-foot">'+
             '<div class="_svc-price">'+priceDisplay+'</div>'+
-            '<button class="_svc-btn">تفاصيل ←</button>'+
+            '<div style="display:flex;gap:5px">'+
+              '<button class="_svc-btn" onclick="event.stopPropagation();_openSvcPage('+idx+')" style="background:transparent;border:1.5px solid '+accent+'55;color:'+accent+'">تفاصيل</button>'+
+              '<button class="_svc-btn" onclick="event.stopPropagation();_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+')">اطلب ←</button>'+
+            '</div>'+
           '</div>'+
         '</div>'+
       '</div>';
@@ -16556,16 +16600,19 @@ function _buildSvcOrderPage(userId){
     // ── PACKAGES section ──
     var pkgsSection='';
     if(standalonePkgs.length){
-      var pkgsHtml=standalonePkgs.slice(0,4).map(function(p){
-        return '<div class="_pkg-card" onclick="_openOrderFormNew(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+')">'+
-          (p.thumb?'<img class="_pkg-thumb" src="'+escapeHtml(p.thumb)+'" alt="" loading="lazy">':'<div class="_pkg-thumb-ph">📦</div>')+
+      var pkgsHtml=standalonePkgs.slice(0,4).map(function(p,idx){
+        return '<div class="_pkg-card">'+
+          (p.thumb?'<img class="_pkg-thumb" src="'+escapeHtml(p.thumb)+'" alt="" loading="lazy" onclick="_openPkgPage('+idx+')" style="cursor:pointer">':'<div class="_pkg-thumb-ph" onclick="_openPkgPage('+idx+')" style="cursor:pointer">📦</div>')+
           '<div class="_pkg-body">'+
-            '<div class="_pkg-name">'+escapeHtml(p.name)+'</div>'+
-            (p.desc?'<div class="_pkg-desc">'+escapeHtml(p.desc)+'</div>':'')+
+            '<div class="_pkg-name" onclick="_openPkgPage('+idx+')" style="cursor:pointer">'+escapeHtml(p.name)+'</div>'+
+            (p.desc?'<div class="_pkg-desc" onclick="_openPkgPage('+idx+')" style="cursor:pointer">'+escapeHtml(p.desc)+'</div>':'')+
             (p.items&&p.items.length?'<div class="_pkg-items">'+p.items.slice(0,3).map(function(it){return '<div class="_pkg-item"><span>✓ </span>'+escapeHtml(it)+'</div>';}).join('')+'</div>':'')+
             '<div class="_pkg-foot">'+
               '<div class="_pkg-price">'+(p.price?Number(p.price).toLocaleString()+' ج':'عند الطلب')+'</div>'+
-              '<button class="_pkg-order-btn-sm">اطلب ←</button>'+
+              '<div style="display:flex;gap:4px">'+
+                '<button class="_pkg-order-btn-sm" onclick="event.stopPropagation();_openPkgPage('+idx+')" style="background:transparent;border:1.5px solid '+accent+'55;color:'+accent+'">تفاصيل</button>'+
+                '<button class="_pkg-order-btn-sm" onclick="event.stopPropagation();_openOrderFormNew(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+')">اطلب ←</button>'+
+              '</div>'+
             '</div>'+
           '</div>'+
         '</div>';
@@ -16676,13 +16723,18 @@ window._showAllSvcs=function(){
   var grid=document.getElementById('_svc-grid-main'); if(!grid) return;
   grid.innerHTML=services.map(function(svc,idx){
     var priceDisplay=svc.price&&+svc.price?Number(svc.price).toLocaleString()+' ج':'عند الطلب';
-    return '<div class="_svc-card" onclick="_openSvcPage('+idx+')">'+
-      (svc.image?'<img class="_svc-img" src="'+escapeHtml(svc.image)+'" alt="" loading="lazy">':'<div class="_svc-img-ph">'+(svc.icon||'🛍')+'</div>')+
+    return '<div class="_svc-card">'+
+      (svc.image?'<img class="_svc-img" src="'+escapeHtml(svc.image)+'" alt="" loading="lazy" onclick="_openSvcPage('+idx+')" style="cursor:pointer">':'<div class="_svc-img-ph" onclick="_openSvcPage('+idx+')" style="cursor:pointer">'+(svc.icon||'🛍')+'</div>')+
       '<div class="_svc-body">'+
-        (svc.cat?'<div class="_svc-cat">'+escapeHtml(svc.cat)+'</div>':'')+
-        '<div class="_svc-name">'+escapeHtml(svc.name)+'</div>'+
-        (svc.desc?'<div class="_svc-desc">'+escapeHtml(svc.desc)+'</div>':'')+
-        '<div class="_svc-foot"><div class="_svc-price">'+priceDisplay+'</div><button class="_svc-btn">تفاصيل ←</button></div>'+
+        (svc.cat?'<div class="_svc-cat" onclick="_openSvcPage('+idx+')" style="cursor:pointer">'+escapeHtml(svc.cat)+'</div>':'')+
+        '<div class="_svc-name" onclick="_openSvcPage('+idx+')" style="cursor:pointer">'+escapeHtml(svc.name)+'</div>'+
+        (svc.desc?'<div class="_svc-desc" onclick="_openSvcPage('+idx+')" style="cursor:pointer">'+escapeHtml(svc.desc)+'</div>':'')+
+        '<div class="_svc-foot"><div class="_svc-price">'+priceDisplay+'</div>'+
+          '<div style="display:flex;gap:5px">'+
+            '<button class="_svc-btn" onclick="event.stopPropagation();_openSvcPage('+idx+')" style="background:transparent;border:1.5px solid '+accent+'55;color:'+accent+'">تفاصيل</button>'+
+            '<button class="_svc-btn" onclick="event.stopPropagation();_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+')">اطلب ←</button>'+
+          '</div>'+
+        '</div>'+
       '</div></div>';
   }).join('');
   var btn=document.querySelector('[onclick="_showAllSvcs()"]'); if(btn) btn.remove();
@@ -16691,16 +16743,22 @@ window._showAllSvcs=function(){
 // ── Show all packages ──
 window._showAllPkgs=function(){
   var ud=window._pubUd; if(!ud) return;
+  var accent=window._pubAccent;
   var standalonePkgs=(ud.standalone_packages||[]).filter(function(p){return p.active!==false;});
   var grid=document.querySelector('#_sec-pkgs ._pkg-grid'); if(!grid) return;
-  grid.innerHTML=standalonePkgs.map(function(p){
-    return '<div class="_pkg-card" onclick="_openOrderFormNew(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+')">'+
-      (p.thumb?'<img class="_pkg-thumb" src="'+escapeHtml(p.thumb)+'" alt="">':'<div class="_pkg-thumb-ph">📦</div>')+
+  grid.innerHTML=standalonePkgs.map(function(p,idx){
+    return '<div class="_pkg-card">'+
+      (p.thumb?'<img class="_pkg-thumb" src="'+escapeHtml(p.thumb)+'" alt="" onclick="_openPkgPage('+idx+')" style="cursor:pointer">':'<div class="_pkg-thumb-ph" onclick="_openPkgPage('+idx+')" style="cursor:pointer">📦</div>')+
       '<div class="_pkg-body">'+
-        '<div class="_pkg-name">'+escapeHtml(p.name)+'</div>'+
-        (p.desc?'<div class="_pkg-desc">'+escapeHtml(p.desc)+'</div>':'')+
+        '<div class="_pkg-name" onclick="_openPkgPage('+idx+')" style="cursor:pointer">'+escapeHtml(p.name)+'</div>'+
+        (p.desc?'<div class="_pkg-desc" onclick="_openPkgPage('+idx+')" style="cursor:pointer">'+escapeHtml(p.desc)+'</div>':'')+
         (p.items&&p.items.length?'<div class="_pkg-items">'+p.items.slice(0,3).map(function(it){return '<div class="_pkg-item"><span>✓ </span>'+escapeHtml(it)+'</div>';}).join('')+'</div>':'')+
-        '<div class="_pkg-foot"><div class="_pkg-price">'+(p.price?Number(p.price).toLocaleString()+' ج':'عند الطلب')+'</div><button class="_pkg-order-btn-sm">اطلب ←</button></div>'+
+        '<div class="_pkg-foot"><div class="_pkg-price">'+(p.price?Number(p.price).toLocaleString()+' ج':'عند الطلب')+'</div>'+
+          '<div style="display:flex;gap:4px">'+
+            '<button class="_pkg-order-btn-sm" onclick="event.stopPropagation();_openPkgPage('+idx+')" style="background:transparent;border:1.5px solid '+accent+'55;color:'+accent+'">تفاصيل</button>'+
+            '<button class="_pkg-order-btn-sm" onclick="event.stopPropagation();_openOrderFormNew(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+')">اطلب ←</button>'+
+          '</div>'+
+        '</div>'+
       '</div></div>';
   }).join('');
   var btn=document.querySelector('[onclick="_showAllPkgs()"]'); if(btn) btn.remove();
@@ -16757,6 +16815,106 @@ window._openSvcPage=function(idx){
       termsHtml+
       portHtml+
       '<button class="_order-big-btn" onclick="_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+')">🚀 اطلب الخدمة الآن</button>'+
+    '</div>';
+  document.body.appendChild(page);
+  page.scrollTo({top:0}); window.scrollTo({top:0,behavior:'smooth'});
+};
+
+// ── Order Form (Service / Package) ──
+window._openOrderFormNew=function(svcName, pkgName, price){
+  var accent=window._pubAccent||'#7c6ff7';
+  var userId=window._pubUserId;
+  var C=window._pubColors||{textMain:'#f0f0f5',textSub:'#aaaacc',textMuted:'#777799',cardBg:'rgba(255,255,255,.05)',borderC:'rgba(255,255,255,.08)',sheetBg:'#1a1a28'};
+  var decodedSvc=svcName?decodeURIComponent(svcName):'';
+  var decodedPkg=pkgName?decodeURIComponent(pkgName):'';
+  var title=(decodedSvc||(decodedPkg?'باقة '+decodedPkg:'طلب خدمة'));
+  var ex=document.getElementById('_order-overlay'); if(ex) ex.remove();
+  var ov=document.createElement('div');
+  ov.id='_order-overlay'; ov.className='_ord-overlay';
+  ov.innerHTML='<div class="_ord-sheet">'+
+    '<div class="_ord-handle"></div>'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'+
+      '<div style="font-size:18px;font-weight:900;color:'+C.textMain+'">🚀 طلب الخدمة</div>'+
+      '<button onclick="document.getElementById(\'_order-overlay\').remove()" style="background:'+C.cardBg+';border:1px solid '+C.borderC+';width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;color:'+C.textMain+'">✕</button>'+
+    '</div>'+
+    '<div style="background:'+accent+'18;border:1px solid '+accent+'33;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:700;color:'+C.textMain+'">'+
+      (decodedSvc?'🛍 '+decodedSvc:'')+(decodedPkg?'📦 '+decodedPkg:'')+
+      (price&&+price?'<span style="float:left;color:'+accent+';font-size:15px;font-weight:900">'+Number(price).toLocaleString()+' ج</span>':'')+
+    '</div>'+
+    '<input id="_order-name" class="_ord-input" placeholder="الاسم الكامل *">'+
+    '<input id="_order-phone" class="_ord-input" placeholder="رقم الواتساب *" type="tel">'+
+    '<input id="_order-email" class="_ord-input" placeholder="البريد الإلكتروني (اختياري)" type="email" dir="ltr">'+
+    '<textarea id="_order-desc" class="_ord-input" rows="3" placeholder="وصف المشروع أو ملاحظاتك..."></textarea>'+
+    '<button class="_ord-submit" onclick="_submitOrderForm(\''+userId+'\',\''+encodeURIComponent(decodedSvc)+'\',\''+encodeURIComponent(decodedPkg)+'\','+(price||0)+')">📤 إرسال الطلب</button>'+
+  '</div>';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  document.body.appendChild(ov);
+};
+
+window._submitOrderForm=function(userId,svcName,pkgName,price){
+  var name=(document.getElementById('_order-name')||{}).value||'';
+  var phone=(document.getElementById('_order-phone')||{}).value||'';
+  var email=(document.getElementById('_order-email')||{}).value||'';
+  var desc=(document.getElementById('_order-desc')||{}).value||'';
+  if(!name||!phone){alert('الاسم ورقم الواتساب مطلوبان');return;}
+  var btn=document.querySelector('._ord-submit[onclick*="_submitOrderForm"]');
+  if(btn){btn.disabled=true;btn.textContent='⏳ جاري الإرسال...';}
+  var decodedSvc=svcName?decodeURIComponent(svcName):'';
+  var decodedPkg=pkgName?decodeURIComponent(pkgName):'';
+  var order={
+    id:Date.now()+'_o',
+    type:'svc_order',
+    client_name:name,
+    client_phone:phone,
+    client_email:email,
+    service_name:decodedSvc||decodedPkg||'خدمة',
+    pkg_name:decodedPkg||'',
+    price:+price||0,
+    desc:desc,
+    status:'pending',
+    created_at:new Date().toISOString(),
+    read:false
+  };
+  supa.from('studio_data').select('data').eq('user_id',userId).maybeSingle().then(function(res){
+    if(!res||!res.data) return;
+    var ud=null;try{ud=typeof res.data.data==='string'?JSON.parse(res.data.data):res.data.data;}catch(e){}
+    if(!ud) return;
+    ud.svc_orders=ud.svc_orders||[]; ud.svc_orders.push(order);
+    ud._pending_notifications=ud._pending_notifications||[];
+    ud._pending_notifications.push({id:order.id+'_n',title:'📥 طلب خدمة جديد!',body:name+' — '+(decodedSvc||decodedPkg),type:'svc_order',created_at:new Date().toISOString(),read:false});
+    return supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',userId);
+  }).then(function(){
+    document.getElementById('_order-overlay')&&document.getElementById('_order-overlay').remove();
+    alert('✅ تم إرسال طلبك بنجاح! سنتواصل معك قريباً.');
+  }).catch(function(e){if(btn){btn.disabled=false;btn.textContent='📤 إرسال الطلب';}});
+};
+
+// ── Package Detail Page ──
+window._openPkgPage=function(idx){
+  var ud=window._pubUd; var accent=window._pubAccent; var C=window._pubColors;
+  if(!ud) return;
+  var standalonePkgs=(ud.standalone_packages||[]).filter(function(p){return p.active!==false;});
+  var p=standalonePkgs[idx]; if(!p) return;
+  var ex=document.getElementById('_pkg-full-page'); if(ex) ex.remove();
+  var page=document.createElement('div');
+  page.id='_pkg-full-page'; page.className='_svc-page';
+  page.innerHTML=
+    '<div class="_svc-page-inner">'+
+      '<button class="_svc-page-back" onclick="document.getElementById(\'_pkg-full-page\').remove()">← رجوع</button>'+
+      (p.thumb?'<div class="_svc-page-hero"><img src="'+escapeHtml(p.thumb)+'"></div>':'<div class="_svc-page-hero-ph">📦</div>')+
+      '<div class="_svc-page-title">'+escapeHtml(p.name)+'</div>'+
+      '<div class="_svc-page-price-row">'+
+        (p.price&&+p.price?'<div class="_svc-direct-price">'+Number(p.price).toLocaleString()+' ج</div>':'')+
+        (p.delivery?'<div class="_svc-delivery-badge">⏱ '+escapeHtml(p.delivery)+'</div>':'')+
+        (p.revisions?'<div class="_svc-delivery-badge">🔄 '+p.revisions+' تعديلات</div>':'')+
+      '</div>'+
+      (p.desc?'<p class="_svc-page-desc">'+escapeHtml(p.desc)+'</p>':'')+
+      (p.items&&p.items.length?
+        '<div class="_terms-box">'+
+          '<div class="_terms-title">📋 ما يشمله الباقة</div>'+
+          p.items.map(function(it){return '<div class="_term-item"><span class="_term-tick">✓</span><span>'+escapeHtml(it)+'</span></div>';}).join('')+
+        '</div>':'')+
+      '<button class="_order-big-btn" onclick="_openOrderFormNew(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+')">🚀 اطلب الباقة الآن</button>'+
     '</div>';
   document.body.appendChild(page);
   page.scrollTo({top:0}); window.scrollTo({top:0,behavior:'smooth'});
