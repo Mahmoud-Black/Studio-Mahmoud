@@ -16088,179 +16088,242 @@ function _checkSvcOrderUrl(){
 function _buildSvcOrderPage(userId){
   if(typeof supa==='undefined'){ _svcOrderFallback(); return; }
   var controller=new AbortController();
-  var timer=setTimeout(function(){ controller.abort(); _svcOrderFallback(); }, 10000);
+  var timer=setTimeout(function(){ controller.abort(); _svcOrderFallback(); }, 12000);
   supa.from('studio_data').select('data').eq('user_id',userId).maybeSingle().then(function(res){
     clearTimeout(timer);
     if(!res||res.error||!res.data){ _svcOrderFallback(); return; }
     var ud=null; try{ ud=typeof res.data.data==='string'?JSON.parse(res.data.data):res.data.data; }catch(e){}
     if(!ud){ _svcOrderFallback(); return; }
-    var services=(ud.services||[]).filter(function(s){return s.active!==false;}),
-        settings=ud.settings||{};
+
+    // ── Data ──
+    var services=(ud.services||[]).filter(function(s){return s.active!==false;});
     var standalonePkgs=(ud.standalone_packages||[]).filter(function(p){return p.active!==false;});
     var pfProjects=ud.portfolio_projects||[];
-    var siteDesc=settings.svc_site_desc||settings.bio||settings.desc||'';
+    var settings=ud.settings||{};
     var isOrdersOpen=settings.svc_orders_open!==false;
+    var siteDesc=settings.svc_site_desc||settings.bio||settings.desc||'';
     var accent=settings.accent||settings.accentColor||'#7c6ff7';
     var banner=settings.svc_banner||'';
+    var bannerSize=settings.svc_banner_size||'md';
+    var bannerH={sm:'160px',md:'260px',lg:'400px'}[bannerSize]||'260px';
     var logo=settings.logo||'';
     var studioName=settings.name||'Studio';
     var phone=settings.phone||'';
     var socials=settings.socials||[];
+    var isLight=settings.displayMode==='light';
 
-    // ── resolve theme colors from user settings ──
-    var isLight = settings.displayMode === 'light';
-    var bg        = isLight ? '#f0f2f8' : '#0a0a0f';
-    var surface   = isLight ? '#ffffff' : '#111118';
-    var surface2  = isLight ? '#f5f6fb' : '#16161f';
-    var surface3  = isLight ? '#eceef5' : '#1c1c28';
-    var textMain  = isLight ? '#1a1a2e' : '#f0f0f5';
-    var textSub   = isLight ? '#555577' : '#aaaacc';
-    var textMuted = isLight ? '#888899' : '#888888';
-    var borderC   = isLight ? 'rgba(0,0,0,.1)' : 'rgba(255,255,255,.08)';
-    var cardBg    = isLight ? 'rgba(0,0,0,.04)' : 'rgba(255,255,255,.06)';
-    var cardBorder= isLight ? 'rgba(0,0,0,.08)' : 'rgba(255,255,255,.09)';
-    var sheetBg   = isLight ? '#ffffff' : '#1a1a28';
+    // ── Colors ──
+    var bg      =isLight?'#f4f5fb':'#0a0a0f';
+    var surface =isLight?'#ffffff':'#111118';
+    var surface2=isLight?'#f0f1f8':'#16161f';
+    var surface3=isLight?'#e8e9f4':'#1c1c28';
+    var textMain=isLight?'#1a1a2e':'#f0f0f5';
+    var textSub =isLight?'#555577':'#aaaacc';
+    var textMuted=isLight?'#888899':'#777799';
+    var borderC =isLight?'rgba(0,0,0,.1)':'rgba(255,255,255,.08)';
+    var cardBg  =isLight?'rgba(0,0,0,.03)':'rgba(255,255,255,.05)';
+    var cardBorder=isLight?'rgba(0,0,0,.07)':'rgba(255,255,255,.09)';
+    var navBg   =isLight?'rgba(255,255,255,.92)':'rgba(10,10,15,.92)';
+    var sheetBg =isLight?'#ffffff':'#1a1a28';
 
-    // ── store globally for sub-pages ──
+    // ── Store globally ──
     window._pubUd=ud; window._pubUserId=userId; window._pubAccent=accent;
-    window._pubSettings=settings; window._pubColors={bg,surface,surface2,surface3,textMain,textSub,textMuted,borderC,cardBg,cardBorder,sheetBg,isLight};
+    window._pubSettings=settings;
+    window._pubColors={bg,surface,surface2,surface3,textMain,textSub,textMuted,borderC,cardBg,cardBorder,sheetBg,isLight};
 
-    // ── inject Google Font + page CSS ──
+    // ── Inject CSS ──
     var styleEl=document.createElement('style');
-    styleEl.id='_pub-style';
     styleEl.textContent=
       '@import url(\'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap\');'+
-      '*{box-sizing:border-box;margin:0;padding:0}'+
-      'html{scroll-behavior:smooth}'+
-      ':root{--pub-surface3:'+surface3+'}'+
-      'body{font-family:\'Cairo\',sans-serif;background:'+bg+';color:'+textMain+';min-height:100vh;direction:rtl}'+
+      '*{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}'+
+      'body{font-family:\'Cairo\',sans-serif;background:'+bg+';color:'+textMain+';direction:rtl;min-height:100vh}'+
+      // Ambient glow
       'body::before{content:\'\';position:fixed;inset:0;z-index:0;pointer-events:none;'+
-      '  background:radial-gradient(ellipse 70% 50% at 20% 10%,'+accent+'28 0%,transparent 65%),'+
-      '  radial-gradient(ellipse 50% 40% at 80% 85%,'+accent+'15 0%,transparent 65%);}'+
-      '#_pub-wrap{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:0 16px 80px}'+
-      '._pub-header{padding:18px 0 10px;display:flex;flex-direction:column;gap:10px}'+
-      '._pub-header-top{display:flex;align-items:center;justify-content:space-between;gap:12px}'+
-      '._pub-logo-wrap{display:flex;align-items:center;gap:12px}'+
-      '._pub-logo{width:52px;height:52px;border-radius:16px;object-fit:cover;border:2.5px solid '+accent+'60;box-shadow:0 4px 20px '+accent+'35}'+
-      '._pub-logo-ph{width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,'+accent+','+accent+'aa);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;font-weight:900;box-shadow:0 4px 20px '+accent+'50}'+
-      '._pub-name{font-size:18px;font-weight:900;color:'+textMain+';line-height:1.2}'+
-      '._pub-phone{font-size:11px;color:'+textSub+';margin-top:3px}'+
-      '._pub-socials{display:flex;gap:7px;flex-wrap:wrap;padding-bottom:4px}'+
-      '._pub-soc-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;background:'+cardBg+';color:'+textSub+';text-decoration:none;border:1px solid '+borderC+';transition:.15s;cursor:pointer}'+
-      '._pub-soc-btn:hover{background:'+surface2+';border-color:'+accent+'88;color:'+textMain+'}'+
-      '._live{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;background:rgba(79,209,165,.1);border:1px solid rgba(79,209,165,.25);border-radius:20px;font-size:11px;color:#4fd1a5;font-weight:700;margin:10px 0 16px}'+
-      '._live::before{content:\'\';width:6px;height:6px;background:#4fd1a5;border-radius:50%;animation:_livePulse 1.5s infinite}'+
-      '@keyframes _livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}'+
-      '._pub-banner{border-radius:18px;overflow:hidden;margin-bottom:20px;box-shadow:0 6px 28px rgba(0,0,0,.35)}'+
-      '._pub-banner img{width:100%;height:260px;object-fit:cover;display:block}'+
-      '@media(max-width:520px){._pub-banner img{height:180px}}'+
-      '._svc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}'+
-      '@media(max-width:480px){._svc-grid{grid-template-columns:1fr}}'+
-      '._svc-card{background:'+cardBg+';border:1px solid '+cardBorder+';border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s;position:relative}'+
-      '._svc-card:hover{transform:translateY(-4px);border-color:'+accent+'55;box-shadow:0 12px 32px '+accent+'20}'+
-      '._svc-img{width:100%;height:130px;object-fit:cover;display:block}'+
-      '._svc-img-ph{width:100%;height:80px;background:linear-gradient(135deg,'+accent+'22,'+accent+'0a);display:flex;align-items:center;justify-content:center;font-size:32px}'+
-      '._svc-body{padding:12px}'+
-      '._svc-name{font-size:13px;font-weight:800;color:'+textMain+';margin-bottom:3px;line-height:1.35}'+
-      '._svc-cat{font-size:10px;font-weight:700;color:'+accent+';margin-bottom:5px}'+
-      '._svc-desc{font-size:11px;color:'+textSub+';line-height:1.6;margin-bottom:8px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}'+
+        'background:radial-gradient(ellipse 80% 60% at 15% 5%,'+accent+'1e 0%,transparent 60%),'+
+        'radial-gradient(ellipse 60% 50% at 85% 90%,'+accent+'12 0%,transparent 60%)}'+
+
+      // ── Navbar ──
+      '._nav{position:sticky;top:0;z-index:1000;background:'+navBg+';backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid '+borderC+';padding:0 20px}'+
+      '._nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:60px;gap:16px}'+
+      '._nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}'+
+      '._nav-logo-img{width:38px;height:38px;border-radius:10px;object-fit:cover;border:2px solid '+accent+'55}'+
+      '._nav-logo-ph{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,'+accent+','+accent+'99);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:900}'+
+      '._nav-name{font-size:16px;font-weight:900;color:'+textMain+'}'+
+      '._nav-links{display:flex;align-items:center;gap:4px}'+
+      '@media(max-width:640px){._nav-links{display:none}}'+
+      '._nav-link{padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;color:'+textSub+';text-decoration:none;cursor:pointer;transition:.15s;background:none;border:none;font-family:\'Cairo\',sans-serif}'+
+      '._nav-link:hover{background:'+cardBg+';color:'+textMain+'}'+
+      '._nav-link.active{color:'+accent+';background:'+accent+'15}'+
+      '._nav-book-btn{background:'+accent+';color:#fff;border:none;border-radius:10px;padding:8px 18px;font-size:13px;font-weight:800;cursor:pointer;font-family:\'Cairo\',sans-serif;white-space:nowrap;transition:.15s;flex-shrink:0}'+
+      '._nav-book-btn:hover{opacity:.88}'+
+      '._mob-menu-btn{display:none;background:none;border:1px solid '+borderC+';border-radius:8px;width:36px;height:36px;cursor:pointer;color:'+textMain+';font-size:16px;align-items:center;justify-content:center}'+
+      '@media(max-width:640px){._mob-menu-btn{display:flex}}'+
+      '._mob-menu{display:none;position:fixed;top:60px;inset-inline:0;background:'+navBg+';backdrop-filter:blur(18px);border-bottom:1px solid '+borderC+';z-index:999;padding:12px 20px;flex-direction:column;gap:4px}'+
+      '._mob-menu.open{display:flex}'+
+      '._mob-link{padding:11px 14px;border-radius:10px;font-size:14px;font-weight:700;color:'+textSub+';cursor:pointer;border:none;background:none;font-family:\'Cairo\',sans-serif;text-align:right;width:100%}'+
+      '._mob-link:hover{background:'+cardBg+';color:'+textMain+'}'+
+
+      // ── Main wrap ──
+      '._pub-main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 20px 80px}'+
+      '@media(max-width:640px){._pub-main{padding:0 12px 60px}}'+
+
+      // ── Hero/Banner ──
+      '._hero{border-radius:20px;overflow:hidden;margin:24px 0 40px;box-shadow:0 8px 40px rgba(0,0,0,.3);position:relative}'+
+      '._hero img{width:100%;height:'+bannerH+';object-fit:cover;display:block}'+
+      '._hero-ph{height:'+bannerH+';background:linear-gradient(135deg,'+accent+'33 0%,'+accent+'11 50%,transparent 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}'+
+      '._hero-ph-title{font-size:clamp(24px,5vw,48px);font-weight:900;color:'+textMain+';margin-bottom:12px;line-height:1.2}'+
+      '._hero-ph-sub{font-size:clamp(12px,2vw,16px);color:'+textSub+';max-width:500px;line-height:1.7}'+
+      '._hero-badge{position:absolute;top:16px;right:16px;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700}'+
+
+      // ── Section ──
+      '._sec{margin-bottom:56px}'+
+      '._sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}'+
+      '._sec-title{font-size:20px;font-weight:900;color:'+textMain+';display:flex;align-items:center;gap:8px}'+
+      '._sec-more{font-size:13px;font-weight:700;color:'+accent+';cursor:pointer;background:none;border:1px solid '+accent+'44;border-radius:8px;padding:5px 14px;font-family:\'Cairo\',sans-serif;transition:.15s}'+
+      '._sec-more:hover{background:'+accent+'15}'+
+
+      // ── Service cards ──
+      '._svc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}'+
+      '@media(max-width:480px){._svc-grid{grid-template-columns:1fr 1fr;gap:10px}}'+
+      '._svc-card{background:'+surface+';border:1px solid '+cardBorder+';border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s;position:relative}'+
+      '._svc-card:hover{transform:translateY(-5px);border-color:'+accent+'55;box-shadow:0 16px 40px '+accent+'1a}'+
+      '._svc-img{width:100%;height:140px;object-fit:cover;display:block}'+
+      '._svc-img-ph{width:100%;height:90px;background:linear-gradient(135deg,'+accent+'22,'+accent+'0a);display:flex;align-items:center;justify-content:center;font-size:36px}'+
+      '._svc-body{padding:14px}'+
+      '._svc-cat{font-size:10px;font-weight:700;color:'+accent+';margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}'+
+      '._svc-name{font-size:14px;font-weight:800;color:'+textMain+';margin-bottom:5px;line-height:1.35}'+
+      '._svc-desc{font-size:11px;color:'+textSub+';line-height:1.65;margin-bottom:10px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}'+
       '._svc-foot{display:flex;align-items:center;justify-content:space-between;gap:6px}'+
       '._svc-price{font-size:15px;font-weight:900;color:'+accent+'}'+
-      '._svc-btn{background:'+accent+';color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}'+
+      '._svc-btn{background:'+accent+';color:#fff;border:none;border-radius:8px;padding:7px 13px;font-size:10px;font-weight:800;cursor:pointer;font-family:\'Cairo\',sans-serif;white-space:nowrap;transition:.15s}'+
+      '._svc-btn:hover{opacity:.85}'+
 
-      /* ── Full-page service view ── */
+      // ── Package cards ──
+      '._pkg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}'+
+      '@media(max-width:480px){._pkg-grid{grid-template-columns:1fr 1fr;gap:10px}}'+
+      '._pkg-card{background:'+surface+';border:1px solid '+cardBorder+';border-radius:16px;overflow:hidden;cursor:pointer;transition:.2s;display:flex;flex-direction:column}'+
+      '._pkg-card:hover{border-color:'+accent+'55;transform:translateY(-4px);box-shadow:0 14px 36px '+accent+'1a}'+
+      '._pkg-thumb{width:100%;height:110px;object-fit:cover;display:block}'+
+      '._pkg-thumb-ph{width:100%;height:60px;background:linear-gradient(135deg,'+accent+'22,'+accent+'0a);display:flex;align-items:center;justify-content:center;font-size:28px}'+
+      '._pkg-body{padding:14px;flex:1;display:flex;flex-direction:column}'+
+      '._pkg-name{font-size:14px;font-weight:800;color:'+textMain+';margin-bottom:5px}'+
+      '._pkg-desc{font-size:11px;color:'+textSub+';line-height:1.6;margin-bottom:8px;flex:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}'+
+      '._pkg-items{display:flex;flex-direction:column;gap:3px;margin-bottom:10px}'+
+      '._pkg-item{font-size:11px;color:'+textSub+'}._pkg-item span{color:'+accent+'}'+
+      '._pkg-foot{display:flex;align-items:center;justify-content:space-between;margin-top:auto}'+
+      '._pkg-price{font-size:17px;font-weight:900;color:'+accent+'}'+
+      '._pkg-order-btn-sm{background:'+accent+';color:#fff;border:none;border-radius:8px;padding:7px 13px;font-size:10px;font-weight:800;cursor:pointer;font-family:\'Cairo\',sans-serif;transition:.15s}'+
+      '._pkg-order-btn-sm:hover{opacity:.85}'+
+
+      // ── Portfolio ──
+      '._pf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}'+
+      '@media(max-width:480px){._pf-grid{grid-template-columns:1fr 1fr 1fr;gap:7px}}'+
+      '._pf-card{border-radius:12px;overflow:hidden;aspect-ratio:1;background:'+surface3+';border:1px solid '+cardBorder+';position:relative;cursor:pointer;transition:.2s}'+
+      '._pf-card:hover{transform:scale(1.03);border-color:'+accent+'55}'+
+      '._pf-card img{width:100%;height:100%;object-fit:cover;display:block}'+
+      '._pf-card-ph{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;text-align:center}'+
+
+      // ── Full service page overlay ──
       '._svc-page{position:fixed;inset:0;z-index:9990;background:'+bg+';overflow-y:auto;animation:_spIn .3s ease}'+
-      '@keyframes _spIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}'+
-      '._svc-page-inner{max-width:760px;margin:0 auto;padding:0 16px 80px;position:relative}'+
-      '._svc-page-back{display:flex;align-items:center;gap:8px;padding:16px 0 4px;font-size:13px;font-weight:700;color:'+accent+';cursor:pointer;background:none;border:none;font-family:inherit}'+
+      '@keyframes _spIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}'+
+      '._svc-page-inner{max-width:760px;margin:0 auto;padding:0 16px 80px}'+
+      '._svc-page-back{display:flex;align-items:center;gap:8px;padding:16px 0 4px;font-size:13px;font-weight:700;color:'+accent+';cursor:pointer;background:none;border:none;font-family:\'Cairo\',sans-serif}'+
       '._svc-page-hero{border-radius:20px;overflow:hidden;margin-bottom:20px;box-shadow:0 8px 32px rgba(0,0,0,.3)}'+
       '._svc-page-hero img{width:100%;max-height:300px;object-fit:cover;display:block}'+
-      '._svc-page-hero-ph{width:100%;height:180px;background:linear-gradient(135deg,'+accent+'33,'+accent+'11);display:flex;align-items:center;justify-content:center;font-size:72px;border-radius:20px}'+
-      '._svc-page-title{font-size:24px;font-weight:900;color:'+textMain+';margin-bottom:6px;line-height:1.3}'+
-      '._svc-page-cat{font-size:11px;font-weight:700;color:'+accent+';margin-bottom:10px}'+
-      '._svc-page-desc{font-size:14px;color:'+textSub+';line-height:1.9;margin-bottom:20px}'+
-      '._svc-page-price-row{display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap}'+
+      '._svc-page-hero-ph{width:100%;height:160px;background:linear-gradient(135deg,'+accent+'33,'+accent+'11);display:flex;align-items:center;justify-content:center;font-size:72px;border-radius:20px}'+
+      '._svc-page-title{font-size:24px;font-weight:900;color:'+textMain+';margin-bottom:6px}'+
+      '._svc-page-cat{font-size:11px;font-weight:700;color:'+accent+';margin-bottom:10px;text-transform:uppercase}'+
+      '._svc-page-price-row{display:flex;align-items:center;gap:12px;margin-bottom:22px;flex-wrap:wrap}'+
       '._svc-direct-price{font-size:28px;font-weight:900;color:'+accent+'}'+
       '._svc-delivery-badge{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;background:'+cardBg+';border:1px solid '+cardBorder+';border-radius:20px;font-size:12px;color:'+textSub+'}'+
+      '._svc-page-desc{font-size:14px;color:'+textSub+';line-height:1.9;margin-bottom:20px}'+
+      '._terms-box{background:'+cardBg+';border:1px solid '+cardBorder+';border-radius:16px;padding:18px 20px;margin-bottom:24px}'+
+      '._terms-title{font-size:13px;font-weight:800;color:'+textMuted+';margin-bottom:12px}'+
+      '._term-item{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:'+textSub+';padding:5px 0}'+
+      '._term-tick{color:'+accent+';font-size:15px;flex-shrink:0;margin-top:1px}'+
+      '._order-big-btn{width:100%;background:linear-gradient(135deg,'+accent+','+accent+'bb);color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;font-weight:900;cursor:pointer;font-family:\'Cairo\',sans-serif;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px;transition:.2s;box-shadow:0 6px 24px '+accent+'44}'+
+      '._order-big-btn:hover{opacity:.88;transform:translateY(-2px)}'+
 
-      /* ── Packages admin-style ── */
-      '._pkgs-section{margin-bottom:28px}'+
-      '._pkgs-title{font-size:13px;font-weight:800;color:'+textMuted+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}'+
-      '._pkg-row{background:'+surface+';border:1.5px solid '+cardBorder+';border-radius:16px;margin-bottom:12px;overflow:hidden;transition:.15s}'+
-      '._pkg-row.selected{border-color:'+accent+';box-shadow:0 0 0 3px '+accent+'25}'+
-      '._pkg-header{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer}'+
-      '._pkg-icon{width:38px;height:38px;border-radius:10px;background:'+accent+'22;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}'+
-      '._pkg-hinfo{flex:1;min-width:0}'+
-      '._pkg-hname{font-size:14px;font-weight:800;color:'+textMain+'}'+
-      '._pkg-hmeta{font-size:11px;color:'+textMuted+';margin-top:2px}'+
-      '._pkg-hprice{text-align:left;flex-shrink:0}'+
-      '._pkg-hprice-main{font-size:18px;font-weight:900;color:'+accent+'}'+
-      '._pkg-hprice-period{font-size:10px;color:'+textMuted+';display:block}'+
-      '._pkg-body{display:none;padding:0 16px 16px;border-top:1px solid '+cardBorder+'}'+
-      '._pkg-row.open ._pkg-body{display:block}'+
-      '._pkg-row.open ._pkg-chevron{transform:rotate(180deg)}'+
-      '._pkg-chevron{font-size:12px;color:'+textMuted+';transition:transform .2s;flex-shrink:0}'+
-      '._pkg-feat-list{margin:12px 0;display:flex;flex-direction:column;gap:6px}'+
-      '._pkg-feat{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:'+textSub+'}'+
-      '._pkg-feat-tick{color:'+accent+';font-size:14px;flex-shrink:0;margin-top:1px}'+
-      '._pkg-prices-row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}'+
-      '._pkg-price-box{flex:1;min-width:120px;background:'+cardBg+';border:1px solid '+cardBorder+';border-radius:12px;padding:12px 14px}'+
-      '._pkg-price-box-label{font-size:10px;color:'+textMuted+';margin-bottom:4px;font-weight:700}'+
-      '._pkg-price-box-val{font-size:20px;font-weight:900;color:'+accent+'}'+
-      '._pkg-price-box-sub{font-size:10px;color:'+textMuted+';margin-top:2px}'+
-      '._pkg-order-btn{width:100%;background:'+accent+';color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .2s}'+
-      '._pkg-order-btn:hover{opacity:.88}'+
-
-      /* ── order form bottom-sheet ── */
-      '._ord-overlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.75);display:flex;align-items:flex-end;justify-content:center;animation:_pubFadeIn .22s ease}'+
-      '._ord-sheet{background:'+sheetBg+';border-radius:22px 22px 0 0;max-width:760px;width:100%;padding:22px 20px 36px;max-height:90vh;overflow-y:auto;animation:_pubSlideUp .3s cubic-bezier(.25,1.2,.5,1)}'+
+      // ── Order bottom sheet ──
+      '._ord-overlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;animation:_pubFadeIn .22s ease}'+
+      '._ord-sheet{background:'+sheetBg+';border-radius:22px 22px 0 0;max-width:640px;width:100%;padding:24px 22px 40px;max-height:92vh;overflow-y:auto;animation:_pubSlideUp .3s cubic-bezier(.25,1.2,.5,1)}'+
       '@keyframes _pubFadeIn{from{opacity:0}to{opacity:1}}'+
-      '@keyframes _pubSlideUp{from{transform:translateY(100px);opacity:0}to{transform:translateY(0);opacity:1}}'+
-      '._ord-handle{width:44px;height:4px;background:'+cardBorder+';border-radius:4px;margin:0 auto 18px}'+
-      '._ord-input{width:100%;padding:12px 14px;background:'+cardBg+';border:1.5px solid '+borderC+';border-radius:12px;color:'+textMain+';font-family:inherit;font-size:13px;outline:none;transition:.15s;margin-bottom:10px}'+
+      '@keyframes _pubSlideUp{from{transform:translateY(80px);opacity:0}to{transform:translateY(0);opacity:1}}'+
+      '._ord-handle{width:44px;height:4px;background:'+borderC+';border-radius:4px;margin:0 auto 20px}'+
+      '._ord-input{width:100%;padding:13px 16px;background:'+cardBg+';border:1.5px solid '+borderC+';border-radius:12px;color:'+textMain+';font-family:\'Cairo\',sans-serif;font-size:13px;outline:none;transition:.15s;margin-bottom:10px;direction:rtl}'+
       '._ord-input:focus{border-color:'+accent+'}'+
       '._ord-input::placeholder{color:'+textMuted+'}'+
-      '._ord-submit{width:100%;background:'+accent+';color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;margin-top:8px;transition:opacity .2s}'+
+      '._ord-submit{width:100%;background:linear-gradient(135deg,'+accent+','+accent+'bb);color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:900;cursor:pointer;font-family:\'Cairo\',sans-serif;margin-top:8px;transition:.2s;box-shadow:0 4px 18px '+accent+'44}'+
       '._ord-submit:hover{opacity:.88}'+
-      '._ord-submit:disabled{opacity:.5;cursor:not-allowed}'+
+      '._ord-submit:disabled{opacity:.45;cursor:not-allowed}'+
 
-      /* ── about section ── */
-      '._about-card{background:'+cardBg+';border:1px solid '+cardBorder+';border-radius:18px;padding:28px 22px;text-align:center;margin-bottom:14px}'+
-      '._about-logo{width:84px;height:84px;border-radius:22px;object-fit:cover;margin:0 auto 14px;display:block;border:2.5px solid '+accent+'55}'+
-      '._about-logo-ph{width:84px;height:84px;border-radius:22px;background:linear-gradient(135deg,'+accent+','+accent+'aa);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;font-size:36px;color:#fff;font-weight:900}'+
-      '._about-name{font-size:20px;font-weight:900;color:'+textMain+';margin-bottom:8px}'+
-      '._about-bio{font-size:13px;color:'+textSub+';line-height:1.8}'+
-      '._contact-row{display:flex;align-items:center;gap:14px;padding:14px 16px;background:'+cardBg+';border:1px solid '+cardBorder+';border-radius:12px;margin-bottom:8px;text-decoration:none;color:'+textMain+';transition:.15s}'+
-      '._contact-row:hover{border-color:'+accent+'55;background:'+surface2+'}'+
-      '._contact-icon{font-size:20px}'+
-      '._contact-label{font-size:10px;color:'+textMuted+'}'+
-      '._contact-val{font-size:13px;font-weight:700;color:'+textMain+'}';
+      // ── Footer ──
+      '._footer{background:'+surface2+';border-top:1px solid '+borderC+';padding:36px 20px 24px;margin-top:60px}'+
+      '._footer-inner{max-width:1100px;margin:0 auto}'+
+      '._footer-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:24px}'+
+      '._footer-brand{display:flex;align-items:center;gap:10px}'+
+      '._footer-socials{display:flex;gap:8px;flex-wrap:wrap}'+
+      '._footer-soc{width:38px;height:38px;border-radius:10px;background:'+cardBg+';border:1px solid '+cardBorder+';display:flex;align-items:center;justify-content:center;font-size:16px;text-decoration:none;transition:.15s;cursor:pointer}'+
+      '._footer-soc:hover{background:'+accent+'22;border-color:'+accent+'55}'+
+      '._footer-bottom{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding-top:16px;border-top:1px solid '+borderC+';font-size:12px;color:'+textMuted+'}';
     document.head.appendChild(styleEl);
 
-    // ── Build page ──
-    document.body.innerHTML='';
-    document.body.style.cssText='margin:0;padding:0';
-    var pg=document.createElement('div');
-    pg.id='_pub-wrap';
+    // ── SOCIALS map ──
+    var SICONS={instagram:'📸',facebook:'📘',tiktok:'🎵',youtube:'▶️',twitter:'🐦',whatsapp:'💬',website:'🌐',behance:'🎨',snapchat:'👻',linkedin:'💼'};
+    var SURLS={whatsapp:function(v){return 'https://wa.me/'+v.replace(/\D/g,'');},instagram:function(v){return v.startsWith('http')?v:'https://instagram.com/'+v;},facebook:function(v){return v.startsWith('http')?v:'https://facebook.com/'+v;},tiktok:function(v){return v.startsWith('http')?v:'https://tiktok.com/@'+v;}};
+    function socialUrl(platform,val){ return (SURLS[platform]?SURLS[platform](val):val.startsWith('http')?val:'https://'+val); }
 
-    // Social icons map
-    var SICONS={instagram:{i:'📸',l:'انستقرام'},facebook:{i:'📘',l:'فيسبوك'},
-      tiktok:{i:'🎵',l:'تيك توك'},youtube:{i:'▶️',l:'يوتيوب'},
-      twitter:{i:'🐦',l:'تويتر'},whatsapp:{i:'💬',l:'واتساب'},
-      website:{i:'🌐',l:'الموقع'},behance:{i:'🎨',l:'بيهانس'},
-      snapchat:{i:'👻',l:'سناب'},linkedin:{i:'💼',l:'لينكدإن'}};
+    var footerSocialsHtml='';
+    if(phone) footerSocialsHtml+='<a href="https://wa.me/'+phone.replace(/\D/g,'')+'" target="_blank" class="_footer-soc" title="واتساب">💬</a>';
+    socials.forEach(function(sc){ footerSocialsHtml+='<a href="'+escapeHtml(socialUrl(sc.platform,sc.url||sc.value||''))+'" target="_blank" class="_footer-soc" title="'+(sc.label||sc.platform||'')+'">'+((SICONS[sc.platform])||'🔗')+'</a>'; });
 
-    var socialsHtml=socials.map(function(sc){
-      var m=SICONS[sc.platform]||{i:'🔗',l:sc.platform};
-      return '<a href="'+escapeHtml(sc.url)+'" target="_blank" class="_pub-soc-btn">'+m.i+' '+(sc.label||m.l)+'</a>';
-    }).join('');
-    if(phone) socialsHtml='<a href="https://wa.me/'+phone.replace(/\D/g,'')+'" target="_blank" class="_pub-soc-btn">💬 واتساب</a>'+socialsHtml;
+    // ── NAVBAR ──
+    function scrollToId(id){ var el=document.getElementById(id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+    var navHtml='<nav class="_nav" id="_pub-nav">'+
+      '<div class="_nav-inner">'+
+        '<a class="_nav-logo" href="#">'+
+          (logo?'<img class="_nav-logo-img" src="'+escapeHtml(logo)+'" alt="">':'<div class="_nav-logo-ph">'+(studioName||'S').charAt(0)+'</div>')+
+          '<span class="_nav-name">'+escapeHtml(studioName)+'</span>'+
+        '</a>'+
+        '<div class="_nav-links">'+
+          '<button class="_nav-link active" onclick="scrollToId(\'_sec-hero\')">الرئيسية</button>'+
+          '<button class="_nav-link" onclick="scrollToId(\'_sec-svcs\')">الخدمات</button>'+
+          (standalonePkgs.length?'<button class="_nav-link" onclick="scrollToId(\'_sec-pkgs\')">الباقات</button>':'')+
+          (pfProjects.length?'<button class="_nav-link" onclick="scrollToId(\'_sec-pf\')">أعمالنا</button>':'')+
+          '<button class="_nav-link" onclick="scrollToId(\'_sec-contact\')">تواصل معنا</button>'+
+        '</div>'+
+        (phone||socials.length?'<button class="_nav-book-btn" onclick="_openBookingForm()">📅 حجز موعد</button>':'')+
+        '<button class="_mob-menu-btn" onclick="_toggleMobMenu()" aria-label="قائمة">☰</button>'+
+      '</div>'+
+    '</nav>'+
+    '<div class="_mob-menu" id="_pub-mob-menu">'+
+      '<button class="_mob-link" onclick="scrollToId(\'_sec-hero\');_toggleMobMenu()">🏠 الرئيسية</button>'+
+      '<button class="_mob-link" onclick="scrollToId(\'_sec-svcs\');_toggleMobMenu()">🛍 الخدمات</button>'+
+      (standalonePkgs.length?'<button class="_mob-link" onclick="scrollToId(\'_sec-pkgs\');_toggleMobMenu()">📦 الباقات</button>':'')+
+      (pfProjects.length?'<button class="_mob-link" onclick="scrollToId(\'_sec-pf\');_toggleMobMenu()">🖼 أعمالنا</button>':'')+
+      '<button class="_mob-link" onclick="scrollToId(\'_sec-contact\');_toggleMobMenu()">📞 تواصل معنا</button>'+
+      (phone?'<button class="_mob-link" style="color:'+accent+';font-weight:800" onclick="_openBookingForm();_toggleMobMenu()">📅 حجز موعد</button>':'')+
+    '</div>';
 
-    // ── Services list ──
-    var svcsHtml=services.length?services.map(function(svc,idx){
-      // Price = direct service price only (not min of packages)
-      var priceDisplay=svc.price&&+svc.price ? Number(svc.price).toLocaleString()+' ج' : (svc.packages&&svc.packages.length?'عدة باقات':'عند الطلب');
-      return '<div class="_svc-card" onclick="_openSvcPage(\''+idx+'\')">'+
+    // ── HERO/BANNER ──
+    var heroHtml='<div id="_sec-hero" style="scroll-margin-top:70px">'+
+      '<div class="_hero">'+
+        (banner
+          ?'<img src="'+escapeHtml(banner)+'" alt="">'
+          :'<div class="_hero-ph">'+
+              '<div class="_hero-ph-title">'+escapeHtml(studioName)+'</div>'+
+              (siteDesc?'<div class="_hero-ph-sub">'+escapeHtml(siteDesc)+'</div>':'')+
+           '</div>')+
+        '<div class="_hero-badge" style="background:'+(isOrdersOpen?'rgba(79,209,165,.9)':'rgba(255,80,80,.9)')+';color:#fff">'+
+          (isOrdersOpen?'✅ متاح للطلب':'⏸ مغلق مؤقتاً')+
+        '</div>'+
+      '</div>'+
+    '</div>';
+
+    // ── SERVICES section ──
+    var svcsHtml=services.slice(0,6).map(function(svc,idx){
+      var priceDisplay=svc.price&&+svc.price?Number(svc.price).toLocaleString()+' ج':'عند الطلب';
+      return '<div class="_svc-card" onclick="_openSvcPage('+idx+')">'+
         (svc.image?'<img class="_svc-img" src="'+escapeHtml(svc.image)+'" alt="" loading="lazy">':'<div class="_svc-img-ph">'+(svc.icon||'🛍')+'</div>')+
         '<div class="_svc-body">'+
           (svc.cat?'<div class="_svc-cat">'+escapeHtml(svc.cat)+'</div>':'')+
@@ -16268,197 +16331,208 @@ function _buildSvcOrderPage(userId){
           (svc.desc?'<div class="_svc-desc">'+escapeHtml(svc.desc)+'</div>':'')+
           '<div class="_svc-foot">'+
             '<div class="_svc-price">'+priceDisplay+'</div>'+
-            '<button class="_svc-btn" onclick="event.stopPropagation();_openSvcPage(\''+idx+'\')">اعرف أكتر ←</button>'+
+            '<button class="_svc-btn">تفاصيل ←</button>'+
           '</div>'+
-        '</div>'+
-      '</div>';
-    }).join(''):'<div style="text-align:center;padding:50px;color:'+textMuted+';grid-column:1/-1">لا توجد خدمات متاحة حالياً</div>';
-
-    // About / contact links
-    var contactHtml='';
-    if(phone) contactHtml+='<a href="https://wa.me/'+phone.replace(/\D/g,'')+'" target="_blank" class="_contact-row"><span class="_contact-icon">📱</span><div><div class="_contact-label">واتساب</div><div class="_contact-val">'+escapeHtml(phone)+'</div></div></a>';
-    if(settings.email) contactHtml+='<a href="mailto:'+escapeHtml(settings.email)+'" class="_contact-row"><span class="_contact-icon">📧</span><div><div class="_contact-label">البريد الإلكتروني</div><div class="_contact-val">'+escapeHtml(settings.email)+'</div></div></a>';
-    socials.forEach(function(sc){
-      var m=SICONS[sc.platform]||{i:'🔗',l:sc.platform};
-      contactHtml+='<a href="'+escapeHtml(sc.url)+'" target="_blank" class="_contact-row"><span class="_contact-icon">'+m.i+'</span><div><div class="_contact-label">'+(sc.label||m.l)+'</div><div class="_contact-val">'+escapeHtml(sc.url.replace(/^https?:\/\//,'').replace(/\/.*$/,''))+'</div></div></a>';
-    });
-
-    pg.innerHTML=
-      // ── Header ──
-      '<div class="_pub-header">'+
-        '<div class="_pub-header-top">'+
-          '<div class="_pub-logo-wrap">'+
-            (logo?'<img class="_pub-logo" src="'+escapeHtml(logo)+'" alt="">':'<div class="_pub-logo-ph">'+(studioName||'O').charAt(0)+'</div>')+
-            '<div>'+
-              '<div class="_pub-name">'+escapeHtml(studioName)+'</div>'+
-              (phone?'<div class="_pub-phone">📱 '+escapeHtml(phone)+'</div>':'')+
-            '</div>'+
-          '</div>'+
-        '</div>'+
-        (socialsHtml?'<div class="_pub-socials">'+socialsHtml+'</div>':'')+
-      '</div>'+
-      (isOrdersOpen?'<div><div class="_live">✅ متاح الآن للطلب</div></div>':'<div><div class="_live" style="background:rgba(255,80,80,.1);border-color:rgba(255,80,80,.25);color:#ff5050">⏸ مغلق مؤقتاً</div></div>')+
-      // ── Banner ──
-      (banner?'<div class="_pub-banner"><img src="'+escapeHtml(banner)+'" alt="بانر"></div>':'')+
-      // ── About card (brief) ──
-      '<div class="_about-card" style="margin-bottom:20px">'+
-        (logo?'<img class="_about-logo" src="'+escapeHtml(logo)+'" alt="">':'<div class="_about-logo-ph">'+(studioName||'O').charAt(0)+'</div>')+
-        '<div class="_about-name">'+escapeHtml(studioName)+'</div>'+
-        (siteDesc?'<div class="_about-bio">'+escapeHtml(siteDesc)+'</div>':'')+
-        (contactHtml?'<div style="margin-top:16px;text-align:right">'+contactHtml+'</div>':'')+
-      '</div>'+
-      // ── Services grid ──
-      '<div style="font-size:16px;font-weight:900;color:'+textMain+';margin-bottom:14px">🛍 خدماتنا</div>'+
-      '<div class="_svc-grid">'+svcsHtml+'</div>'+
-      // ── Standalone Packages ──
-      (standalonePkgs.length?
-        '<div style="font-size:16px;font-weight:900;color:'+textMain+';margin:28px 0 14px">📦 باقاتنا</div>'+
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px">'+
-        standalonePkgs.map(function(p,pi){
-          return '<div style="background:'+cardBg+';border:1px solid '+cardBorder+';border-radius:16px;overflow:hidden;cursor:pointer;transition:.2s" onclick="_openOrderFormNew(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+')">'+
-            (p.thumb?'<img src="'+escapeHtml(p.thumb)+'" style="width:100%;height:100px;object-fit:cover;display:block">':'')+
-            '<div style="padding:14px">'+
-              '<div style="font-size:14px;font-weight:900;color:'+textMain+';margin-bottom:4px">'+escapeHtml(p.name)+'</div>'+
-              (p.desc?'<div style="font-size:11px;color:'+textSub+';line-height:1.6;margin-bottom:8px">'+escapeHtml(p.desc)+'</div>':'')+
-              (p.items&&p.items.length?'<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px">'+p.items.slice(0,3).map(function(it){return '<div style="font-size:11px;color:'+textSub+'"><span style="color:'+accent+'">✓</span> '+escapeHtml(it)+'</div>';}).join('')+'</div>':'')+
-              '<div style="display:flex;align-items:center;justify-content:space-between">'+
-                '<div style="font-size:18px;font-weight:900;color:'+accent+'">'+(p.price?Number(p.price).toLocaleString()+' ج':'عند الطلب')+'</div>'+
-                '<button style="background:'+accent+';color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">اطلب ←</button>'+
-              '</div>'+
-            '</div>'+
-          '</div>';
-        }).join('')+
-        '</div>':'')+
-      // ── Portfolio ──
-      (pfProjects.length?
-        '<div style="font-size:16px;font-weight:900;color:'+textMain+';margin:28px 0 14px">🖼 أعمالنا</div>'+
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:28px">'+
-        pfProjects.slice(0,6).map(function(p){
-          var img=p.image||p.thumb||'';
-          return '<a href="'+(p.link||p.url||'#')+'" target="_blank" style="border-radius:12px;overflow:hidden;display:block;aspect-ratio:1;background:'+surface3+';border:1px solid '+cardBorder+'">'+
-            (img?'<img src="'+escapeHtml(img)+'" style="width:100%;height:100%;object-fit:cover">':
-            '<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;text-align:center">'+
-              '<div style="font-size:26px;margin-bottom:6px">'+(p.type==='behance'?'🎨':'📁')+'</div>'+
-              '<div style="font-size:10px;font-weight:700;color:'+textSub+'">'+escapeHtml(p.title||p.label||'مشروع')+'</div>'+
-            '</div>')+
-          '</a>';
-        }).join('')+
-        '</div>':'')+
-      // ── Contact ──
-      '<div style="font-size:16px;font-weight:900;color:'+textMain+';margin:28px 0 14px">📞 تواصل معنا</div>'+
-      '<div>'+contactHtml+'</div>';
-
-    document.body.appendChild(pg);
-    window._publicUd=ud; window._publicUserId=userId; window._publicAccent=accent;
-    window._publicSettings=settings;
-  }).catch(function(){ _svcOrderFallback(); });
-}
-
-// ── Open full service page ──
-window._openSvcPage=function(idx){
-  var ud=window._pubUd; var userId=window._pubUserId; var accent=window._pubAccent;
-  var C=window._pubColors;
-  if(!ud) return;
-  var svc=ud.services[idx]; if(!svc) return;
-
-  // Remove existing page if any
-  var ex=document.getElementById('_svc-full-page'); if(ex) ex.remove();
-
-  // Build packages HTML (admin-style rows)
-  var pkgsHtml='';
-  if(svc.packages&&svc.packages.length){
-    var pkgRows=svc.packages.map(function(p,pi){
-      var monthlyPrice=p.price&&+p.price ? Number(p.price).toLocaleString()+' ج' : 'مجاني';
-      var yearlyPrice=p.price_yearly&&+p.price_yearly ? Number(p.price_yearly).toLocaleString()+' ج' : '';
-      var duration=p.duration ? p.duration+' يوم' : (p.delivery||'');
-      var featuresHtml='';
-      if(p.features&&p.features.length){
-        featuresHtml='<div class="_pkg-feat-list">'+p.features.map(function(f){
-          return '<div class="_pkg-feat"><span class="_pkg-feat-tick">✓</span><span>'+escapeHtml(f)+'</span></div>';
-        }).join('')+'</div>';
-      } else {
-        // fallback: show delivery & revisions
-        var items=[];
-        if(p.delivery) items.push('⏱ وقت التسليم: '+escapeHtml(p.delivery));
-        if(p.revisions) items.push('🔄 عدد التعديلات: '+p.revisions);
-        if(p.desc) items.push(escapeHtml(p.desc));
-        if(items.length) featuresHtml='<div class="_pkg-feat-list">'+items.map(function(it){
-          return '<div class="_pkg-feat"><span class="_pkg-feat-tick">✓</span><span>'+it+'</span></div>';
-        }).join('')+'</div>';
-      }
-      var pricesRowHtml='<div class="_pkg-prices-row">';
-      pricesRowHtml+='<div class="_pkg-price-box"><div class="_pkg-price-box-label">شهري</div><div class="_pkg-price-box-val">'+monthlyPrice+'</div><div class="_pkg-price-box-sub">/ شهر</div></div>';
-      if(yearlyPrice){
-        pricesRowHtml+='<div class="_pkg-price-box"><div class="_pkg-price-box-label">سنوي</div><div class="_pkg-price-box-val">'+yearlyPrice+'</div><div class="_pkg-price-box-sub">/ سنة</div></div>';
-      }
-      if(duration){
-        pricesRowHtml+='<div class="_pkg-price-box"><div class="_pkg-price-box-label">المدة</div><div class="_pkg-price-box-val" style="font-size:14px">'+duration+'</div></div>';
-      }
-      pricesRowHtml+='</div>';
-      var orderUrl='?svcorder='+userId+'&order=1&svc='+encodeURIComponent(svc.name)+'&pkg='+encodeURIComponent(p.name||'')+'&price='+(p.price||0);
-      return '<div class="_pkg-row" id="_pkg-row-'+pi+'">'+
-        '<div class="_pkg-header" onclick="_togglePkg('+pi+')">'+
-          '<div class="_pkg-icon">'+(p.icon||svc.icon||'📦')+'</div>'+
-          '<div class="_pkg-hinfo">'+
-            '<div class="_pkg-hname">'+escapeHtml(p.name||'باقة '+(pi+1))+'</div>'+
-            '<div class="_pkg-hmeta">'+(duration?'⏱ '+duration:'')+(p.revisions?' · 🔄 '+p.revisions+' تعديل':'')+'</div>'+
-          '</div>'+
-          '<div class="_pkg-hprice">'+
-            '<div class="_pkg-hprice-main">'+monthlyPrice+'</div>'+
-            '<span class="_pkg-hprice-period">شهري</span>'+
-          '</div>'+
-          '<span class="_pkg-chevron">▾</span>'+
-        '</div>'+
-        '<div class="_pkg-body">'+
-          featuresHtml+
-          pricesRowHtml+
-          '<button class="_pkg-order-btn" onclick="_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\''+encodeURIComponent(p.name||'')+'\','+(p.price||0)+')">'+
-            '🚀 اطلب هذه الباقة'+
-          '</button>'+
         '</div>'+
       '</div>';
     }).join('');
-    pkgsHtml='<div class="_pkgs-section"><div class="_pkgs-title">📦 الباقات المتاحة</div>'+pkgRows+'</div>';
-  }
 
-  // Portfolio HTML
-  var portHtml='';
-  if(svc.portfolio&&svc.portfolio.length){
-    portHtml='<div style="margin-bottom:24px"><div style="font-size:13px;font-weight:800;color:'+C.textMuted+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">🖼 معرض الأعمال</div>'+
-      svc.portfolio.map(function(p){
-        var thumb=p.thumb?'<img src="'+escapeHtml(p.thumb)+'" style="width:60px;height:48px;border-radius:10px;object-fit:cover;flex-shrink:0" loading="lazy">':'<div style="width:60px;height:48px;border-radius:10px;background:'+C.surface3+';display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">'+(p.type==='behance'?'🎨':'🔗')+'</div>';
-        return '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:'+C.cardBg+';border:1px solid '+C.cardBorder+';border-radius:12px;margin-bottom:8px">'+
-          thumb+
-          '<div style="flex:1;min-width:0">'+
-            '<div style="font-size:13px;font-weight:700;color:'+C.textMain+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(p.label||p.type)+'</div>'+
-            (p.url?'<div style="font-size:11px;color:'+C.textMuted+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escapeHtml(p.url.replace(/^https?:\/\//,'').replace(/\/.*$/,''))+'</div>':'')+
+    var svcsSection='<div class="_sec" id="_sec-svcs" style="scroll-margin-top:70px">'+
+      '<div class="_sec-head">'+
+        '<div class="_sec-title">🛍 خدماتنا</div>'+
+        (services.length>6?'<button class="_sec-more" onclick="_showAllSvcs()">عرض الكل ('+services.length+')</button>':'')+
+      '</div>'+
+      (services.length
+        ?'<div class="_svc-grid" id="_svc-grid-main">'+svcsHtml+'</div>'
+        :'<div style="text-align:center;padding:50px;color:'+textMuted+'">لا توجد خدمات متاحة حالياً</div>')+
+    '</div>';
+
+    // ── PACKAGES section ──
+    var pkgsSection='';
+    if(standalonePkgs.length){
+      var pkgsHtml=standalonePkgs.slice(0,4).map(function(p){
+        return '<div class="_pkg-card" onclick="_openOrderFormNew(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+')">'+
+          (p.thumb?'<img class="_pkg-thumb" src="'+escapeHtml(p.thumb)+'" alt="" loading="lazy">':'<div class="_pkg-thumb-ph">📦</div>')+
+          '<div class="_pkg-body">'+
+            '<div class="_pkg-name">'+escapeHtml(p.name)+'</div>'+
+            (p.desc?'<div class="_pkg-desc">'+escapeHtml(p.desc)+'</div>':'')+
+            (p.items&&p.items.length?'<div class="_pkg-items">'+p.items.slice(0,3).map(function(it){return '<div class="_pkg-item"><span>✓ </span>'+escapeHtml(it)+'</div>';}).join('')+'</div>':'')+
+            '<div class="_pkg-foot">'+
+              '<div class="_pkg-price">'+(p.price?Number(p.price).toLocaleString()+' ج':'عند الطلب')+'</div>'+
+              '<button class="_pkg-order-btn-sm">اطلب ←</button>'+
+            '</div>'+
           '</div>'+
-          (p.url?'<a href="'+escapeHtml(p.url)+'" target="_blank" style="font-size:12px;color:'+accent+';font-weight:700;text-decoration:none;flex-shrink:0">عرض ↗</a>':'')+
         '</div>';
-      }).join('')+'</div>';
-  }
+      }).join('');
+      pkgsSection='<div class="_sec" id="_sec-pkgs" style="scroll-margin-top:70px">'+
+        '<div class="_sec-head">'+
+          '<div class="_sec-title">📦 باقاتنا</div>'+
+          (standalonePkgs.length>4?'<button class="_sec-more" onclick="_showAllPkgs()">عرض الكل ('+standalonePkgs.length+')</button>':'')+
+        '</div>'+
+        '<div class="_pkg-grid">'+pkgsHtml+'</div>'+
+      '</div>';
+    }
 
-  // Terms list (what client gets)
+    // ── PORTFOLIO section ──
+    var pfSection='';
+    if(pfProjects.length){
+      var pfCards=pfProjects.slice(0,9).map(function(p){
+        var img=p.image||p.thumb||'';
+        var link=p.link||p.url||'#';
+        return '<a class="_pf-card" href="'+escapeHtml(link)+'" target="_blank">'+
+          (img?'<img src="'+escapeHtml(img)+'" alt="" loading="lazy">':
+          '<div class="_pf-card-ph">'+
+            '<div style="font-size:26px;margin-bottom:5px">'+(p.type==='behance'?'🎨':'📁')+'</div>'+
+            '<div style="font-size:10px;font-weight:700;color:'+textSub+'">'+escapeHtml((p.title||p.label||'مشروع').slice(0,20))+'</div>'+
+          '</div>')+
+        '</a>';
+      }).join('');
+      pfSection='<div class="_sec" id="_sec-pf" style="scroll-margin-top:70px">'+
+        '<div class="_sec-head">'+
+          '<div class="_sec-title">🖼 بعض أعمالنا</div>'+
+          (pfProjects.length>9?'<button class="_sec-more" onclick="_showAllPf()">المزيد ('+pfProjects.length+')</button>':'')+
+        '</div>'+
+        '<div class="_pf-grid">'+pfCards+'</div>'+
+      '</div>';
+    }
+
+    // ── CONTACT section ──
+    var contactHtml='<div id="_sec-contact" class="_sec" style="scroll-margin-top:70px">'+
+      '<div class="_sec-head"><div class="_sec-title">📞 تواصل معنا</div></div>'+
+      '<div style="display:flex;flex-direction:column;gap:10px">'+
+        (phone?'<a href="https://wa.me/'+phone.replace(/\D/g,'')+'" target="_blank" style="display:flex;align-items:center;gap:14px;padding:16px 18px;background:'+surface+';border:1px solid '+cardBorder+';border-radius:14px;text-decoration:none;color:'+textMain+';transition:.15s">'+
+          '<span style="font-size:22px">📱</span>'+
+          '<div><div style="font-size:11px;color:'+textMuted+'">واتساب</div><div style="font-size:14px;font-weight:700">'+escapeHtml(phone)+'</div></div>'+
+        '</a>':'')+
+        (settings.email?'<a href="mailto:'+escapeHtml(settings.email)+'" style="display:flex;align-items:center;gap:14px;padding:16px 18px;background:'+surface+';border:1px solid '+cardBorder+';border-radius:14px;text-decoration:none;color:'+textMain+';transition:.15s">'+
+          '<span style="font-size:22px">📧</span>'+
+          '<div><div style="font-size:11px;color:'+textMuted+'">البريد الإلكتروني</div><div style="font-size:14px;font-weight:700">'+escapeHtml(settings.email)+'</div></div>'+
+        '</a>':'')+
+      '</div>'+
+    '</div>';
+
+    // ── FOOTER ──
+    var footerHtml='<footer class="_footer">'+
+      '<div class="_footer-inner">'+
+        '<div class="_footer-top">'+
+          '<div class="_footer-brand">'+
+            (logo?'<img src="'+escapeHtml(logo)+'" style="width:36px;height:36px;border-radius:9px;object-fit:cover;border:2px solid '+accent+'44">':'<div style="width:36px;height:36px;border-radius:9px;background:'+accent+';display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;font-weight:900">'+(studioName||'S').charAt(0)+'</div>')+
+            '<span style="font-size:15px;font-weight:900;color:'+textMain+'">'+escapeHtml(studioName)+'</span>'+
+          '</div>'+
+          '<div class="_footer-socials">'+footerSocialsHtml+'</div>'+
+        '</div>'+
+        '<div class="_footer-bottom">'+
+          '<span>© '+new Date().getFullYear()+' '+escapeHtml(studioName)+'</span>'+
+          (phone?'<a href="https://wa.me/'+phone.replace(/\D/g,'')+'" target="_blank" style="background:'+accent+';color:#fff;text-decoration:none;padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700">📅 احجز موعد</a>':'')+
+        '</div>'+
+      '</div>'+
+    '</footer>';
+
+    // ── Assemble page ──
+    document.body.innerHTML='';
+    document.body.style.cssText='margin:0;padding:0';
+    document.body.innerHTML=navHtml;
+    var main=document.createElement('div');
+    main.className='_pub-main';
+    main.innerHTML=heroHtml+svcsSection+pkgsSection+pfSection+contactHtml;
+    document.body.appendChild(main);
+    document.body.insertAdjacentHTML('beforeend', footerHtml);
+
+    window._publicUd=ud; window._publicUserId=userId; window._publicAccent=accent;
+    window._publicSettings=settings;
+
+    // ── Navbar scroll active ──
+    window.addEventListener('scroll', function(){
+      var sections=['_sec-hero','_sec-svcs','_sec-pkgs','_sec-pf','_sec-contact'];
+      var links=document.querySelectorAll('._nav-link');
+      var current=0;
+      sections.forEach(function(id,i){ var el=document.getElementById(id); if(el&&window.scrollY>=el.offsetTop-80) current=i; });
+      links.forEach(function(l,i){ l.classList.toggle('active',i===current); });
+    },{passive:true});
+
+  }).catch(function(){ _svcOrderFallback(); });
+}
+
+// ── Mobile menu toggle ──
+window._toggleMobMenu=function(){
+  var m=document.getElementById('_pub-mob-menu'); if(m) m.classList.toggle('open');
+};
+
+// ── Show all services ──
+window._showAllSvcs=function(){
+  var ud=window._pubUd; if(!ud) return;
+  var C=window._pubColors; var accent=window._pubAccent;
+  var services=(ud.services||[]).filter(function(s){return s.active!==false;});
+  var grid=document.getElementById('_svc-grid-main'); if(!grid) return;
+  grid.innerHTML=services.map(function(svc,idx){
+    var priceDisplay=svc.price&&+svc.price?Number(svc.price).toLocaleString()+' ج':'عند الطلب';
+    return '<div class="_svc-card" onclick="_openSvcPage('+idx+')">'+
+      (svc.image?'<img class="_svc-img" src="'+escapeHtml(svc.image)+'" alt="" loading="lazy">':'<div class="_svc-img-ph">'+(svc.icon||'🛍')+'</div>')+
+      '<div class="_svc-body">'+
+        (svc.cat?'<div class="_svc-cat">'+escapeHtml(svc.cat)+'</div>':'')+
+        '<div class="_svc-name">'+escapeHtml(svc.name)+'</div>'+
+        (svc.desc?'<div class="_svc-desc">'+escapeHtml(svc.desc)+'</div>':'')+
+        '<div class="_svc-foot"><div class="_svc-price">'+priceDisplay+'</div><button class="_svc-btn">تفاصيل ←</button></div>'+
+      '</div></div>';
+  }).join('');
+  var btn=document.querySelector('[onclick="_showAllSvcs()"]'); if(btn) btn.remove();
+};
+
+// ── Show all packages ──
+window._showAllPkgs=function(){
+  var ud=window._pubUd; if(!ud) return;
+  var standalonePkgs=(ud.standalone_packages||[]).filter(function(p){return p.active!==false;});
+  var grid=document.querySelector('#_sec-pkgs ._pkg-grid'); if(!grid) return;
+  grid.innerHTML=standalonePkgs.map(function(p){
+    return '<div class="_pkg-card" onclick="_openOrderFormNew(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+')">'+
+      (p.thumb?'<img class="_pkg-thumb" src="'+escapeHtml(p.thumb)+'" alt="">':'<div class="_pkg-thumb-ph">📦</div>')+
+      '<div class="_pkg-body">'+
+        '<div class="_pkg-name">'+escapeHtml(p.name)+'</div>'+
+        (p.desc?'<div class="_pkg-desc">'+escapeHtml(p.desc)+'</div>':'')+
+        (p.items&&p.items.length?'<div class="_pkg-items">'+p.items.slice(0,3).map(function(it){return '<div class="_pkg-item"><span>✓ </span>'+escapeHtml(it)+'</div>';}).join('')+'</div>':'')+
+        '<div class="_pkg-foot"><div class="_pkg-price">'+(p.price?Number(p.price).toLocaleString()+' ج':'عند الطلب')+'</div><button class="_pkg-order-btn-sm">اطلب ←</button></div>'+
+      '</div></div>';
+  }).join('');
+  var btn=document.querySelector('[onclick="_showAllPkgs()"]'); if(btn) btn.remove();
+};
+
+// ── Open full service page ──
+window._openSvcPage=function(idx){
+  var ud=window._pubUd; var accent=window._pubAccent; var C=window._pubColors;
+  if(!ud) return;
+  var svc=(ud.services||[]).filter(function(s){return s.active!==false;})[idx]; if(!svc) return;
+  var ex=document.getElementById('_svc-full-page'); if(ex) ex.remove();
+
+  // Terms
   var termsHtml='';
   if(svc.terms&&svc.terms.length){
-    termsHtml='<div style="margin-bottom:24px;background:'+C.cardBg+';border:1px solid '+C.cardBorder+';border-radius:16px;padding:18px 20px">'+
-      '<div style="font-size:13px;font-weight:800;color:'+C.textMuted+';margin-bottom:12px">✓ ماذا تحصل عليه</div>'+
-      '<div style="display:flex;flex-direction:column;gap:8px">'+
-      svc.terms.map(function(t){
-        return '<div style="display:flex;align-items:flex-start;gap:10px;font-size:13px;color:'+C.textSub+'">'+
-          '<span style="color:'+accent+';font-size:16px;flex-shrink:0;margin-top:1px">✓</span>'+
-          '<span>'+escapeHtml(t)+'</span>'+
-        '</div>';
-      }).join('')+
-      '</div></div>';
+    termsHtml='<div class="_terms-box">'+
+      '<div class="_terms-title">✓ ماذا تحصل عليه</div>'+
+      svc.terms.map(function(t){ return '<div class="_term-item"><span class="_term-tick">✓</span><span>'+escapeHtml(t)+'</span></div>'; }).join('')+
+    '</div>';
   }
-  // Direct order button
-  var directOrderHtml='<button class="_pkg-order-btn" onclick="_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+')">🚀 اطلب الخدمة الآن</button>';
 
-  // Build full page
+  // Portfolio from linked category
+  var portHtml='';
+  var pfProjects=ud.portfolio_projects||[];
+  var linkedCat=svc.portfolio_cat;
+  var relatedPf=linkedCat?pfProjects.filter(function(p){return p.cat===linkedCat;}):[];
+  if(relatedPf.length){
+    portHtml='<div style="margin-bottom:24px">'+
+      '<div style="font-size:13px;font-weight:800;color:'+C.textMuted+';margin-bottom:12px">🖼 أعمال مشابهة</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'+
+      relatedPf.slice(0,6).map(function(p){
+        var img=p.image||p.thumb||'';
+        var link=p.link||p.url||'#';
+        return '<a class="_pf-card" href="'+escapeHtml(link)+'" target="_blank">'+
+          (img?'<img src="'+escapeHtml(img)+'" alt="" loading="lazy">':
+          '<div class="_pf-card-ph"><div style="font-size:22px">'+(p.type==='behance'?'🎨':'📁')+'</div></div>')+
+        '</a>';
+      }).join('')+'</div></div>';
+  }
+
   var page=document.createElement('div');
-  page.id='_svc-full-page';
-  page.className='_svc-page';
+  page.id='_svc-full-page'; page.className='_svc-page';
   page.innerHTML=
     '<div class="_svc-page-inner">'+
       '<button class="_svc-page-back" onclick="document.getElementById(\'_svc-full-page\').remove()">← رجوع</button>'+
@@ -16472,119 +16546,58 @@ window._openSvcPage=function(idx){
       (svc.desc?'<p class="_svc-page-desc">'+escapeHtml(svc.desc)+'</p>':'')+
       termsHtml+
       portHtml+
-      directOrderHtml+
+      '<button class="_order-big-btn" onclick="_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+')">🚀 اطلب الخدمة الآن</button>'+
     '</div>';
   document.body.appendChild(page);
-  window.scrollTo({top:0,behavior:'smooth'});
+  page.scrollTo({top:0}); window.scrollTo({top:0,behavior:'smooth'});
 };
 
-// ── Toggle package accordion ──
-window._togglePkg=function(pi){
-  var row=document.getElementById('_pkg-row-'+pi); if(!row) return;
-  row.classList.toggle('open');
-};
-
-// ── Order form bottom-sheet (redirects to client portal after submit) ──
-window._openOrderFormNew=function(svcEnc, pkgEnc, price){
+// ── Booking form ──
+window._openBookingForm=function(){
   var accent=window._pubAccent||'#7c6ff7';
   var userId=window._pubUserId;
   var C=window._pubColors;
-  var ex=document.getElementById('_ord-overlay-new'); if(ex) ex.remove();
+  var phone=(window._pubSettings||{}).phone||'';
+  var ex=document.getElementById('_book-overlay'); if(ex) ex.remove();
   var ov=document.createElement('div');
-  ov.id='_ord-overlay-new';
-  ov.className='_ord-overlay';
-  ov.innerHTML=
-    '<div class="_ord-sheet">'+
-      '<div class="_ord-handle"></div>'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">'+
-        '<div>'+
-          '<div style="font-size:17px;font-weight:900;color:'+C.textMain+'">طلب الخدمة</div>'+
-          '<div style="font-size:12px;color:'+C.textMuted+';margin-top:3px">'+decodeURIComponent(svcEnc)+(pkgEnc?' — '+decodeURIComponent(pkgEnc):'')+'</div>'+
-        '</div>'+
-        '<button onclick="document.getElementById(\'_ord-overlay-new\').remove()" style="background:'+C.cardBg+';border:1px solid '+C.borderC+';width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;color:'+C.textMain+';display:flex;align-items:center;justify-content:center">✕</button>'+
-      '</div>'+
-      '<input id="_ord2-name"  class="_ord-input" placeholder="الاسم الكامل *">'+
-      '<input id="_ord2-phone" class="_ord-input" placeholder="رقم الواتساب *" type="tel">'+
-      '<input id="_ord2-email" class="_ord-input" placeholder="البريد الإلكتروني (اختياري)" type="email">'+
-      '<textarea id="_ord2-desc" class="_ord-input" rows="3" placeholder="وصف مشروعك..." style="resize:vertical"></textarea>'+
-      (price&&+price?
-        '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:'+C.cardBg+';border:1px solid '+C.cardBorder+';border-radius:12px;margin-bottom:10px">'+
-          '<span style="font-size:12px;color:'+C.textMuted+'">سعر الباقة</span>'+
-          '<strong style="font-size:20px;color:'+accent+'">'+Number(price).toLocaleString()+' ج</strong>'+
-        '</div>':'')+
-      '<button id="_ord2-submit" class="_ord-submit" onclick="_submitOrderNew(\''+userId+'\',\''+svcEnc+'\',\''+pkgEnc+'\','+price+')">إرسال الطلب ✅</button>'+
-    '</div>';
-  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  ov.id='_book-overlay'; ov.className='_ord-overlay';
+  ov.innerHTML='<div class="_ord-sheet">'+
+    '<div class="_ord-handle"></div>'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">'+
+      '<div style="font-size:18px;font-weight:900;color:'+C.textMain+'">📅 حجز موعد</div>'+
+      '<button onclick="document.getElementById(\'_book-overlay\').remove()" style="background:'+C.cardBg+';border:1px solid '+C.borderC+';width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;color:'+C.textMain+'">✕</button>'+
+    '</div>'+
+    '<input id="_book-name" class="_ord-input" placeholder="الاسم الكامل *">'+
+    '<input id="_book-phone" class="_ord-input" placeholder="رقم الواتساب *" type="tel">'+
+    '<input id="_book-time" class="_ord-input" placeholder="الوقت المناسب لك (مثال: الأحد 3م)" >'+
+    '<textarea id="_book-msg" class="_ord-input" rows="3" placeholder="موضوع الموعد..."></textarea>'+
+    '<button class="_ord-submit" onclick="_submitBooking(\''+userId+'\')">إرسال طلب الموعد 📅</button>'+
+  '</div>';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
   document.body.appendChild(ov);
 };
 
-window._submitOrderNew=function(userId, svcEnc, pkgEnc, price){
-  var name=(document.getElementById('_ord2-name')||{}).value||'';
-  var phone=(document.getElementById('_ord2-phone')||{}).value||'';
-  var email=(document.getElementById('_ord2-email')||{}).value||'';
-  var desc=(document.getElementById('_ord2-desc')||{}).value||'';
-  if(!name||!phone){ alert('الاسم ورقم الواتساب مطلوبان'); return; }
-  var btn=document.getElementById('_ord2-submit');
-  if(btn){ btn.disabled=true; btn.textContent='⏳ جاري الإرسال...'; }
-  var orderId=Date.now()+'_'+Math.random().toString(36).slice(2,6);
-  var order={
-    id:orderId, status:'pending',
-    client_name:name, client_phone:phone, client_email:email,
-    service_name:decodeURIComponent(svcEnc), pkg_name:decodeURIComponent(pkgEnc||''),
-    price:+price, desc:desc,
-    created_at:new Date().toISOString()
-  };
-  if(typeof supa==='undefined'){
-    alert('تم إرسال طلبك! سنتواصل معك قريباً.');
-    if(btn){ btn.disabled=false; btn.textContent='إرسال الطلب ✅'; }
-    return;
-  }
+window._submitBooking=function(userId){
+  var name=(document.getElementById('_book-name')||{}).value||'';
+  var phone=(document.getElementById('_book-phone')||{}).value||'';
+  var time=(document.getElementById('_book-time')||{}).value||'';
+  var msg=(document.getElementById('_book-msg')||{}).value||'';
+  if(!name||!phone){alert('الاسم ورقم الواتساب مطلوبان');return;}
+  var btn=document.querySelector('._ord-submit[onclick*="_submitBooking"]');
+  if(btn){btn.disabled=true;btn.textContent='⏳ جاري الإرسال...';}
+  var meeting={id:Date.now()+'_m',type:'meeting_request',client_name:name,client_phone:phone,preferred_time:time,message:msg,created_at:new Date().toISOString(),read:false};
   supa.from('studio_data').select('data').eq('user_id',userId).maybeSingle().then(function(res){
     if(!res||!res.data) return;
-    var ud=null; try{ ud=typeof res.data.data==='string'?JSON.parse(res.data.data):res.data.data; }catch(e){}
+    var ud=null;try{ud=typeof res.data.data==='string'?JSON.parse(res.data.data):res.data.data;}catch(e){}
     if(!ud) return;
-    // Save order
-    ud.svc_orders=ud.svc_orders||[]; ud.svc_orders.push(order);
-    // Create client portal automatically
-    ud.client_portals=ud.client_portals||[];
-    var portalId='cp_'+Date.now();
-    var portal={
-      id:portalId, order_id:orderId, task_id:'',
-      client_name:name, client_email:email, client_phone:phone,
-      service_name:decodeURIComponent(svcEnc),
-      pkg_name:decodeURIComponent(pkgEnc||''),
-      status:'نشط', created_at:new Date().toISOString()
-    };
-    ud.client_portals.push(portal);
-    // Notification
+    ud.support_msgs=ud.support_msgs||[]; ud.support_msgs.push(meeting);
     ud._pending_notifications=ud._pending_notifications||[];
-    ud._pending_notifications.push({
-      id:orderId+'_n', title:'📥 طلب خدمة جديد!',
-      body:'طلب من '+name+': '+decodeURIComponent(svcEnc),
-      type:'svc_order', created_at:new Date().toISOString(), read:false
-    });
-    return supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',userId)
-      .then(function(){ return {portalId:portalId}; });
-  }).then(function(result){
-    // ── Redirect to client portal dashboard ──
-    var portalId=result&&result.portalId ? result.portalId : '';
-    document.getElementById('_ord-overlay-new')&&document.getElementById('_ord-overlay-new').remove();
-    document.getElementById('_svc-full-page')&&document.getElementById('_svc-full-page').remove();
-    // Redirect to portal URL
-    if(portalId){
-      window.location.href='?portal='+portalId+'&uid='+userId;
-    } else {
-      // Fallback success screen
-      document.body.innerHTML='<div style="position:fixed;inset:0;background:'+window._pubColors.bg+';display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;font-family:Cairo,sans-serif;direction:rtl;color:'+window._pubColors.textMain+'">'+
-        '<div style="font-size:72px;margin-bottom:20px">✅</div>'+
-        '<div style="font-size:24px;font-weight:900;margin-bottom:10px">تم إرسال طلبك!</div>'+
-        '<div style="font-size:14px;color:'+window._pubColors.textSub+';max-width:300px;line-height:1.7">شكراً '+escapeHtml(name)+', سنتواصل معك على الواتساب قريباً 🎉</div>'+
-      '</div>';
-    }
-  }).catch(function(){
-    if(btn){ btn.disabled=false; btn.textContent='إرسال الطلب ✅'; }
-    alert('حدث خطأ. حاول مرة أخرى.');
-  });
+    ud._pending_notifications.push({id:meeting.id+'_n',title:'📅 طلب موعد!',body:'طلب من '+name,type:'meeting',created_at:new Date().toISOString(),read:false});
+    return supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',userId);
+  }).then(function(){
+    document.getElementById('_book-overlay')&&document.getElementById('_book-overlay').remove();
+    alert('✅ تم إرسال طلب الموعد! سنتواصل معك قريباً.');
+  }).catch(function(){if(btn){btn.disabled=false;btn.textContent='إرسال طلب الموعد 📅';}});
 };
 
 function _buildNewOrderPortalPage(userId, portalId){
@@ -16744,104 +16757,253 @@ function _buildClientPortalPage(userId, portalId){
     if(!res||!res.data) return;
     var ud=null; try{ ud=typeof res.data.data==='string'?JSON.parse(res.data.data):res.data.data; }catch(e){}
     if(!ud) return;
-    var portal=(ud.client_portals||[]).find(function(p){return p.id===portalId;}); if(!portal) return;
-    var tasks=ud.tasks||[];
-    var task=(portal.task_id?tasks.find(function(t){return String(t.id)===String(portal.task_id);}):null)||
-             tasks.find(function(t){return t.client&&t.client===portal.client_name&&t.status!=='مكتملة';});
+    var portal=(ud.client_portals||[]).find(function(p){return p.id===portalId;});
+    if(!portal){ document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Cairo,sans-serif;direction:rtl;font-size:16px">⚠ رابط غير صالح</div>'; return; }
     var settings=ud.settings||{};
-    var accent=(settings.accentColor)||'#7c6ff7';
+    var accent=settings.accent||settings.accentColor||'#7c6ff7';
     var isLight=settings.displayMode==='light';
-    var bg=isLight?'#f0f2f8':'#0a0a0f';
+    var bg     =isLight?'#f4f5fb':'#0a0a0f';
     var surface=isLight?'#ffffff':'#111118';
+    var surface2=isLight?'#f0f1f8':'#16161f';
+    var surface3=isLight?'#e8e9f4':'#1c1c28';
     var textMain=isLight?'#1a1a2e':'#f0f0f5';
     var textSub=isLight?'#555577':'#aaaacc';
-    var textMuted=isLight?'#888899':'#888888';
+    var textMuted=isLight?'#888899':'#777799';
     var borderC=isLight?'rgba(0,0,0,.1)':'rgba(255,255,255,.08)';
-    var cardBg=isLight?'rgba(0,0,0,.04)':'rgba(255,255,255,.06)';
-    var cardBorder=isLight?'rgba(0,0,0,.08)':'rgba(255,255,255,.09)';
-    var logo=settings.logo||'';
-    var studioName=settings.name||'Studio';
-    document.body.innerHTML='';
-    document.body.style.cssText='margin:0;padding:0;background:'+bg+';font-family:Cairo,Tajawal,system-ui,sans-serif;direction:rtl;color:'+textMain;
-    var st=document.createElement('style');
-    st.textContent='@import url(\'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap\');'+
-      '*{box-sizing:border-box;margin:0;padding:0}'+
-      'body::before{content:\'\';position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 70% 50% at 20% 10%,'+accent+'28 0%,transparent 65%)}'+
-      '._cp-wrap{position:relative;z-index:1;max-width:640px;margin:0 auto;padding:16px 16px 80px}'+
-      '._cp-card{background:'+surface+';border:1px solid '+cardBorder+';border-radius:20px;padding:20px;margin-bottom:14px;box-shadow:0 2px 16px rgba(0,0,0,.08)}'+
-      '._cp-section-title{font-size:12px;font-weight:800;color:'+textMuted+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}'+
-      '._cp-step{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid '+borderC+';font-size:13px}'+
-      '._cp-step:last-child{border-bottom:none}'+
-      '._cp-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700}';
-    document.head.appendChild(st);
-    var pg=document.createElement('div'); pg.className='_cp-wrap';
-    var relatedTasks=portal.task_id
+    var cardBg=isLight?'rgba(0,0,0,.03)':'rgba(255,255,255,.05)';
+    var cardBorder=isLight?'rgba(0,0,0,.07)':'rgba(255,255,255,.09)';
+    var navBg=isLight?'rgba(255,255,255,.92)':'rgba(10,10,15,.92)';
+    var logo=settings.logo||''; var studioName=settings.name||'Studio';
+    var phone=settings.phone||''; var socials=settings.socials||[];
+    var tasks=ud.tasks||[];
+    var invoices=ud.invoices||[];
+
+    // All tasks belonging to this client
+    var clientTasks=portal.task_id
       ? tasks.filter(function(t){return String(t.id)===String(portal.task_id);})
-      : tasks.filter(function(t){return t.client&&(t.client===portal.client_name||(portal.client_phone&&t.client_phone===portal.client_phone));});
-    var relatedInvoices=(ud.invoices||[]).filter(function(inv){
-      return inv.client&&(inv.client===portal.client_name||(portal.client_phone&&inv.client_phone===portal.client_phone));
+      : tasks.filter(function(t){
+          return t.source_order_id===portal.order_id||
+                 (t.client&&(t.client===portal.client_name||(portal.client_phone&&t.clientPhone===portal.client_phone)));
+        });
+
+    var clientInvoices=invoices.filter(function(inv){
+      return inv.client&&(inv.client===portal.client_name||(portal.client_phone&&inv.clientPhone===portal.client_phone));
     });
-    var progress=task&&task.steps&&task.steps.length
-      ? Math.round(task.steps.filter(function(s){return s.done;}).length/task.steps.length*100)
-      : (task&&task.done?100:0);
-    var statusColor={'جاري':accent,'مكتملة':'#4fd1a5','معلقة':'#f7c948','ملغي':'#f76f7c'};
-    pg.innerHTML=
-      '<div style="display:flex;align-items:center;gap:12px;padding:14px 0 20px">'+
-        (logo?'<img src="'+escapeHtml(logo)+'" style="width:42px;height:42px;border-radius:12px;object-fit:cover;border:2px solid '+accent+'55">':
-          '<div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,'+accent+','+accent+'99);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;font-weight:900">'+(studioName||'S').charAt(0)+'</div>')+
-        '<div><div style="font-size:16px;font-weight:900;color:'+textMain+'">'+escapeHtml(studioName)+'</div>'+
-        '<div style="font-size:11px;color:'+textMuted+'">بوابة العميل</div></div>'+
+
+    var SICONS={instagram:'📸',facebook:'📘',tiktok:'🎵',youtube:'▶️',twitter:'🐦',whatsapp:'💬',website:'🌐',behance:'🎨',snapchat:'👻',linkedin:'💼'};
+
+    var footerSocialsHtml='';
+    if(phone) footerSocialsHtml+='<a href="https://wa.me/'+phone.replace(/\D/g,'')+'" target="_blank" style="width:38px;height:38px;border-radius:10px;background:'+cardBg+';border:1px solid '+cardBorder+';display:flex;align-items:center;justify-content:center;font-size:16px;text-decoration:none">💬</a>';
+    socials.forEach(function(sc){ footerSocialsHtml+='<a href="'+(sc.url||'#')+'" target="_blank" style="width:38px;height:38px;border-radius:10px;background:'+cardBg+';border:1px solid '+cardBorder+';display:flex;align-items:center;justify-content:center;font-size:16px;text-decoration:none">'+(SICONS[sc.platform]||'🔗')+'</a>'; });
+
+    // ── CSS ──
+    document.body.innerHTML='';
+    document.body.style.cssText='margin:0;padding:0;background:'+bg+';font-family:Cairo,Tajawal,sans-serif;direction:rtl;color:'+textMain;
+    var st=document.createElement('style');
+    st.textContent=
+      '@import url(\'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap\');'+
+      '*{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}'+
+      'body::before{content:\'\';position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 70% 50% at 15% 5%,'+accent+'1e 0%,transparent 60%)}'+
+      '._cp-nav{position:sticky;top:0;z-index:100;background:'+navBg+';backdrop-filter:blur(18px);border-bottom:1px solid '+borderC+';padding:0 20px}'+
+      '._cp-nav-inner{max-width:760px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px}'+
+      '._cp-wrap{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:20px 20px 80px}'+
+      '@media(max-width:600px){._cp-wrap{padding:16px 12px 60px}}'+
+      '._cp-card{background:'+surface+';border:1px solid '+cardBorder+';border-radius:18px;padding:20px;margin-bottom:14px;box-shadow:0 2px 16px rgba(0,0,0,.06)}'+
+      '._cp-sec-title{font-size:11px;font-weight:800;color:'+textMuted+';text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}'+
+      '._filter-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}'+
+      '._filter-chip{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;background:'+cardBg+';border:1px solid '+cardBorder+';color:'+textSub+';cursor:pointer;font-family:\'Cairo\',sans-serif;transition:.15s}'+
+      '._filter-chip.on{background:'+accent+';color:#fff;border-color:'+accent+'}'+
+      '._proj-card{background:'+surface2+';border:1px solid '+cardBorder+';border-radius:14px;padding:16px;margin-bottom:10px;cursor:pointer;transition:.15s;position:relative}'+
+      '._proj-card:hover{border-color:'+accent+'55;transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.1)}'+
+      '._proj-overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.75);display:flex;align-items:flex-end;justify-content:center;padding:0}'+
+      '._proj-sheet{background:'+surface+';border-radius:20px 20px 0 0;max-width:760px;width:100%;max-height:90vh;overflow-y:auto;padding:24px 22px 40px;animation:_pSlideUp .3s cubic-bezier(.25,1.2,.5,1)}'+
+      '@keyframes _pSlideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}'+
+      '._step-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid '+borderC+';font-size:13px}'+
+      '._step-row:last-child{border-bottom:none}'+
+      '._badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700}'+
+      '._cp-footer{background:'+surface2+';border-top:1px solid '+borderC+';padding:28px 20px 20px;margin-top:40px}'+
+      '._cp-footer-inner{max-width:760px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}';
+    document.head.appendChild(st);
+
+    // ── NAV ──
+    var navEl=document.createElement('nav');
+    navEl.className='_cp-nav';
+    navEl.innerHTML='<div class="_cp-nav-inner">'+
+      '<div style="display:flex;align-items:center;gap:10px">'+
+        (logo?'<img src="'+escapeHtml(logo)+'" style="width:34px;height:34px;border-radius:9px;object-fit:cover;border:2px solid '+accent+'44">':'<div style="width:34px;height:34px;border-radius:9px;background:'+accent+';display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:900">'+(studioName||'S').charAt(0)+'</div>')+
+        '<div><div style="font-size:14px;font-weight:900;color:'+textMain+'">'+escapeHtml(studioName)+'</div>'+
+        '<div style="font-size:10px;color:'+textMuted+'">بوابة العميل</div></div>'+
       '</div>'+
-      '<div class="_cp-card" style="border-right:4px solid '+accent+'">'+
-        '<div style="font-size:20px;font-weight:900;color:'+textMain+';margin-bottom:4px">مرحباً، '+escapeHtml(portal.client_name)+' 👋</div>'+
-        '<div style="font-size:13px;color:'+textSub+'">'+escapeHtml(portal.service_name)+(portal.pkg_name?' — '+escapeHtml(portal.pkg_name):'')+'</div>'+
-        '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'+
-          '<div style="font-size:11px;color:'+textMuted+'">📅 '+new Date(portal.created_at).toLocaleDateString('ar-EG')+'</div>'+
-          '<div class="_cp-badge" style="background:'+accent+'22;color:'+accent+'">● '+escapeHtml(portal.status||'نشط')+'</div>'+
-        '</div>'+
+      '<div style="display:flex;align-items:center;gap:8px">'+
+        (phone?'<a href="https://wa.me/'+phone.replace(/\D/g,'')+'" target="_blank" style="background:#25D366;color:#fff;text-decoration:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700">📲 تواصل</a>':'')+
       '</div>'+
-      (task?
-        '<div class="_cp-card">'+
-          '<div class="_cp-section-title">📊 تقدم المشروع</div>'+
+    '</div>';
+    document.body.appendChild(navEl);
+
+    // ── MAIN WRAP ──
+    var wrap=document.createElement('div'); wrap.className='_cp-wrap';
+
+    // Welcome card
+    var statusColors={'جديد':accent,'قيد التنفيذ':'#f7c948','مراجعة':'#a78bfa','موقوفة':'#888','مكتملة':'#4fd1a5'};
+    var welcomeHtml='<div class="_cp-card" style="border-right:4px solid '+accent+';margin-bottom:20px">'+
+      '<div style="font-size:22px;font-weight:900;color:'+textMain+';margin-bottom:6px">مرحباً، '+escapeHtml(portal.client_name)+' 👋</div>'+
+      '<div style="font-size:13px;color:'+textSub+'">'+escapeHtml(portal.service_name)+(portal.pkg_name?' — <span style="color:'+accent+'">'+escapeHtml(portal.pkg_name)+'</span>':'')+'</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'+
+        '<div style="font-size:11px;color:'+textMuted+'">📅 '+new Date(portal.created_at||Date.now()).toLocaleDateString('ar-EG')+'</div>'+
+        '<div class="_badge" style="background:'+accent+'22;color:'+accent+'">● '+escapeHtml(portal.status||'نشط')+'</div>'+
+      '</div>'+
+    '</div>';
+
+    // Stats row
+    var activeProjects=clientTasks.filter(function(t){return t.status!=='مكتملة';}).length;
+    var doneProjects=clientTasks.filter(function(t){return t.status==='مكتملة';}).length;
+    var totalInvoiced=clientInvoices.reduce(function(s,inv){return s+(+inv.total||0);},0);
+    var totalPaid=clientInvoices.filter(function(inv){return inv.paid||inv.status==='مدفوعة';}).reduce(function(s,inv){return s+(+inv.total||0);},0);
+    var statsHtml='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">'+
+      [
+        {l:'مشاريع نشطة',v:activeProjects,c:accent},
+        {l:'مكتملة',v:doneProjects,c:'#4fd1a5'},
+        {l:'إجمالي الفواتير',v:(totalInvoiced?totalInvoiced.toLocaleString()+' ج':'—'),c:'#f7c948'},
+        {l:'المدفوع',v:(totalPaid?totalPaid.toLocaleString()+' ج':'—'),c:'#4fd1a5'}
+      ].map(function(s){
+        return '<div style="background:'+surface2+';border:1px solid '+cardBorder+';border-radius:14px;padding:14px;text-align:center">'+
+          '<div style="font-size:20px;font-weight:900;color:'+s.c+'">'+s.v+'</div>'+
+          '<div style="font-size:10px;color:'+textMuted+';margin-top:3px">'+s.l+'</div>'+
+        '</div>';
+      }).join('')+
+    '</div>';
+
+    // Projects section
+    var _currentFilter='all';
+    function renderProjects(filter){
+      _currentFilter=filter;
+      var filtered=filter==='all'?clientTasks:clientTasks.filter(function(t){
+        if(filter==='active') return t.status!=='مكتملة'&&t.status!=='موقوفة';
+        if(filter==='done') return t.status==='مكتملة';
+        if(filter==='paused') return t.status==='موقوفة';
+        return true;
+      });
+      var chips=document.getElementById('_proj-filters');
+      if(chips) chips.querySelectorAll('._filter-chip').forEach(function(c){c.classList.toggle('on',c.dataset.f===filter);});
+      var grid=document.getElementById('_proj-grid');
+      if(!grid) return;
+      if(!filtered.length){grid.innerHTML='<div style="text-align:center;padding:40px;color:'+textMuted+'">لا توجد مشاريع في هذا الفلتر</div>';return;}
+      grid.innerHTML=filtered.map(function(t){
+        var prog=t.steps&&t.steps.length?Math.round(t.steps.filter(function(s){return s.done;}).length/t.steps.length*100):(t.done?100:0);
+        var sc=statusColors[t.status]||textMuted;
+        return '<div class="_proj-card" onclick="_openProjDetail(\''+t.id+'\')">'+
           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
-            '<span style="font-size:13px;color:'+textSub+'">الحالة: <strong style="color:'+(statusColor[task.status]||accent)+'">'+escapeHtml(task.status||'—')+'</strong></span>'+
-            '<span style="font-size:22px;font-weight:900;color:'+accent+'">'+progress+'%</span>'+
+            '<div style="font-size:14px;font-weight:800;color:'+textMain+'">'+escapeHtml(t.title||t.name||'مشروع')+'</div>'+
+            '<div class="_badge" style="background:'+sc+'22;color:'+sc+'">'+escapeHtml(t.status||'—')+'</div>'+
           '</div>'+
-          '<div style="height:12px;background:'+cardBg+';border-radius:8px;overflow:hidden;border:1px solid '+cardBorder+'">'+
-            '<div style="height:100%;background:linear-gradient(90deg,'+accent+','+accent+'cc);border-radius:8px;width:'+progress+'%;transition:width .7s;box-shadow:0 0 10px '+accent+'55"></div>'+
+          (t.desc?'<div style="font-size:12px;color:'+textSub+';margin-bottom:10px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">'+escapeHtml(t.desc)+'</div>':'')+
+          '<div style="height:6px;background:'+cardBg+';border-radius:3px;margin-bottom:6px"><div style="height:100%;background:'+accent+';border-radius:3px;width:'+prog+'%;transition:.5s"></div></div>'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:'+textMuted+'">'+
+            '<span>'+prog+'% مكتمل</span>'+
+            (t.deadline?'<span>📅 '+escapeHtml(t.deadline)+'</span>':'')+
+            '<span style="color:'+accent+';font-weight:700">عرض التفاصيل ↗</span>'+
           '</div>'+
-          (task.steps&&task.steps.length?
-            '<div style="margin-top:16px"><div class="_cp-section-title" style="margin-bottom:8px">خطوات التنفيذ</div>'+
-            task.steps.map(function(s){
-              return '<div class="_cp-step"><span style="font-size:18px;flex-shrink:0">'+(s.done?'✅':'⏳')+'</span>'+
-                '<span style="color:'+(s.done?accent:textSub)+';font-weight:'+(s.done?'700':'400')+'">'+escapeHtml(s.text)+'</span></div>';
-            }).join('')+'</div>':'') +
-        '</div>':'') +
-      (relatedTasks.length?
-        '<div class="_cp-card"><div class="_cp-section-title">📋 المهام والمشاريع ('+relatedTasks.length+')</div>'+
-        relatedTasks.map(function(t){
-          var sc=statusColor[t.status]||accent;
-          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid '+borderC+'">'+
-            '<div><div style="font-size:13px;font-weight:700;color:'+textMain+'">'+escapeHtml(t.title||t.name||'مهمة')+'</div>'+
-            (t.dueDate?'<div style="font-size:11px;color:'+textMuted+'">📅 '+escapeHtml(t.dueDate)+'</div>':'')+
-            '</div><div class="_cp-badge" style="background:'+sc+'22;color:'+sc+'">'+escapeHtml(t.status||'—')+'</div></div>';
-        }).join('')+'</div>':'') +
-      (relatedInvoices.length?
-        '<div class="_cp-card"><div class="_cp-section-title">🧾 الفواتير ('+relatedInvoices.length+')</div>'+
-        relatedInvoices.map(function(inv){
+        '</div>';
+      }).join('');
+    }
+
+    window._openProjDetail=function(taskId){
+      var t=(ud.tasks||[]).find(function(x){return String(x.id)===String(taskId);}); if(!t) return;
+      var prog=t.steps&&t.steps.length?Math.round(t.steps.filter(function(s){return s.done;}).length/t.steps.length*100):(t.done?100:0);
+      var sc=statusColors[t.status]||textMuted;
+      var ex=document.getElementById('_proj-detail-overlay'); if(ex) ex.remove();
+      var ov=document.createElement('div'); ov.id='_proj-detail-overlay'; ov.className='_proj-overlay';
+      ov.innerHTML='<div class="_proj-sheet">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">'+
+          '<div>'+
+            '<div style="font-size:18px;font-weight:900;color:'+textMain+'">'+escapeHtml(t.title||'مشروع')+'</div>'+
+            '<div class="_badge" style="background:'+sc+'22;color:'+sc+';margin-top:5px">'+escapeHtml(t.status||'—')+'</div>'+
+          '</div>'+
+          '<button onclick="document.getElementById(\'_proj-detail-overlay\').remove()" style="background:'+cardBg+';border:1px solid '+borderC+';width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:16px;color:'+textMain+'">✕</button>'+
+        '</div>'+
+        (t.desc?'<div style="font-size:13px;color:'+textSub+';line-height:1.8;padding:14px;background:'+surface2+';border-radius:12px;margin-bottom:18px">'+escapeHtml(t.desc)+'</div>':'')+
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
+          '<div style="font-size:13px;font-weight:700;color:'+textSub+'">التقدم العام</div>'+
+          '<div style="font-size:22px;font-weight:900;color:'+accent+'">'+prog+'%</div>'+
+        '</div>'+
+        '<div style="height:12px;background:'+cardBg+';border-radius:8px;overflow:hidden;border:1px solid '+cardBorder+';margin-bottom:20px">'+
+          '<div style="height:100%;background:linear-gradient(90deg,'+accent+','+accent+'cc);border-radius:8px;width:'+prog+'%;transition:.7s;box-shadow:0 0 10px '+accent+'55"></div>'+
+        '</div>'+
+        (t.steps&&t.steps.length?
+          '<div style="font-size:12px;font-weight:800;color:'+textMuted+';margin-bottom:12px">📋 خطوات التنفيذ</div>'+
+          '<div>'+t.steps.map(function(s,i){
+            return '<div class="_step-row">'+
+              '<span style="font-size:20px;flex-shrink:0">'+(s.done?'✅':'⏳')+'</span>'+
+              '<div style="flex:1">'+
+                '<div style="font-size:13px;color:'+(s.done?accent:textSub)+';font-weight:'+(s.done?'700':'400')+(s.done?';text-decoration:line-through':'')+'">'+escapeHtml(s.text)+'</div>'+
+              '</div>'+
+            '</div>';
+          }).join('')+'</div>':'')+
+        (t.deadline?'<div style="margin-top:16px;display:flex;align-items:center;gap:8px;font-size:13px;color:'+textSub+'">📅 موعد التسليم: <strong>'+escapeHtml(t.deadline)+'</strong></div>':'')+
+        (phone?'<a href="https://wa.me/'+phone.replace(/\D/g,'')+'" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:20px;background:#25D366;color:#fff;text-decoration:none;padding:13px;border-radius:12px;font-size:14px;font-weight:800">📲 تواصل معنا</a>':'')+
+      '</div>';
+      ov.onclick=function(e){if(e.target===ov)ov.remove();};
+      document.body.appendChild(ov);
+    };
+
+    // Invoices section
+    var invoicesHtml='';
+    if(clientInvoices.length){
+      invoicesHtml='<div class="_cp-card">'+
+        '<div class="_cp-sec-title">🧾 الفواتير وكشف الحساب ('+clientInvoices.length+')</div>'+
+        clientInvoices.map(function(inv){
           var paid=inv.paid||inv.status==='مدفوعة'||inv.status==='paid';
           var partial=inv.status==='مدفوعة جزئياً';
           var badgeBg=paid?'#4fd1a522':partial?'#f7c94822':'#f76f7c22';
           var badgeC=paid?'#4fd1a5':partial?'#f7c948':'#f76f7c';
-          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid '+borderC+'">'+
-            '<div><div style="font-size:13px;font-weight:700;color:'+textMain+'">'+(inv.num||inv.id||'فاتورة')+'</div>'+
-            (inv.date?'<div style="font-size:11px;color:'+textMuted+'">'+escapeHtml(inv.date)+'</div>':'')+
-            '</div><div style="display:flex;align-items:center;gap:10px">'+
-            '<span style="font-size:14px;font-weight:900;color:'+accent+'">'+(inv.total?Number(inv.total).toLocaleString()+' ج':'—')+'</span>'+
-            '<div class="_cp-badge" style="background:'+badgeBg+';color:'+badgeC+'">'+(paid?'مدفوعة':partial?'جزئي':'غير مدفوعة')+'</div></div></div>';
-        }).join('')+'</div>':'') +
-      '<div style="text-align:center;padding:20px 0;font-size:12px;color:'+textMuted+'">'+escapeHtml(studioName)+' — '+new Date().getFullYear()+'</div>';
-    document.body.appendChild(pg);
+          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid '+borderC+'">'+
+            '<div>'+
+              '<div style="font-size:13px;font-weight:700;color:'+textMain+'">'+(inv.num||inv.id||'فاتورة')+'</div>'+
+              (inv.date?'<div style="font-size:11px;color:'+textMuted+'">'+escapeHtml(inv.date)+'</div>':'')+
+              (inv.desc?'<div style="font-size:11px;color:'+textSub+'">'+escapeHtml(inv.desc)+'</div>':'')+
+            '</div>'+
+            '<div style="display:flex;align-items:center;gap:8px">'+
+              '<span style="font-size:15px;font-weight:900;color:'+accent+'">'+  (inv.total?Number(inv.total).toLocaleString()+' ج':'—')+'</span>'+
+              '<div class="_badge" style="background:'+badgeBg+';color:'+badgeC+'">'+(paid?'✅ مدفوعة':partial?'⚡ جزئي':'⏳ غير مدفوعة')+'</div>'+
+            '</div>'+
+          '</div>';
+        }).join('')+
+      '</div>';
+    }
+
+    var projSectionHtml='<div class="_cp-card">'+
+      '<div class="_cp-sec-title">📋 مشاريعي</div>'+
+      '<div id="_proj-filters" class="_filter-bar">'+
+        ['all','active','done','paused'].map(function(f,i){
+          var labels={all:'الكل',active:'جارية',done:'مكتملة',paused:'موقوفة'};
+          return '<button class="_filter-chip'+(i===0?' on':'')+'" data-f="'+f+'" onclick="_cpFilter(\''+f+'\')">'+labels[f]+'</button>';
+        }).join('')+
+      '</div>'+
+      '<div id="_proj-grid"></div>'+
+    '</div>';
+
+    window._cpFilter=function(f){ renderProjects(f); };
+
+    wrap.innerHTML=welcomeHtml+statsHtml+projSectionHtml+invoicesHtml;
+    document.body.appendChild(wrap);
+
+    // Footer
+    var footerEl=document.createElement('footer');
+    footerEl.className='_cp-footer';
+    footerEl.innerHTML='<div class="_cp-footer-inner">'+
+      '<div style="display:flex;align-items:center;gap:10px">'+
+        (logo?'<img src="'+escapeHtml(logo)+'" style="width:32px;height:32px;border-radius:8px;object-fit:cover">':'<div style="width:32px;height:32px;border-radius:8px;background:'+accent+';display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;font-weight:900">'+(studioName||'S').charAt(0)+'</div>')+
+        '<span style="font-size:13px;font-weight:700;color:'+textMain+'">'+escapeHtml(studioName)+'</span>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+        footerSocialsHtml+
+        (phone?'<a href="https://wa.me/'+phone.replace(/\D/g,'')+'" target="_blank" style="background:'+accent+';color:#fff;text-decoration:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:800">📅 حجز موعد</a>':'')+
+      '</div>'+
+    '</div>';
+    document.body.appendChild(footerEl);
+
+    // Render projects
+    renderProjects('all');
   });
 }
 
