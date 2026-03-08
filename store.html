@@ -377,14 +377,36 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 const SUPA_URL  = 'https://mpfmcjgigpvdxbhgzufo.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM';
 
-// Direct REST fetch helpers (no SDK)
+// Direct REST fetch helpers (no SDK needed)
 function _supaGet(table, filters){
-  var url=SUPA_URL+'/rest/v1/'+table+'?'+filters+'&limit=1';
-  return fetch(url, {headers:{apikey:SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}}).then(function(r){return r.json();});
+  var url=SUPA_URL+'/rest/v1/'+table+'?'+filters;
+  return fetch(url, {
+    method:'GET',
+    mode:'cors',
+    headers:{
+      'apikey': SUPA_ANON,
+      'Authorization': 'Bearer '+SUPA_ANON,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+  }).then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  });
 }
 function _supaUpdate(table, match, body){
   var url=SUPA_URL+'/rest/v1/'+table+'?'+match;
-  return fetch(url, {method:'PATCH',headers:{apikey:SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(body)});
+  return fetch(url, {
+    method:'PATCH',
+    mode:'cors',
+    headers:{
+      'apikey': SUPA_ANON,
+      'Authorization': 'Bearer '+SUPA_ANON,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body:JSON.stringify(body)
+  });
 }
 
 // ══════════════════════════════════════════════════
@@ -418,9 +440,10 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 function loadStoreData(cb){
-  _supaGet('studio_data','user_id=eq.'+encodeURIComponent(_uid)+'&select=data')
+  _supaGet('studio_data','select=data&user_id=eq.'+encodeURIComponent(_uid)+'&limit=1')
     .then(function(rows){
-      if(!rows||!Array.isArray(rows)||!rows.length||!rows[0]||!rows[0].data){ showError('تعذّر تحميل بيانات المتجر. تأكد من الرابط.'); return; }
+      if(!rows||!Array.isArray(rows)||!rows.length){ showError('لم يتم العثور على بيانات. تأكد أن الرابط صحيح.'); return; }
+      if(!rows[0]||!rows[0].data){ showError('البيانات فارغة — أضف خدماتك من لوحة التحكم أولاً.'); return; }
       try{ _ud=typeof rows[0].data==='string'?JSON.parse(rows[0].data):rows[0].data; }catch(e){ showError('خطأ في البيانات.'); return; }
       _services=(_ud.services||[]).filter(function(s){return s.active!==false;});
       _packages=(_ud.standalone_packages||[]).filter(function(p){return p.active!==false;});
