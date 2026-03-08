@@ -14813,8 +14813,9 @@ function renderCorpEmployees(){
 // ── Helpers ──
 function getSvcLink(){
   var uid = typeof _supaUserId!=='undefined' ? _supaUserId : '';
-  var base = window.location.origin + window.location.pathname.replace(/[^/]*$/, '') + 'store.html';
-  return base + '?uid=' + uid;
+  // Uses index.html with ?svcorder=UID — the built-in public store (no store.html needed)
+  var base = window.location.origin + window.location.pathname;
+  return base + '?svcorder=' + uid;
 }
 function svcCopyLink(){
   var link = getSvcLink();
@@ -14850,7 +14851,10 @@ function switchSvcTab(tab){
 // ══════════════════════════════════
 function initWebsiteTab(){
   // update preview link
-  try{ var wl=document.getElementById('svc-website-link-preview'); if(wl) wl.textContent=getSvcLink(); }catch(e){}
+  try{
+    var wl=document.getElementById('svc-website-link-preview');
+    if(wl){ var lnk=getSvcLink(); wl.textContent=lnk; wl.title='انقر للمعاينة'; wl.style.cursor='pointer'; wl.onclick=function(){window.open(lnk,'_blank');}; }
+  }catch(e){}
   var descEl=document.getElementById('svc-site-desc');
   if(descEl) descEl.value=(S.settings&&S.settings.svc_site_desc)||'';
   // orders open toggle
@@ -16090,7 +16094,12 @@ function _buildSvcOrderPage(userId){
     if(!res||res.error||!res.data){ _svcOrderFallback(); return; }
     var ud=null; try{ ud=typeof res.data.data==='string'?JSON.parse(res.data.data):res.data.data; }catch(e){}
     if(!ud){ _svcOrderFallback(); return; }
-    var services=ud.services||[], settings=ud.settings||{};
+    var services=(ud.services||[]).filter(function(s){return s.active!==false;}),
+        settings=ud.settings||{};
+    var standalonePkgs=(ud.standalone_packages||[]).filter(function(p){return p.active!==false;});
+    var pfProjects=ud.portfolio_projects||[];
+    var siteDesc=settings.svc_site_desc||settings.bio||settings.desc||'';
+    var isOrdersOpen=settings.svc_orders_open!==false;
     var accent=settings.accent||settings.accentColor||'#7c6ff7';
     var banner=settings.svc_banner||'';
     var logo=settings.logo||'';
@@ -16123,6 +16132,7 @@ function _buildSvcOrderPage(userId){
       '@import url(\'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap\');'+
       '*{box-sizing:border-box;margin:0;padding:0}'+
       'html{scroll-behavior:smooth}'+
+      ':root{--pub-surface3:'+surface3+'}'+
       'body{font-family:\'Cairo\',sans-serif;background:'+bg+';color:'+textMain+';min-height:100vh;direction:rtl}'+
       'body::before{content:\'\';position:fixed;inset:0;z-index:0;pointer-events:none;'+
       '  background:radial-gradient(ellipse 70% 50% at 20% 10%,'+accent+'28 0%,transparent 65%),'+
@@ -16287,19 +16297,56 @@ function _buildSvcOrderPage(userId){
         '</div>'+
         (socialsHtml?'<div class="_pub-socials">'+socialsHtml+'</div>':'')+
       '</div>'+
-      '<div><div class="_live">متاح الآن للطلب</div></div>'+
+      (isOrdersOpen?'<div><div class="_live">✅ متاح الآن للطلب</div></div>':'<div><div class="_live" style="background:rgba(255,80,80,.1);border-color:rgba(255,80,80,.25);color:#ff5050">⏸ مغلق مؤقتاً</div></div>')+
       // ── Banner ──
       (banner?'<div class="_pub-banner"><img src="'+escapeHtml(banner)+'" alt="بانر"></div>':'')+
       // ── About card (brief) ──
       '<div class="_about-card" style="margin-bottom:20px">'+
         (logo?'<img class="_about-logo" src="'+escapeHtml(logo)+'" alt="">':'<div class="_about-logo-ph">'+(studioName||'O').charAt(0)+'</div>')+
         '<div class="_about-name">'+escapeHtml(studioName)+'</div>'+
-        (settings.bio||settings.desc?'<div class="_about-bio">'+escapeHtml(settings.bio||settings.desc)+'</div>':'<div class="_about-bio">نقدم أفضل الخدمات لمساعدتك في تحقيق أهدافك.</div>')+
+        (siteDesc?'<div class="_about-bio">'+escapeHtml(siteDesc)+'</div>':'')+
         (contactHtml?'<div style="margin-top:16px;text-align:right">'+contactHtml+'</div>':'')+
       '</div>'+
       // ── Services grid ──
       '<div style="font-size:16px;font-weight:900;color:'+textMain+';margin-bottom:14px">🛍 خدماتنا</div>'+
-      '<div class="_svc-grid">'+svcsHtml+'</div>';
+      '<div class="_svc-grid">'+svcsHtml+'</div>'+
+      // ── Standalone Packages ──
+      (standalonePkgs.length?
+        '<div style="font-size:16px;font-weight:900;color:'+textMain+';margin:28px 0 14px">📦 باقاتنا</div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px">'+
+        standalonePkgs.map(function(p,pi){
+          return '<div style="background:'+cardBg+';border:1px solid '+cardBorder+';border-radius:16px;overflow:hidden;cursor:pointer;transition:.2s" onclick="_openOrderFormNew(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+')">'+
+            (p.thumb?'<img src="'+escapeHtml(p.thumb)+'" style="width:100%;height:100px;object-fit:cover;display:block">':'')+
+            '<div style="padding:14px">'+
+              '<div style="font-size:14px;font-weight:900;color:'+textMain+';margin-bottom:4px">'+escapeHtml(p.name)+'</div>'+
+              (p.desc?'<div style="font-size:11px;color:'+textSub+';line-height:1.6;margin-bottom:8px">'+escapeHtml(p.desc)+'</div>':'')+
+              (p.items&&p.items.length?'<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px">'+p.items.slice(0,3).map(function(it){return '<div style="font-size:11px;color:'+textSub+'"><span style="color:'+accent+'">✓</span> '+escapeHtml(it)+'</div>';}).join('')+'</div>':'')+
+              '<div style="display:flex;align-items:center;justify-content:space-between">'+
+                '<div style="font-size:18px;font-weight:900;color:'+accent+'">'+(p.price?Number(p.price).toLocaleString()+' ج':'عند الطلب')+'</div>'+
+                '<button style="background:'+accent+';color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">اطلب ←</button>'+
+              '</div>'+
+            '</div>'+
+          '</div>';
+        }).join('')+
+        '</div>':'')+
+      // ── Portfolio ──
+      (pfProjects.length?
+        '<div style="font-size:16px;font-weight:900;color:'+textMain+';margin:28px 0 14px">🖼 أعمالنا</div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:28px">'+
+        pfProjects.slice(0,6).map(function(p){
+          var img=p.image||p.thumb||'';
+          return '<a href="'+(p.link||p.url||'#')+'" target="_blank" style="border-radius:12px;overflow:hidden;display:block;aspect-ratio:1;background:'+surface3+';border:1px solid '+cardBorder+'">'+
+            (img?'<img src="'+escapeHtml(img)+'" style="width:100%;height:100%;object-fit:cover">':
+            '<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;text-align:center">'+
+              '<div style="font-size:26px;margin-bottom:6px">'+(p.type==='behance'?'🎨':'📁')+'</div>'+
+              '<div style="font-size:10px;font-weight:700;color:'+textSub+'">'+escapeHtml(p.title||p.label||'مشروع')+'</div>'+
+            '</div>')+
+          '</a>';
+        }).join('')+
+        '</div>':'')+
+      // ── Contact ──
+      '<div style="font-size:16px;font-weight:900;color:'+textMain+';margin:28px 0 14px">📞 تواصل معنا</div>'+
+      '<div>'+contactHtml+'</div>';
 
     document.body.appendChild(pg);
     window._publicUd=ud; window._publicUserId=userId; window._publicAccent=accent;
@@ -16391,11 +16438,22 @@ window._openSvcPage=function(idx){
       }).join('')+'</div>';
   }
 
-  // Direct price (no packages)
-  var directOrderHtml='';
-  if(!svc.packages||!svc.packages.length){
-    directOrderHtml='<button class="_pkg-order-btn" onclick="_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+')">🚀 اطلب الخدمة</button>';
+  // Terms list (what client gets)
+  var termsHtml='';
+  if(svc.terms&&svc.terms.length){
+    termsHtml='<div style="margin-bottom:24px;background:'+C.cardBg+';border:1px solid '+C.cardBorder+';border-radius:16px;padding:18px 20px">'+
+      '<div style="font-size:13px;font-weight:800;color:'+C.textMuted+';margin-bottom:12px">✓ ماذا تحصل عليه</div>'+
+      '<div style="display:flex;flex-direction:column;gap:8px">'+
+      svc.terms.map(function(t){
+        return '<div style="display:flex;align-items:flex-start;gap:10px;font-size:13px;color:'+C.textSub+'">'+
+          '<span style="color:'+accent+';font-size:16px;flex-shrink:0;margin-top:1px">✓</span>'+
+          '<span>'+escapeHtml(t)+'</span>'+
+        '</div>';
+      }).join('')+
+      '</div></div>';
   }
+  // Direct order button
+  var directOrderHtml='<button class="_pkg-order-btn" onclick="_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+')">🚀 اطلب الخدمة الآن</button>';
 
   // Build full page
   var page=document.createElement('div');
@@ -16412,7 +16470,7 @@ window._openSvcPage=function(idx){
         (svc.delivery?'<div class="_svc-delivery-badge">⏱ '+escapeHtml(svc.delivery)+'</div>':'')+
       '</div>'+
       (svc.desc?'<p class="_svc-page-desc">'+escapeHtml(svc.desc)+'</p>':'')+
-      pkgsHtml+
+      termsHtml+
       portHtml+
       directOrderHtml+
     '</div>';
