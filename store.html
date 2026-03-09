@@ -55,24 +55,36 @@ function hideLs(){var l=document.getElementById('_ls');l.style.opacity='0';setTi
 function showErr(m){document.getElementById('_ls').style.display='none';var e=document.getElementById('_er');e.style.display='flex';if(m)document.getElementById('_er-msg').textContent=m;}
 
 // ── unwrap nested Supabase JSON ──
-// بيجرب كل الأشكال الممكنة للداتا
+// بيجرب كل مستويات التداخل الممكنة حتى يلاقي services أو settings
 function unwrap(raw){
-  var d;
-  try{ d = typeof raw==='string' ? JSON.parse(raw) : raw; }
-  catch(e){ return null; }
+  // parse لو string
+  function tryParse(v){
+    if(typeof v==='string'){try{return JSON.parse(v);}catch(e){return null;}}
+    return v;
+  }
+  // هل الـ object ده هو الـ studio data؟
+  function isStudioData(o){
+    if(!o||typeof o!=='object') return false;
+    return !!(o.services!==undefined || o.settings!==undefined ||
+              o.standalone_packages!==undefined || o.portfolio_projects!==undefined ||
+              o.svc_orders!==undefined || o.tasks!==undefined);
+  }
+
+  var d=tryParse(raw);
   if(!d) return null;
 
-  // لو الداتا متداخلة: { data: "..." } أو { data: {...} }
-  // بس بس لو مفيش services/settings مباشرة
-  var hasContent = d.services || d.settings || d.portfolio_projects || d.standalone_packages || d.packages;
-  if(!hasContent && d.data){
-    try{
-      var inner = typeof d.data==='string' ? JSON.parse(d.data) : d.data;
-      if(inner && (inner.services || inner.settings || inner.standalone_packages)){
-        return inner;
-      }
-    }catch(e){}
-  }
+  // طبقة 1: مباشرة
+  if(isStudioData(d)) return d;
+
+  // طبقة 2: d.data
+  var d2=tryParse(d.data);
+  if(d2 && isStudioData(d2)) return d2;
+
+  // طبقة 3: d.data.data
+  if(d2){ var d3=tryParse(d2.data); if(d3&&isStudioData(d3)) return d3; }
+
+  // fallback: رجّع أعمق object فيه settings
+  console.warn('[Store] unwrap: could not find studio data in structure, returning raw parsed');
   return d;
 }
 
@@ -124,11 +136,17 @@ async function boot(){
 // ══════════════════════════════════
 async function buildPage(userId){
   try{
+    console.log('[Store] buildPage userId=', userId);
     var res=await supa.from('studio_data').select('data').eq('user_id',userId).maybeSingle();
+    console.log('[Store] supabase res.error=', res.error, '| res.data keys=', res.data ? Object.keys(res.data) : 'null');
     if(res.error||!res.data){showErr('تعذّر تحميل البيانات');return;}
 
+    console.log('[Store] raw data type=', typeof res.data.data, '| first 120 chars=', String(res.data.data||'').slice(0,120));
     var ud=unwrap(res.data.data);
+    console.log('[Store] unwrapped keys=', ud ? Object.keys(ud).join(',') : 'NULL');
     if(!ud){showErr('البيانات فارغة أو تالفة');return;}
+
+    console.log('[Store] services=', (ud.services||[]).length, '| packages=', (ud.standalone_packages||[]).length, '| portfolio=', (ud.portfolio_projects||[]).length, '| settings.name=', ud.settings&&ud.settings.name);
 
     // ── settings ──
     var settings=ud.settings||{};
