@@ -882,6 +882,10 @@ body {
   box-shadow: none !important;
 }
 /* When studio logo is loaded, expand to show full logo */
+.social-dd-item:hover { background: var(--surface2); }
+#social-dd-menu::-webkit-scrollbar { width: 4px; }
+#social-dd-menu::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
 #_sidebar-logo-img {
   width: auto !important;
   height: 36px !important;
@@ -2105,10 +2109,10 @@ setTimeout(window._showApp, 4000);
   <div class="nav-item" onclick="showPage(&#39;clients&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="nav-label" data-ar="قاعدة العملاء" data-i18n="nav_clients">قاعدة العملاء</span></div>
   <div class="nav-item" onclick="showPage(&#39;finance&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><span class="nav-label" data-ar="المالية" data-i18n="nav_finance">المالية</span></div>
   <div class="nav-item" onclick="showPage(&#39;invoices&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span><span class="nav-label" data-ar="الفواتير والعقود" data-i18n="nav_invoices">الفواتير والعقود</span></div>
-  <div class="nav-section-label" data-i18n="sec_services">الخدمات والمبيعات</div>
+  <div class="nav-section-label" data-i18n="sec_services">خدماتي</div>
   <div class="nav-item" onclick="showPage('services',this)" id="nav-services">
-    <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
-    <span class="nav-label" data-ar="خدماتي والباقات" data-i18n="nav_services">خدماتي والباقات</span>
+    <span class="nav-icon"><i class="fa-solid fa-bag-shopping"></i></span>
+    <span class="nav-label" data-ar="خدماتي" data-i18n="nav_services">خدماتي</span>
     <span class="nav-badge" id="svc-orders-nav-badge" style="display:none;background:var(--accent2);color:#1a1a2e"></span>
   </div>
   <div class="nav-item" onclick="showPage('support',this)" id="nav-support">
@@ -2184,7 +2188,7 @@ setTimeout(window._showApp, 4000);
   <div class="bn-more-item" onclick="showPage(&#39;meetings&#39;);closeBnMore()" id="bnm-meetings"><span><i class="fa-solid fa-calendar-check"></i></span><span data-i18n="nav_meetings">الميتنج</span></div>
   <div class="bn-more-item" onclick="showPage(&#39;schedule&#39;);closeBnMore()" id="bnm-schedule"><span><i class="fa-solid fa-clock"></i></span><span data-i18n="nav_schedule">تنظيم اليوم</span></div>
   <div class="bn-more-item" onclick="showPage(&#39;settings&#39;);closeBnMore()" id="bnm-settings"><span><i class="fa-solid fa-gear"></i></span><span data-i18n="nav_settings">الإعدادات</span></div>
-  <div class="bn-more-item" onclick="showPage('services');closeBnMore()" id="bnm-services"><span><i class="fa-solid fa-store"></i></span><span data-i18n="nav_services">خدماتي والباقات</span></div>
+  <div class="bn-more-item" onclick="showPage('services');closeBnMore()" id="bnm-services"><span><i class="fa-solid fa-bag-shopping"></i></span><span data-i18n="nav_services">خدماتي</span></div>
   <div class="bn-more-item" onclick="showPage('support');closeBnMore()" id="bnm-support"><span><i class="fa-solid fa-comments"></i></span><span data-i18n="nav_support">الدعم والرسائل</span></div>
   <div class="bn-more-item" onclick="toggleDarkLight();closeBnMore()" id="bnm-darkmode"><span id="bnm-dark-icon"><i class="fa-solid fa-moon"></i></span><span data-i18n="nav_theme">تبديل المظهر</span></div>
 </div>
@@ -3386,6 +3390,7 @@ setTimeout(window._showApp, 4000);
 
       <div class="card">
         <div class="section-title"><i class="fa-solid fa-image"></i> الشعار</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5"><i class="fa-solid fa-circle-info" style="color:var(--accent)"></i> اللوجو ده بيظهر في <strong>الفاتورة</strong> و<strong>إيصال التحصيل</strong> و<strong>المتجر الإلكتروني</strong> — مش صورة البروفايل</div>
         <div id="logo-preview" style="margin-bottom:14px;min-height:90px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border-radius:var(--r2);border:2px dashed var(--border)"><span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span></div>
         <input type="file" id="logo-input" accept="image/*" style="display:none" onchange="uploadLogo(this)">
         <div style="display:flex;gap:10px;margin-bottom:20px">
@@ -3396,18 +3401,18 @@ setTimeout(window._showApp, 4000);
         <div class="section-title"><i class="fa-solid fa-globe"></i> منصات التواصل</div>
         <div id="socials-list" style="margin-bottom:10px"></div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <select class="form-select" id="social-platform-sel" style="width:130px;flex-shrink:0" onchange="updateSocialPlaceholder()">
-            <option value="instagram" data-icon="<i class="fa-solid fa-camera"></i>">انستقرام</option>
-            <option value="facebook"  data-icon="<i class="fa-solid fa-book"></i>">فيسبوك</option>
-            <option value="behance"   data-icon="<i class="fa-solid fa-palette"></i>">بيهانس</option>
-            <option value="linkedin"  data-icon="<i class="fa-solid fa-briefcase"></i>">لينكدإن</option>
-            <option value="tiktok"    data-icon="<i class="fa-solid fa-music"></i>">تيك توك</option>
-            <option value="youtube"   data-icon="<i class="fa-solid fa-play"></i>">يوتيوب</option>
-            <option value="twitter"   data-icon="<i class="fa-solid fa-bird"></i>">تويتر/X</option>
-            <option value="website"   data-icon="<i class="fa-solid fa-globe"></i>">موقع ويب</option>
-            <option value="whatsapp"  data-icon="<i class="fa-solid fa-comments"></i>">واتساب</option>
-            <option value="other"     data-icon="<i class="fa-solid fa-link"></i>">أخرى</option>
-          </select>
+          <!-- Custom social dropdown with icons -->
+          <div id="social-platform-dd" style="position:relative;width:145px;flex-shrink:0">
+            <div id="social-dd-btn" onclick="toggleSocialDD()" style="display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r1);padding:8px 10px;cursor:pointer;font-size:13px;height:38px">
+              <span id="social-dd-icon" style="display:inline-flex;width:18px;height:18px;color:#E1306C;flex-shrink:0"></span>
+              <span id="social-dd-label" style="flex:1;font-weight:600">انستقرام</span>
+              <i class="fa-solid fa-chevron-down" style="font-size:10px;color:var(--text3)"></i>
+            </div>
+            <div id="social-dd-menu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;width:160px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);z-index:1000;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden">
+            </div>
+          </div>
+          <!-- hidden input to carry the value -->
+          <input type="hidden" id="social-platform-sel" value="instagram">
           <input class="form-input" id="social-url-input" placeholder="الرابط أو الرقم" style="flex:1;min-width:120px">
           <button class="btn btn-ghost btn-sm" onclick="addSocial()" style="flex-shrink:0">+ إضافة</button>
         </div>
@@ -3677,7 +3682,7 @@ setTimeout(window._showApp, 4000);
   <!-- ══ HEADER ══ -->
   <div class="page-header" style="flex-wrap:wrap;gap:10px">
     <div>
-      <div class="page-title"><i class="fa-solid fa-store"></i> <span data-i18n="title_services">المتجر</span> <span data-i18n="title_services2">الإلكتروني</span></div>
+      <div class="page-title"><i class="fa-solid fa-bag-shopping"></i> <span data-i18n="title_services">خدماتي</span> <span data-i18n="title_services2">والباقات</span></div>
       <div class="page-subtitle" data-i18n="sub_services">أدر خدماتك، باقاتك، بورتفوليوك، وموقعك العام</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -5416,6 +5421,10 @@ function loadSettings(){
   const nd=document.getElementById('studio-name-disp');if(nd)nd.textContent=s.name||'صاحب العمل';
   renderPoliciesList('policies-list', s.policies||[], 'removePolicy');
   renderSocialsList();
+  // إعادة تهيئة الـ social dropdown
+  setTimeout(() => {
+    selectSocialOpt('instagram');
+  }, 50);
   // قوالب واتساب
   const wt = s.waTemplates||{};
   const defaults = {
@@ -9067,7 +9076,7 @@ function renderAll(){
 // SIDEBAR TOGGLE
 // ============================================================
 const PAGE_TITLES = {
-  services    : '<i class="fa-solid fa-bag-shopping"></i> خدماتي والباقات',
+  services    : '<i class="fa-solid fa-bag-shopping"></i> خدماتي',
   support     : '<i class="fa-solid fa-comments"></i> الدعم والرسائل',
   dashboard   : 'لوحة التحكم',
   tasks       : '<i class="fa-solid fa-list-check"></i> المهام والمشاريع',
@@ -9459,8 +9468,10 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     S.settings.email = userObj.email;
     _needsSave = true;
   }
-  if(userObj.avatarUrl && !S.settings.logo) {
-    S.settings.logo = userObj.avatarUrl;
+  // لا نضع صورة البروفايل تلقائياً كلوجو للستوديو
+  // اللوجو يُرفع يدوياً من الإعدادات فقط
+  if(userObj.avatarUrl) {
+    S.settings._avatarUrl = userObj.avatarUrl; // نحتفظ بها للعرض الشخصي فقط
     _needsSave = true;
   }
 
@@ -11062,10 +11073,78 @@ function getSocialIconHTML(platform, size=16) {
 // liveQR() is already defined above in the QR wrapper script block
 
 /* Social links in settings */
+
+// ════ Custom Social Media Dropdown ════
+const _SOCIAL_OPTS = [
+  { value:'instagram', label:'انستقرام',  color:'#E1306C', svg:'instagram' },
+  { value:'facebook',  label:'فيسبوك',    color:'#1877F2', svg:'facebook' },
+  { value:'behance',   label:'بيهانس',    color:'#1769FF', svg:'behance' },
+  { value:'linkedin',  label:'لينكدإن',   color:'#0077B5', svg:'linkedin' },
+  { value:'tiktok',    label:'تيك توك',   color:'#111111', svg:'tiktok' },
+  { value:'youtube',   label:'يوتيوب',    color:'#FF0000', svg:'youtube' },
+  { value:'twitter',   label:'تويتر/X',   color:'#000000', svg:'twitter' },
+  { value:'website',   label:'موقع ويب',  color:'#7c6ff7', svg:'website' },
+  { value:'whatsapp',  label:'واتساب',    color:'#25D366', svg:'whatsapp' },
+  { value:'other',     label:'أخرى',      color:'#888888', svg:'other' },
+];
+
+function _renderSocialDD() {
+  const menu = document.getElementById('social-dd-menu');
+  if(!menu) return;
+  menu.innerHTML = _SOCIAL_OPTS.map(opt => {
+    const meta = SOCIAL_META[opt.svg] || SOCIAL_META.other;
+    return `<div onclick="selectSocialOpt('${opt.value}')" style="display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+      <span style="display:inline-flex;width:18px;height:18px;color:${meta.color};flex-shrink:0">${meta.svg}</span>
+      <span style="color:${meta.color}">${opt.label}</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleSocialDD() {
+  const menu = document.getElementById('social-dd-menu');
+  if(!menu) return;
+  if(menu.style.display === 'none') {
+    _renderSocialDD();
+    menu.style.display = 'block';
+    // إغلاق عند الضغط خارج
+    setTimeout(() => {
+      document.addEventListener('click', function _closeSocDD(e) {
+        if(!document.getElementById('social-platform-dd')?.contains(e.target)) {
+          menu.style.display = 'none';
+          document.removeEventListener('click', _closeSocDD);
+        }
+      });
+    }, 10);
+  } else {
+    menu.style.display = 'none';
+  }
+}
+
+function selectSocialOpt(value) {
+  const opt = _SOCIAL_OPTS.find(o => o.value === value);
+  if(!opt) return;
+  const meta = SOCIAL_META[opt.svg] || SOCIAL_META.other;
+  // تحديث hidden input
+  const inp = document.getElementById('social-platform-sel');
+  if(inp) inp.value = value;
+  // تحديث الـ button
+  const icon = document.getElementById('social-dd-icon');
+  const label = document.getElementById('social-dd-label');
+  if(icon) { icon.innerHTML = meta.svg; icon.style.color = meta.color; }
+  if(label) { label.textContent = opt.label; label.style.color = meta.color; }
+  // إغلاق
+  const menu = document.getElementById('social-dd-menu');
+  if(menu) menu.style.display = 'none';
+  // تحديث الـ placeholder
+  updateSocialPlaceholder();
+}
+
+// إضافة السوشيال - تحديث لقراءة من hidden input
 function updateSocialPlaceholder(){
   const sel = document.getElementById('social-platform-sel');
   const inp = document.getElementById('social-url-input');
   if(!inp||!sel) return;
+  const val = sel.value || sel.getAttribute('value') || 'instagram';
   const placeholders = {
     instagram:'https://instagram.com/yourhandle',
     facebook:'https://facebook.com/yourpage',
@@ -11075,10 +11154,10 @@ function updateSocialPlaceholder(){
     youtube:'https://youtube.com/@yourchannel',
     twitter:'https://twitter.com/yourhandle',
     website:'https://yourwebsite.com',
-    whatsapp:'https://wa.me/201XXXXXXXXX',
+    whatsapp:'رقم الواتساب بالكود الدولي مثلاً 201001234567',
     other:'الرابط'
   };
-  inp.placeholder = placeholders[sel.value]||'الرابط';
+  inp.placeholder = placeholders[val]||'الرابط';
 }
 
 function addSocial(){
@@ -11086,8 +11165,8 @@ function addSocial(){
   const url = (document.getElementById('social-url-input')?.value||'').trim();
   if(!url) return alert('أدخل الرابط');
   if(!S.settings.socials) S.settings.socials = [];
-  // avoid duplicate platform
-  const platform = sel.value;
+  // قراءة الـ value (hidden input أو select)
+  const platform = (sel?.value) || 'other';
   const existing = S.settings.socials.findIndex(s=>s.platform===platform);
   if(existing>-1) S.settings.socials[existing].url = url;
   else S.settings.socials.push({ platform, url });
@@ -20074,7 +20153,7 @@ function clearAllTimeLogs(taskId){
 // ═══════════════════════════════════════════════════
 function _updateHeaderAvatar(){
   var session = typeof getSession === 'function' ? getSession() : null;
-  var avatarUrl = (session && session.avatarUrl) ? session.avatarUrl : ((typeof S !== 'undefined' && S.settings && S.settings.logo) ? S.settings.logo : '');
+  var avatarUrl = (session && session.avatarUrl) ? session.avatarUrl : ((typeof S !== 'undefined' && S.settings && (S.settings._avatarUrl || S.settings.logo)) ? (S.settings._avatarUrl || S.settings.logo) : '');
   var name = (session && session.name) ? session.name : ((session && session.studio) ? session.studio : 'م');
   var imgEl = document.getElementById('_header-avatar-img');
   var txtEl = document.getElementById('_header-avatar-text');
