@@ -1859,6 +1859,14 @@ select.filter-sel:focus { outline:none; border-color:var(--accent); }
           <div class="acc-row acc-check"><label>استقبال وإدارة الطلبات</label><input type="checkbox" id="feat-svc-orders" checked></div>
           <div class="acc-row acc-check"><label>تحويل الطلب لمهمة تلقائياً</label><input type="checkbox" id="feat-svc-auto-task" checked></div>
           <div class="acc-row acc-check"><label>بوابة العميل (Client Portal)</label><input type="checkbox" id="feat-client-portal-svc" checked></div>
+          <!-- ✅ إعدادات المتاجر الجديدة -->
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;font-weight:700;color:var(--accent2)">🏪 إعدادات المتاجر</div>
+          <div class="acc-row"><label>عدد المتاجر المسموح بها</label><input type="number" class="form-input acc-num" id="feat-max-stores" placeholder="0=∞" min="0" value="1" oninput="updateAccBadge('services')"></div>
+          <div class="acc-row acc-check"><label>السماح بتغيير اللوجو</label><input type="checkbox" id="feat-allow-logo-change" checked></div>
+          <div class="acc-row acc-check"><label>السماح برفع بانر المتجر</label><input type="checkbox" id="feat-store-banner" checked></div>
+          <div class="acc-row acc-check"><label>باقات المتجر (Standalone Packages)</label><input type="checkbox" id="feat-store-packages" checked></div>
+          <div class="acc-row acc-check"><label>دومين مخصص للمتجر</label><input type="checkbox" id="feat-store-custom-domain"></div>
+          <div class="acc-row acc-check"><label>تخصيص ألوان المتجر</label><input type="checkbox" id="feat-store-custom-colors" checked></div>
         </div>
       </div>
 
@@ -3561,6 +3569,8 @@ function editPlan(id) {
     'schedule-day','schedule-export','rep-monthly','rep-clients','rep-export','other-on',
     'timetracker','contracts','client-portal',
     'services','svc-packages','svc-images','svc-portfolio','svc-order-link','svc-orders','svc-auto-task','client-portal-svc',
+    // ✅ إعدادات المتاجر الجديدة
+    'allow-logo-change','store-banner','store-packages','store-custom-domain','store-custom-colors',
     'corporate','corp-mode','corp-emp-tasks','corp-emp-projects','corp-emp-files','corp-emp-others','corp-emp-finance','corp-emp-clients','corp-invite-email','corp-invite-accept',
     'specializations','spec-manage','spec-multi','team-invite','team-invite-accept',
     'languages','lang-switch','lang-ar','lang-en'
@@ -3582,6 +3592,7 @@ function editPlan(id) {
     ['max_invoices',           'feat-max-invoices'],
     ['max_team',               'feat-max-team'],
     ['max_services',           'feat-max-services'],
+    ['max_stores',             'feat-max-stores'],   // ✅ عدد المتاجر
     ['corp_max_employees',     'feat-corp-max-employees'],
     ['corp_max_depts',         'feat-corp-max-depts']
   ];
@@ -3691,6 +3702,13 @@ function savePlan() {
     svc_orders:         _chk('feat-svc-orders'),
     svc_auto_task:      _chk('feat-svc-auto-task'),
     client_portal_svc:  _chk('feat-client-portal-svc'),
+    // إعدادات المتاجر ✅
+    max_stores:             _num('feat-max-stores') || 1,
+    allow_logo_change:      _chk('feat-allow-logo-change'),
+    store_banner:           _chk('feat-store-banner'),
+    store_packages:         _chk('feat-store-packages'),
+    store_custom_domain:    _chk('feat-store-custom-domain'),
+    store_custom_colors:    _chk('feat-store-custom-colors'),
     // باقة الشركات
     corporate:          _chk('feat-corporate'),
     corp_mode:          _chk('feat-corp-mode'),
