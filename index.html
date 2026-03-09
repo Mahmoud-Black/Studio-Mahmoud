@@ -4307,24 +4307,9 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
           <div style="font-size:13px;font-weight:800;margin-bottom:4px"><i class="fa-solid fa-at" style="color:var(--accent)"></i> يوزرنيم الموقع</div>
           <div style="font-size:11px;color:var(--text3);margin-bottom:10px">رابط موقعك: store.html?u=<span id="svc-un-live-preview" style="color:var(--accent);font-weight:700">...</span></div>
           <div style="display:flex;gap:8px;align-items:center">
-            <input class="form-input" id="svc-main-username" placeholder="mahmoud-studio" style="flex:1;direction:ltr" oninput="
-              this.value=this.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');
-              document.getElementById('svc-un-live-preview').textContent=this.value||'...';
-              clearTimeout(window._unCheckTimer);
-              var _v=this.value;
-              var _st=document.getElementById('_un-main-status');
-              if(_st){ if(_v.length>0&&_v.length<3){_st.innerHTML='<span style=\'color:#f7c948;font-size:11px\'><i class=\'fa-solid fa-triangle-exclamation\'></i> 3 حروف على الأقل</span>';}else if(_v.length===0){_st.innerHTML='';}else{_st.innerHTML='<span style=\'color:var(--text3);font-size:11px\'><i class=\'fa-solid fa-spinner fa-spin\'></i> جاري التحقق...</span>';}}
-              if(_v.length>=3){window._unCheckTimer=setTimeout(async function(){
-                var r=await _checkUsernameAvailable(_v,typeof _supaUserId!=='undefined'?_supaUserId:null);
-                var _s=document.getElementById('_un-main-status');
-                if(!_s)return;
-                if(r.ok){_s.innerHTML='<span style=\'color:#4fd1a5;font-size:11px\'><i class=\'fa-solid fa-circle-check\'></i> متاح ✓</span>';}
-                else{_s.innerHTML='<span style=\'color:#f76f7c;font-size:11px\'><i class=\'fa-solid fa-circle-xmark\'></i> مستخدم من قبل ✗</span>';}
-              },600);}
-            ">
+            <input class="form-input" id="svc-main-username" placeholder="mahmoud-studio" style="flex:1;direction:ltr" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');document.getElementById('svc-un-live-preview').textContent=this.value||'...'">
             <button onclick="saveSvcUsername()" class="btn btn-primary btn-sm" style="flex-shrink:0;white-space:nowrap"><i class="fa-solid fa-floppy-disk"></i> حفظ</button>
           </div>
-          <div id="_un-main-status" style="margin-top:5px;min-height:18px"></div>
         </div>
 
         <!-- Multi-Store Manager -->
@@ -6275,18 +6260,13 @@ function doSendWhatsApp(){
 function v(id){const e=document.getElementById(id);return e?e.value:'';}
 function uploadLogo(input){
   const f=input.files[0];if(!f)return;
-  toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع اللوجو...');
-  const r=new FileReader();
-  r.onload=e=>{
-    // اللوجو هنا للفاتورة فقط - مش للسايدبار ولا التاب
-    S.settings.logo=e.target.result;
+  window._readFileWithProgress(f,'جاري رفع اللوجو...', function(result){
+    S.settings.logo=result;
     lsSave();cloudSave(S);
-    // تحديث معاينة اللوجو في الإعدادات فقط
     const lp=document.getElementById('logo-preview');
-    if(lp) lp.innerHTML='<img src="'+e.target.result+'" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px">';
-    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ اللوجو — سيظهر في الفاتورة');
-  };
-  r.readAsDataURL(f);
+    if(lp) lp.innerHTML='<img src="'+result+'" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px">';
+    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ اللوجو');
+  });
 }
 
 // ── مزامنة لوجو الستوديو مع platform_config ── (معطّلة - اللوجو للمتجر والفاتورة فقط)
@@ -9656,6 +9636,104 @@ function showToast(msg,dur=3000){
   t.style.transform='translateX(-50%) translateY(0)';t.style.opacity='1';
   clearTimeout(t._to);t._to=setTimeout(()=>{t.style.transform='translateX(-50%) translateY(60px)';t.style.opacity='0';},dur);
 }
+
+// ══════════════════════════════════════════════════════════════
+// UPLOAD PROGRESS BAR — شريط تقدم الرفع
+// يظهر في أسفل الشاشة لكل عمليات رفع الصور
+// ══════════════════════════════════════════════════════════════
+(function(){
+  // إنشاء عنصر الـ progress bar
+  function _ensureBar(){
+    var b=document.getElementById('_uprog');
+    if(b) return b;
+    b=document.createElement('div');
+    b.id='_uprog';
+    b.style.cssText=[
+      'position:fixed','bottom:0','left:0','right:0','z-index:99998',
+      'background:var(--surface,#12131a)','border-top:1.5px solid rgba(124,111,247,.25)',
+      'padding:10px 18px 12px','display:none',
+      'flex-direction:column','gap:6px',
+      'font-family:Cairo,Tajawal,sans-serif','direction:rtl',
+      'box-shadow:0 -4px 24px rgba(0,0,0,.35)',
+      'transition:transform .25s ease,opacity .25s ease',
+    ].join(';');
+    b.innerHTML=
+      '<div style="display:flex;align-items:center;justify-content:space-between">'+
+        '<div id="_uprog-label" style="font-size:12px;font-weight:600;color:var(--text,#e8eaf0);display:flex;align-items:center;gap:7px">'+
+          '<i class="fa-solid fa-arrow-up-from-bracket" style="color:var(--accent,#7c6ff7)"></i>'+
+          '<span id="_uprog-text">جاري الرفع...</span>'+
+        '</div>'+
+        '<span id="_uprog-pct" style="font-size:11px;font-weight:700;color:var(--accent,#7c6ff7);min-width:32px;text-align:left">0%</span>'+
+      '</div>'+
+      '<div style="height:5px;background:rgba(124,111,247,.15);border-radius:99px;overflow:hidden">'+
+        '<div id="_uprog-fill" style="height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,#7c6ff7,#4fd1a5);transition:width .18s ease"></div>'+
+      '</div>';
+    document.body.appendChild(b);
+    return b;
+  }
+
+  // إظهار الـ progress bar
+  window._showUploadProgress = function(label){
+    var b=_ensureBar();
+    var txt=document.getElementById('_uprog-text');
+    var fill=document.getElementById('_uprog-fill');
+    var pct=document.getElementById('_uprog-pct');
+    if(txt) txt.textContent = label||'جاري الرفع...';
+    if(fill){ fill.style.width='0%'; fill.style.background='linear-gradient(90deg,#7c6ff7,#4fd1a5)'; }
+    if(pct) pct.textContent='0%';
+    b.style.display='flex';
+    b.style.opacity='1';
+    b.style.transform='translateY(0)';
+  };
+
+  // تحديث النسبة
+  window._updateUploadProgress = function(percent){
+    var fill=document.getElementById('_uprog-fill');
+    var pct=document.getElementById('_uprog-pct');
+    var p=Math.min(100,Math.max(0,Math.round(percent)));
+    if(fill) fill.style.width=p+'%';
+    if(pct) pct.textContent=p+'%';
+  };
+
+  // إخفاء بعد الانتهاء
+  window._hideUploadProgress = function(successLabel){
+    window._updateUploadProgress(100);
+    var txt=document.getElementById('_uprog-text');
+    var fill=document.getElementById('_uprog-fill');
+    if(txt) txt.textContent = successLabel||'تم الرفع ✓';
+    if(fill) fill.style.background='linear-gradient(90deg,#4fd1a5,#38b99a)';
+    setTimeout(function(){
+      var b=document.getElementById('_uprog');
+      if(b){ b.style.opacity='0'; b.style.transform='translateY(8px)'; }
+      setTimeout(function(){
+        var b2=document.getElementById('_uprog');
+        if(b2){ b2.style.display='none'; b2.style.opacity='1'; b2.style.transform='translateY(0)'; }
+      },280);
+    },700);
+  };
+
+  // FileReader مع progress حقيقي
+  window._readFileWithProgress = function(file, label, onDone){
+    window._showUploadProgress(label||'جاري قراءة الملف...');
+    var r=new FileReader();
+    r.onprogress=function(e){
+      if(e.lengthComputable) window._updateUploadProgress((e.loaded/e.total)*90);
+    };
+    r.onload=function(e){
+      window._updateUploadProgress(100);
+      setTimeout(function(){
+        window._hideUploadProgress('تم ✓');
+        onDone(e.target.result);
+      },200);
+    };
+    r.onerror=function(){
+      var b=document.getElementById('_uprog');
+      if(b) b.style.display='none';
+      toast('<i class="fa-solid fa-triangle-exclamation"></i> فشل قراءة الملف');
+    };
+    r.readAsDataURL(file);
+  };
+})();
 
 // ============================================================
 // DASHBOARD
@@ -16190,17 +16268,15 @@ window._incReceiptData = null;
 
 function invReceiptPreview(inp){
   var file=inp.files[0]; if(!file) return;
-  var r=new FileReader();
-  r.onload=function(e){
-    window._invReceiptData=e.target.result;
+  window._readFileWithProgress(file,'جاري رفع إيصال الفاتورة...', function(result){
+    window._invReceiptData=result;
     var img=document.getElementById('inv-receipt-img');
     var prev=document.getElementById('inv-receipt-prev');
     var ph=document.getElementById('inv-receipt-ph');
-    if(img) img.src=e.target.result;
+    if(img) img.src=result;
     if(prev) prev.style.display='block';
     if(ph) ph.style.display='none';
-  };
-  r.readAsDataURL(file);
+  });
 }
 function invReceiptClear(){
   window._invReceiptData=null;
@@ -16220,17 +16296,15 @@ function invReceiptDrop(e){
 }
 function incReceiptPreview(inp){
   var file=inp.files[0]; if(!file) return;
-  var r=new FileReader();
-  r.onload=function(e){
-    window._incReceiptData=e.target.result;
+  window._readFileWithProgress(file,'جاري رفع الإيصال...', function(result){
+    window._incReceiptData=result;
     var img=document.getElementById('in-receipt-img');
     var prev=document.getElementById('in-receipt-prev');
     var ph=document.getElementById('in-receipt-ph');
-    if(img) img.src=e.target.result;
+    if(img) img.src=result;
     if(prev) prev.style.display='block';
     if(ph) ph.style.display='none';
-  };
-  r.readAsDataURL(file);
+  });
 }
 function incReceiptClear(){
   window._incReceiptData=null;
@@ -17300,23 +17374,9 @@ function openNewStoreModal(editIdx){
       '<label class="form-label"><i class="fa-solid fa-at" style="color:var(--accent)"></i> يوزرنيم المتجر <span style="font-size:10px;color:var(--text3)">(اختياري — للرابط المخصص)</span></label>'+
       '<div style="display:flex;align-items:center;border:1.5px solid var(--border);border-radius:10px;overflow:hidden">'+
         '<span style="padding:0 10px;font-size:12px;color:var(--text3);border-left:1.5px solid var(--border);background:var(--surface2);height:40px;display:flex;align-items:center;flex-shrink:0">@</span>'+
-        '<input class="form-input" id="_store-username" placeholder="my-store" value="'+(st?escapeHtml(st.username||''):'')+'" style="border:none;border-radius:0;background:transparent;direction:ltr" oninput="'+
-          'this.value=this.value.toLowerCase().replace(/[^a-z0-9_-]/g,\'\');'+
-          'clearTimeout(window._stUnTimer);'+
-          'var _v=this.value;'+
-          'var _s=document.getElementById(\'_store-un-status\');'+
-          'if(_s){if(_v.length>0&&_v.length<3){_s.innerHTML=\'<span style=\\\'color:#f7c948;font-size:11px\\\'><i class=\\\'fa-solid fa-triangle-exclamation\\\'></i> 3 حروف على الأقل</span>\';}else if(_v.length===0){_s.innerHTML=\'\';}else{_s.innerHTML=\'<span style=\\\'color:var(--text3);font-size:11px\\\'><i class=\\\'fa-solid fa-spinner fa-spin\\\'></i> جاري التحقق...</span>\';}}'+
-          'var _cur=\''+(st?escapeHtml(st.username||''):'')+'\';'+
-          'if(_v.length>=3&&_v!==_cur){window._stUnTimer=setTimeout(async function(){'+
-            'var r=await _checkUsernameAvailable(_v,typeof _supaUserId!==\'undefined\'?_supaUserId:null);'+
-            'var _s2=document.getElementById(\'_store-un-status\');if(!_s2)return;'+
-            'if(r.ok){_s2.innerHTML=\'<span style=\\\'color:#4fd1a5;font-size:11px\\\'><i class=\\\'fa-solid fa-circle-check\\\'></i> متاح ✓</span>\';}'+
-            'else{_s2.innerHTML=\'<span style=\\\'color:#f76f7c;font-size:11px\\\'><i class=\\\'fa-solid fa-circle-xmark\\\'></i> مستخدم من قبل ✗</span>\';}'+
-          '},700);}'+
-        '">'+
+        '<input class="form-input" id="_store-username" placeholder="my-store" value="'+(st?escapeHtml(st.username||''):'')+'" style="border:none;border-radius:0;background:transparent;direction:ltr" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_-]/g,\'\')">'+
       '</div>'+
-      '<div id="_store-un-status" style="margin-top:5px;min-height:18px"></div>'+
-      '<div style="font-size:10px;color:var(--text3);margin-top:2px">حروف إنجليزية صغيرة وأرقام و - و _ فقط</div>'+
+      '<div style="font-size:10px;color:var(--text3);margin-top:3px">حروف إنجليزية صغيرة وأرقام و - و _ فقط</div>'+
     '</div>'+
     '<div class="form-group">'+
       '<label class="form-label"><i class="fa-solid fa-image" style="color:var(--accent)"></i> لوجو المتجر <span style="font-size:10px;color:var(--text3)">(اختياري)</span></label>'+
@@ -17352,48 +17412,13 @@ window._clearStoreLogoModal=function(){
   var cl=document.getElementById('_store-logo-clear'); if(cl) cl.style.display='none';
   var inp=document.getElementById('_store-logo-input'); if(inp) inp.value='';
 };
-async function _saveStore(editIdx, btn){
+function _saveStore(editIdx, btn){
   var modal=btn.closest('.modal-overlay');
   var name=(modal.querySelector('#_store-name')||{}).value.trim();
   var desc=(modal.querySelector('#_store-desc')||{}).value.trim();
   var username=(modal.querySelector('#_store-username')||{}).value.trim().toLowerCase().replace(/[^a-z0-9_-]/g,'')||'';
   var logo=window._storeLogoData||'';
-  if(!name){ toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل اسم المتجر'); return; }
-
-  // ── تحقق من اليوزرنيم لو موجود ──
-  if(username){
-    if(username.length < 3){
-      toast('<i class="fa-solid fa-triangle-exclamation"></i> يوزرنيم المتجر 3 حروف على الأقل');
-      return;
-    }
-
-    // تغيير الزر لـ loading
-    btn.disabled=true;
-    btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق...';
-
-    // الـ username الحالي للمتجر (لو تعديل) — نستثنيه من الفحص
-    var currentUsername = '';
-    if(editIdx!=null && S.stores && S.stores[editIdx]){
-      currentUsername = (S.stores[editIdx].username||'').toLowerCase();
-    }
-
-    var result = await _checkUsernameAvailable(
-      username,
-      typeof _supaUserId!=='undefined' ? _supaUserId : null
-    );
-
-    btn.disabled=false;
-    btn.innerHTML='<i class="fa-solid fa-floppy-disk" style="margin-left:5px"></i> حفظ المتجر';
-
-    // لو مأخوذ — لكن لو نفس اليوزرنيم القديم لنفس المتجر → مسموح
-    if(!result.ok && username !== currentUsername){
-      if(result.reason === 'taken'){
-        toast('<i class="fa-solid fa-circle-xmark" style="color:#f76f7c"></i> يوزرنيم <b>@'+username+'</b> مستخدم بالفعل لمتجر آخر — جرّب اسماً مختلفاً');
-      }
-      return;
-    }
-  }
-
+  if(!name){toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل اسم المتجر');return;}
   if(!S.stores) S.stores=[];
   if(editIdx!=null && editIdx>=0){
     S.stores[editIdx].name=name; S.stores[editIdx].desc=desc;
@@ -17401,12 +17426,11 @@ async function _saveStore(editIdx, btn){
     if(logo) S.stores[editIdx].logo=logo;
     else if(window._storeLogoData==='') S.stores[editIdx].logo='';
   } else {
-    if(!checkLimit('max_stores', S.stores.length)) return;
     S.stores.push({id:'store_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name:name,desc:desc,username:username,logo:logo,createdAt:new Date().toISOString()});
   }
   window._storeLogoData='';
   lsSave(); cloudSave(S); modal.remove(); renderMultiStoresList(); renderStoresHomeList();
-  toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ المتجر'+(username?' — رابطه: @'+username:''));
+  toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ المتجر');
 }
 function copyStoreLink(idx){ var link=getSvcLink(_getStores()[idx]?.id); navigator.clipboard.writeText(link).then(function(){toast('<i class="fa-solid fa-copy"></i> تم نسخ الرابط');}).catch(function(){toast(link);}); }
 function previewStore(idx){ window.open(getSvcLink(_getStores()[idx]?.id),'_blank'); }
@@ -17533,14 +17557,13 @@ var _svcLogoData='';
 function handleSvcLogo(input){
   var file=input.files[0]; if(!file) return;
   if(file.size>1.5*1024*1024){toast('<i class="fa-solid fa-triangle-exclamation"></i> الصورة أكبر من 1.5 ميجا');input.value='';return;}
-  toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع اللوجو...');
-  var r=new FileReader(); r.onload=function(e){
-    _svcLogoData=e.target.result;
+  window._readFileWithProgress(file,'جاري رفع لوجو المتجر...', function(result){
+    _svcLogoData=result;
     var pv=document.getElementById('svc-logo-preview');
-    if(pv) pv.innerHTML='<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px">';
+    if(pv) pv.innerHTML='<img src="'+result+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px">';
     var cl=document.getElementById('svc-logo-clear-btn'); if(cl) cl.style.display='';
-    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تحديد اللوجو - اضغط "حفظ اللوجو" لتأكيد الحفظ في المتجر');
-  }; r.readAsDataURL(file);
+    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تحديد اللوجو — اضغط "حفظ اللوجو" لتأكيد الحفظ');
+  });
 }
 function clearSvcLogo(){
   _svcLogoData='';
@@ -17562,90 +17585,18 @@ function saveSvcLogo(){
   toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ لوجو المتجر — سيظهر في المتجر وتاب المتجر');
 }
 
-// ══════════════════════════════════════════════════════════════
-// USERNAME AVAILABILITY CHECK — مركزي لكل أنواع اليوزرنيم
-// يتحقق من Supabase + البيانات المحلية
-// ══════════════════════════════════════════════════════════════
-async function _checkUsernameAvailable(un, excludeUserId){
-  if(!un || un.length < 3) return { ok: false, reason: 'short' };
-  if(typeof supa === 'undefined') return { ok: true };
-  try{
-    // ── بحث 1: username_index column (أسرع) ──
-    var { data, error } = await supa
-      .from('studio_data').select('user_id')
-      .ilike('username_index', un).maybeSingle();
-    if(!error && data && data.user_id){
-      if(excludeUserId && data.user_id === excludeUserId) return { ok: true };
-      return { ok: false, reason: 'taken' };
-    }
-    // ── بحث 2: JSON scan احتياطي (للسجلات القديمة) ──
-    var { data: rows } = await supa
-      .from('studio_data').select('user_id,data')
-      .ilike('data', '%"username":"'+un+'"%').limit(10);
-    if(rows && rows.length){
-      for(var i=0;i<rows.length;i++){
-        if(excludeUserId && rows[i].user_id === excludeUserId) continue;
-        try{
-          var d = typeof rows[i].data==='string' ? JSON.parse(rows[i].data) : rows[i].data;
-          // يوزرنيم رئيسي
-          if((d?.settings?.username||'').toLowerCase() === un) return { ok: false, reason: 'taken' };
-          // يوزرنيم أي متجر
-          var sts = d?.stores||[];
-          for(var j=0;j<sts.length;j++){
-            if((sts[j].username||'').toLowerCase() === un) return { ok: false, reason: 'taken' };
-          }
-        }catch(pe){}
-      }
-    }
-    return { ok: true };
-  }catch(e){
-    console.warn('username check err:', e.message);
-    return { ok: true }; // في حال خطأ — لا توقف المستخدم
-  }
-}
-
 // ── يوزرنيم الموقع ──
-async function saveSvcUsername(){
+function saveSvcUsername(){
   var inp=document.getElementById('svc-main-username'); if(!inp) return;
   var un=inp.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g,'');
-  if(!un){ toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل يوزرنيم أولاً'); return; }
-  if(un.length < 3){ toast('<i class="fa-solid fa-triangle-exclamation"></i> اليوزرنيم 3 حروف على الأقل'); return; }
-
-  // ── تغيير زر الحفظ لـ loading ──
-  var btn=document.querySelector('button[onclick="saveSvcUsername()"]');
-  if(btn){ btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق...'; }
-
-  // ── تحقق من التوفر ──
-  var result = await _checkUsernameAvailable(un, typeof _supaUserId!=='undefined' ? _supaUserId : null);
-
-  if(btn){ btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-floppy-disk"></i> حفظ'; }
-
-  if(!result.ok){
-    if(result.reason === 'taken'){
-      toast('<i class="fa-solid fa-circle-xmark" style="color:#f76f7c"></i> اليوزرنيم <b>@'+un+'</b> مستخدم بالفعل — جرّب اسم آخر');
-    } else if(result.reason === 'short'){
-      toast('<i class="fa-solid fa-triangle-exclamation"></i> اليوزرنيم قصير جداً — 3 حروف على الأقل');
-    }
-    return;
-  }
-
-  // ── حفظ ──
+  if(!un){toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل يوزرنيم أولاً');return;}
   if(!S.settings) S.settings={};
   S.settings.username=un;
   var setInp=document.getElementById('set-username'); if(setInp) setInp.value=un;
   var pv=document.getElementById('svc-un-live-preview'); if(pv) pv.textContent=un;
-
-  // تحديث username_index مباشرة في Supabase
-  if(typeof supa!=='undefined' && typeof _supaUserId!=='undefined' && _supaUserId){
-    try{
-      await supa.from('studio_data')
-        .update({ username_index: un, updated_at: new Date().toISOString() })
-        .eq('user_id', _supaUserId);
-    }catch(e){ console.warn('username_index update err:', e); }
-  }
-
   lsSave(); cloudSave(S);
   toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ اليوزرنيم: @'+un);
+  // تحديث الرابط في الـ header
   try{ var lnk=document.getElementById('svc-inner-store-link'); if(lnk) lnk.textContent=getSvcLink(_getCurrentStoreId()); }catch(e){}
 }
 
@@ -17955,17 +17906,15 @@ function toggleSvcActive(id,event){
 function handleSvcBanner(input){
   var file=input.files[0]; if(!file) return;
   if(file.size>2*1024*1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> حجم البانر أكبر من 2 ميجا'); input.value=''; return; }
-  var r=new FileReader();
-  r.onload=function(e){
+  window._readFileWithProgress(file,'جاري رفع البانر...', function(result){
     var _stIdx=_currentStoreIdx;
     var _curSt=(_stIdx!=null)?(_getStores()[_stIdx]||null):null;
-    if(_curSt){ _curSt.banner=e.target.result; }
-    else { if(!S.settings) S.settings={}; S.settings.svc_banner=e.target.result; }
+    if(_curSt){ _curSt.banner=result; }
+    else { if(!S.settings) S.settings={}; S.settings.svc_banner=result; }
     var prev=document.getElementById('svc-banner-preview'); var img=document.getElementById('svc-banner-img'); var clr=document.getElementById('svc-banner-clear-btn');
-    if(prev) prev.style.display=''; if(img) img.src=e.target.result; if(clr) clr.style.display='';
+    if(prev) prev.style.display=''; if(img) img.src=result; if(clr) clr.style.display='';
     lsSave(); cloudSave(S); toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع البانر');
-  };
-  r.readAsDataURL(file);
+  });
 }
 function clearSvcBanner(){
   var _stIdx=_currentStoreIdx;
@@ -18107,16 +18056,13 @@ function openSvcModal(id){
 function handleSvcImg(input){
   var file=input.files[0]; if(!file) return;
   if(file.size>2*1024*1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> الصورة أكبر من 2 ميجا'); input.value=''; return; }
-  toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع الصورة...');
-  var r=new FileReader();
-  r.onload=function(e){
-    _svcImgData=e.target.result;
-    var pv=document.getElementById('svc-img-preview'); pv.src=e.target.result; pv.style.display='';
-    document.getElementById('svc-img-name').textContent=input.files[0].name;
+  window._readFileWithProgress(file,'جاري رفع صورة الخدمة...', function(result){
+    _svcImgData=result;
+    var pv=document.getElementById('svc-img-preview'); pv.src=result; pv.style.display='';
+    document.getElementById('svc-img-name').textContent=file.name;
     var cl=document.getElementById('svc-img-clear-btn'); if(cl) cl.style.display='';
     toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع الصورة');
-  };
-  r.readAsDataURL(file);
+  });
 }
 
 // ── Packages ──
