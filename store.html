@@ -10,11 +10,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{min-height:100vh;background:#0a0a0f;color:#f0f0f5;font-family:'Cairo',sans-serif;direction:rtl;overflow-x:hidden}
-#_ls{position:fixed;inset:0;z-index:9999;background:#0a0a0f;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s}
+html,body{min-height:100vh;background:#f4f5fb;color:#1a1a2e;font-family:'Cairo',sans-serif;direction:rtl;overflow-x:hidden}
+#_ls{position:fixed;inset:0;z-index:9999;background:#f4f5fb;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:background .2s,opacity .4s}
 #_ls-logo{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#7c6ff7,#a89cff);display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;animation:_lsPulse 1.5s ease-in-out infinite;overflow:hidden}
-#_ls-logo img{width:100%;height:100%;object-fit:cover;border-radius:16px}
-#_ls-bar{width:140px;height:3px;background:#1e1e2c;border-radius:3px;overflow:hidden}
+#_ls-logo._has-logo{width:auto!important;height:auto!important;max-width:200px;max-height:80px;background:transparent!important;box-shadow:none!important;border-radius:0!important;animation:none!important}
+#_ls-logo img{display:block;width:auto;height:auto;max-height:80px;max-width:200px;object-fit:contain}
+#_ls-bar{width:140px;height:3px;background:rgba(0,0,0,.1);border-radius:3px;overflow:hidden}
 #_ls-fill{height:100%;background:linear-gradient(90deg,#7c6ff7,#a89cff);animation:_lsBar 1.8s ease-in-out infinite}
 @keyframes _lsPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,111,247,.4)}50%{transform:scale(1.06);box-shadow:0 0 0 14px rgba(124,111,247,0)}}
 @keyframes _lsBar{0%{width:0;margin-right:100%}50%{width:60%;margin-right:0}100%{width:0;margin-right:0}}
@@ -22,6 +23,33 @@ html,body{min-height:100vh;background:#0a0a0f;color:#f0f0f5;font-family:'Cairo',
 </style>
 </head>
 <body>
+<!-- Offline indicator -->
+<div id="_offline-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:rgba(30,30,40,.92);backdrop-filter:blur(8px);padding:8px 16px;text-align:center;font-family:Cairo,Tajawal,sans-serif;font-size:12px;font-weight:400;color:#f7c948;letter-spacing:.3px;border-bottom:1px solid rgba(247,201,72,.2)">
+  <i class="fa-solid fa-wifi" style="opacity:.6;margin-left:6px;font-size:11px"></i>لا يوجد اتصال بالإنترنت
+</div>
+<script>
+(function(){
+  function _checkOnline(){
+    var bar=document.getElementById('_offline-bar');
+    if(!bar) return;
+    if(!navigator.onLine){
+      bar.style.display='block';
+    } else {
+      if(bar.style.display!=='none'){
+        bar.style.background='rgba(30,40,30,.9)';
+        bar.style.color='#4fd1a5';
+        bar.innerHTML='<i class="fa-solid fa-wifi" style="margin-left:6px;font-size:11px"></i>عاد الاتصال بالإنترنت';
+        setTimeout(function(){ bar.style.display='none'; bar.style.background='rgba(30,30,40,.92)'; bar.style.color='#f7c948'; bar.innerHTML='<i class="fa-solid fa-wifi" style="opacity:.6;margin-left:6px;font-size:11px"></i>لا يوجد اتصال بالإنترنت'; },2500);
+      }
+    }
+  }
+  window.addEventListener('online', _checkOnline);
+  window.addEventListener('offline', _checkOnline);
+  // Check on load
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_checkOnline);
+  else _checkOnline();
+})();
+</script>
 <div id="_ls">
   <div id="_ls-logo"><i class="fa-solid fa-bolt"></i></div>
   <div id="_ls-bar"><div id="_ls-fill"></div></div>
@@ -33,14 +61,38 @@ html,body{min-height:100vh;background:#0a0a0f;color:#f0f0f5;font-family:'Cairo',
     var P=new URLSearchParams(location.search);
     var uid=P.get('uid')||P.get('svcorder');
     if(uid){
+      // ── Apply cached theme instantly (no flash) ──
+      var themeKey='_store_theme_'+uid;
+      var cachedTheme=localStorage.getItem(themeKey);
+      if(cachedTheme){
+        try{
+          var th=JSON.parse(cachedTheme);
+          var bg=th.bg||'#f4f5fb';
+          var acc=th.accent||'#7c6ff7';
+          document.documentElement.style.background=bg;
+          document.body.style.background=bg;
+          var ls=document.getElementById('_ls');
+          if(ls) ls.style.background=bg;
+          var lsBar=document.getElementById('_ls-bar');
+          if(lsBar) lsBar.style.background=th.isLight?'rgba(0,0,0,.08)':'rgba(255,255,255,.08)';
+          var lsFill=document.getElementById('_ls-fill');
+          if(lsFill) lsFill.style.background='linear-gradient(90deg,'+acc+','+acc+'aa)';
+          var lsLogoEl=document.getElementById('_ls-logo');
+          if(lsLogoEl && !localStorage.getItem('_store_logo_'+uid)){
+            lsLogoEl.style.background='linear-gradient(135deg,'+acc+','+acc+'aa)';
+            lsLogoEl.style.borderRadius='16px';
+          }
+        }catch(e){}
+      }
+      // ── Apply cached logo ──
       var cacheKey='_store_logo_'+uid;
       var cached=localStorage.getItem(cacheKey);
       if(cached){
         var lsLogo=document.getElementById('_ls-logo');
         if(lsLogo){
-          lsLogo.style.background='transparent';
-          lsLogo.style.boxShadow='none';
-          lsLogo.innerHTML='<img src="'+cached+'" style="width:100%;height:100%;object-fit:cover;border-radius:16px" onerror="this.parentNode.innerHTML=\'<i class=fa-solid fa-bolt></i>\';this.parentNode.style.background=\'linear-gradient(135deg,#7c6ff7,#a89cff)\'">';
+          lsLogo.className='_has-logo';
+          lsLogo.style.cssText='background:transparent;box-shadow:none;border-radius:0;animation:none;width:auto;height:auto;display:flex;align-items:center;justify-content:center';
+          lsLogo.innerHTML='<img src="'+cached+'" style="max-height:80px;max-width:200px;width:auto;height:auto;object-fit:contain;display:block">';
         }
       }
     }
@@ -192,12 +244,15 @@ async function buildPage(userId){
     // ── تحديث loading screen بلوجو المستخدم فور تحميل الداتا ──
     var lsLogo=document.getElementById('_ls-logo');
     if(lsLogo){
-      lsLogo.style.background='linear-gradient(135deg,'+accent+','+accent+'99)';
       if(logo){
-        // إظهار لوجو المستخدم في شاشة التحميل
-        lsLogo.innerHTML='<img src="'+xe(logo)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:16px">';
+        lsLogo.className='_has-logo';
+        lsLogo.style.cssText='background:transparent;box-shadow:none;border-radius:0;animation:none;width:auto;height:auto;max-width:200px;max-height:80px;display:flex;align-items:center;justify-content:center';
+        lsLogo.innerHTML='<img src="'+xe(logo)+'" alt="" style="max-height:80px;max-width:200px;width:auto;height:auto;object-fit:contain;display:block">';
       } else {
-        // fallback: حرف أول من الاسم
+        lsLogo.style.background='linear-gradient(135deg,'+accent+','+accent+'99)';
+        lsLogo.style.borderRadius='16px';
+        lsLogo.style.width='64px';
+        lsLogo.style.height='64px';
         lsLogo.innerHTML='<span style="font-size:22px;font-weight:900;color:#fff">'+(studioName||'S').charAt(0)+'</span>';
       }
     }
@@ -219,7 +274,10 @@ async function buildPage(userId){
     var C={bg:bg,surface:surface,surface2:surface2,surface3:surface3,textMain:textMain,textSub:textSub,textMuted:textMuted,borderC:borderC,cardBg:cardBg,cardBorder:cardBorder,sheetBg:sheetBg};
 
     document.body.style.background=bg;
-    document.getElementById('_ls').style.background=bg;
+    var _lsEl=document.getElementById('_ls');
+    if(_lsEl) _lsEl.style.background=bg;
+    var _lsBarEl=document.getElementById('_ls-bar');
+    if(_lsBarEl) _lsBarEl.style.background=isLight?'#dde0f5':'#1e1e2c';
 
     // ── banner & store identity ──
     var storeObj=_storeId?(ud.stores||[]).find(function(s){return String(s.id)===String(_storeId);}):null;
@@ -231,10 +289,12 @@ async function buildPage(userId){
     }
     // تحديث loading logo بعد تحديد هوية المتجر
     if(lsLogo){
-      lsLogo.style.background='linear-gradient(135deg,'+accent+','+accent+'99)';
       if(logo){
-        lsLogo.innerHTML='<img src="'+xe(logo)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:16px" onerror="this.parentNode.innerHTML=\'<span style=font-size:22px;font-weight:900;color:#fff>\'+(studioName||\'S\').charAt(0)+\'</span>\'">';
+        lsLogo.className='_has-logo';
+        lsLogo.style.cssText='background:transparent;box-shadow:none;border-radius:0;animation:none;width:auto;height:auto;max-width:200px;max-height:80px;display:flex;align-items:center;justify-content:center';
+        lsLogo.innerHTML='<img src="'+xe(logo)+'" alt="" style="max-height:80px;max-width:200px;width:auto;height:auto;object-fit:contain;display:block">';
       } else {
+        lsLogo.style.cssText='width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,'+accent+','+accent+'99)';
         lsLogo.innerHTML='<span style="font-size:22px;font-weight:900;color:#fff">'+(studioName||'S').charAt(0)+'</span>';
       }
     }
@@ -316,6 +376,8 @@ async function buildPage(userId){
       else{ var fl=document.createElement('link');fl.rel='icon';fl.href=logo;document.head.appendChild(fl); }
       // كاش اللوجو للمرة القادمة (للظهور الفوري في شاشة التحميل)
       try{ localStorage.setItem('_store_logo_'+userId, logo); }catch(e){}
+      // كاش الثيم للظهور الفوري في المرة القادمة
+      try{ localStorage.setItem('_store_theme_'+userId, JSON.stringify({bg:bg,accent:accent,isLight:isLight})); }catch(e){}
     }
 
     // ══════════════════════════════════
@@ -332,7 +394,7 @@ async function buildPage(userId){
     '._nav{position:sticky;top:0;z-index:1000;background:'+navBg+';backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid '+borderC+';padding:0 20px}'+
     '._nav-in{max-width:1100px;margin:0 auto;display:flex;align-items:center;height:62px;gap:12px}'+
     '._nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}'+
-    '._nav-logo-img{height:36px;width:auto;max-width:140px;border-radius:8px;object-fit:contain;display:block}'+
+    '._nav-logo-img{height:36px;width:auto;max-width:140px;object-fit:contain;display:block}'+
     '._nav-logo-ph{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,'+accent+','+accent+'99);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:900}'+
     '._nav-name{font-size:16px;font-weight:900;color:'+textMain+'}'+
     '._nav-links{display:flex;align-items:center;gap:2px;margin-right:auto}'+
@@ -660,7 +722,7 @@ async function buildPage(userId){
     var footerHtml='<footer class="_footer"><div class="_footer-in">'+
       '<div class="_footer-top">'+
         '<div class="_footer-brand">'+
-          (logo?'<img src="'+xe(logo)+'" style="width:36px;height:36px;border-radius:9px;object-fit:cover;border:2px solid '+accent+'44">':
+          (logo?'<img src="'+xe(logo)+'" style="max-height:40px;max-width:160px;width:auto;height:auto;object-fit:contain;display:block">':
                 '<div style="width:36px;height:36px;border-radius:9px;background:'+accent+';display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;font-weight:900">'+(studioName||'S').charAt(0)+'</div>')+
           '<span style="font-size:15px;font-weight:900;color:'+textMain+'">'+xe(studioName)+'</span>'+
         '</div>'+
