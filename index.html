@@ -439,17 +439,13 @@ function _mergeUiSettingsIntoS(){
       var pc2 = JSON.parse(localStorage.getItem('_pfCats')||'null');
       if(Array.isArray(pc2)) S.settings._pfCats = pc2;
     }catch(e){}
-    // ── platform_config كامل (اسم التطبيق، لوجو، فافيكون، لون) ──
+    // ── platform_config - بس الإعدادات، مش اللوجو ──
     try{
       var _pc3 = JSON.parse(localStorage.getItem('platform_config')||'{}');
-      // مزامنة اللوجو في الاتجاهين
-      if(_pc3.logo && !S.settings.logo) S.settings.logo = _pc3.logo;
-      if(S.settings.logo && _pc3.logo !== S.settings.logo){
-        _pc3.logo = S.settings.logo;
-        localStorage.setItem('platform_config', JSON.stringify(_pc3));
-      }
-      // حفظ platform_config كاملاً في settings
+      // حفظ platform_config كاملاً في settings (بدون لوجو المستخدم)
       S.settings._platformConfig = _pc3;
+      // مزامنة لون الثيم فقط
+      if(_pc3.accent && !S.settings.accentColor) S.settings.accentColor = _pc3.accent;
     }catch(e){}
     // ── ضمان وجود كل المصفوفات الأساسية ──
     if(!S.services)            S.services=[];
@@ -5918,17 +5914,9 @@ function removeExpenseCat(i) {
 function loadSettings(){
   applyPlatformConfig(); // re-apply on each settings load
   const s=S.settings||{};
-  // Sync studio logo to sidebar/platform config
-  if(s.logo){
-    try{
-      var _pc=JSON.parse(localStorage.getItem('platform_config')||'{}');
-      if(!_pc.logo || _pc.logo !== s.logo){
-        _pc.logo=s.logo; localStorage.setItem('platform_config',JSON.stringify(_pc));
-        applyPlatformConfig();
-      }
-    }catch(e){}
-  }
-  _syncStudioLogoToConfig();
+  // تحديث معاينة لوجو الفاتورة في الإعدادات
+  const lp=document.getElementById('logo-preview');
+  if(lp) lp.innerHTML=s.logo?`<img src="${s.logo}" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px">`:'<span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span>';
   renderExpenseCats();
   ['name','phone','email','address','terms'].forEach(k=>{const e=document.getElementById('set-'+k);if(e)e.value=s[k]||'';});
   const curSel=document.getElementById('set-currency'); if(curSel) curSel.value=s.currency||'ج.م';
@@ -5949,8 +5937,6 @@ function loadSettings(){
   document.querySelectorAll('.theme-swatch').forEach(s => s.classList.toggle('active', s.dataset.color === color));
   const picker = document.getElementById('custom-accent-picker');
   if(picker) picker.value = color;
-  const lp=document.getElementById('logo-preview');
-  if(lp)lp.innerHTML=s.logo?`<img src="${s.logo}" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px">`:'<span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span>';
   const nd=document.getElementById('studio-name-disp');if(nd)nd.textContent=s.name||'صاحب العمل';
   renderPoliciesList('policies-list', s.policies||[], 'removePolicy');
   renderSocialsList();
@@ -6236,30 +6222,29 @@ function doSendWhatsApp(){
   showMiniNotif('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم فتح واتساب');
 }
 function v(id){const e=document.getElementById(id);return e?e.value:'';}
-function uploadLogo(input){const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{S.settings.logo=e.target.result;lsSave();cloudSave(S);_syncStudioLogoToConfig();applyPlatformConfig();loadSettings();toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ اللوجو');};r.readAsDataURL(f);}
-
-// ── مزامنة لوجو الستوديو مع platform_config ──
-function _syncStudioLogoToConfig(){
-  try{
-    var logo=(S&&S.settings&&S.settings.logo)||'';
-    var pc=JSON.parse(localStorage.getItem('platform_config')||'{}');
-    if(logo && pc.logo!==logo){
-      pc.logo=logo;
-      localStorage.setItem('platform_config',JSON.stringify(pc));
-    } else if(!logo && pc.logo){
-      // لو المستخدم شال اللوجو
-      pc.logo='';
-      localStorage.setItem('platform_config',JSON.stringify(pc));
-    }
-    // تحديث الـ favicon لو مفيش favicon مخصص
-    if(logo && !pc.favicon){
-      var fl=document.querySelector('link[rel="icon"]');
-      if(!fl){ fl=document.createElement('link'); fl.rel='icon'; document.head.appendChild(fl); }
-      fl.href=logo;
-    }
-  }catch(e){}
+function uploadLogo(input){
+  const f=input.files[0];if(!f)return;
+  toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع اللوجو...');
+  const r=new FileReader();
+  r.onload=e=>{
+    // اللوجو هنا للفاتورة فقط - مش للسايدبار ولا التاب
+    S.settings.logo=e.target.result;
+    lsSave();cloudSave(S);
+    // تحديث معاينة اللوجو في الإعدادات فقط
+    const lp=document.getElementById('logo-preview');
+    if(lp) lp.innerHTML='<img src="'+e.target.result+'" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px">';
+    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ اللوجو — سيظهر في الفاتورة');
+  };
+  r.readAsDataURL(f);
 }
-function removeLogo(){S.settings.logo='';lsSave();cloudSave(S);_syncStudioLogoToConfig();loadSettings();}
+
+// ── مزامنة لوجو الستوديو مع platform_config ── (معطّلة - اللوجو للمتجر والفاتورة فقط)
+function _syncStudioLogoToConfig(){
+  // لا نحدّث السايدبار ولا platform_config من لوجو المستخدم
+  // اللوجو في S.settings.logo للفاتورة فقط
+  // اللوجو في S.settings.store_logo للمتجر فقط
+}
+function removeLogo(){S.settings.logo='';lsSave();cloudSave(S);const lp=document.getElementById('logo-preview');if(lp)lp.innerHTML='<span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span>';}
 function clearAll(){if(confirm('سيتم مسح جميع البيانات! هل أنت متأكد؟')){const s=S.settings;S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],settings:s};lsSave();renderAll();}}
 
 // ═══ استعادة البيانات من النسخة الاحتياطية ═══
@@ -10065,8 +10050,6 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     localStorage.setItem('studioOS_v3_'+supaUser.id, JSON.stringify(S));
     // Also keep a backup copy
     try{ localStorage.setItem('studioOS_backup_'+supaUser.id, JSON.stringify(S)); }catch(e){}
-    // ── مزامنة لوجو الستوديو مع platform_config فوراً بعد تحميل السحابة ──
-    _syncStudioLogoToConfig();
     applyPlatformConfig();
   } else {
     // Cloud returned null — retry once before falling back to localStorage
@@ -11580,14 +11563,7 @@ function readBackupFile(input){
         }catch(e2){ console.warn('uiConfig restore error:', e2); }
       }
 
-      // ── استعادة اللوجو من data.settings.logo إذا موجود ──
-      if(obj.data && obj.data.settings && obj.data.settings.logo){
-        try{
-          var _pc = JSON.parse(localStorage.getItem('platform_config')||'{}');
-          _pc.logo = obj.data.settings.logo;
-          localStorage.setItem('platform_config', JSON.stringify(_pc));
-        }catch(e3){}
-      }
+      // ── ملاحظة: لوجو المستخدم (logo/store_logo) للفاتورة والمتجر فقط، مش platform_config ──
 
       // ── استعادة الحسابات ──
       if(obj.authUsers && Array.isArray(obj.authUsers) && obj.authUsers.length>0){
@@ -17400,9 +17376,9 @@ function initWebsiteTab(){
   var un=(S.settings&&S.settings.username)||'';
   if(unInp) unInp.value=un;
   var unPv=document.getElementById('svc-un-live-preview'); if(unPv) unPv.textContent=un||'...';
-  // لوجو الموقع
+  // لوجو المتجر (محفوظ في store_logo - للمتجر والتاب فقط)
   _svcLogoData='';
-  var logo=(S.settings&&S.settings.logo)||'';
+  var logo=(S.settings&&S.settings.store_logo)||'';
   var logoPv=document.getElementById('svc-logo-preview');
   var logoCl=document.getElementById('svc-logo-clear-btn');
   if(logoPv){
@@ -17461,36 +17437,27 @@ function handleSvcLogo(input){
     var pv=document.getElementById('svc-logo-preview');
     if(pv) pv.innerHTML='<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px">';
     var cl=document.getElementById('svc-logo-clear-btn'); if(cl) cl.style.display='';
-    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع اللوجو - اضغط "حفظ اللوجو" لتأكيد الحفظ');
+    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تحديد اللوجو - اضغط "حفظ اللوجو" لتأكيد الحفظ في المتجر');
   }; r.readAsDataURL(file);
 }
 function clearSvcLogo(){
   _svcLogoData='';
   if(!S.settings) S.settings={};
-  S.settings.logo='';
+  S.settings.store_logo='';
   var pv=document.getElementById('svc-logo-preview');
   if(pv) pv.innerHTML='<i class="fa-solid fa-image" style="color:var(--text3);font-size:22px"></i>';
   var cl=document.getElementById('svc-logo-clear-btn'); if(cl) cl.style.display='none';
   var inp=document.getElementById('svc-logo-input'); if(inp) inp.value='';
-  lsSave(); cloudSave(S); toast('تم إزالة اللوجو');
+  lsSave(); cloudSave(S); toast('تم إزالة لوجو المتجر');
 }
 function saveSvcLogo(){
   if(!S.settings) S.settings={};
-  var logo=_svcLogoData||S.settings.logo||'';
+  var logo=_svcLogoData||S.settings.store_logo||'';
   if(!logo){toast('<i class="fa-solid fa-triangle-exclamation"></i> ارفع لوجو أولاً');return;}
-  S.settings.logo=logo; _svcLogoData='';
-  // تحديث sidebar logo
-  try{
-    var cfg=JSON.parse(localStorage.getItem('platform_config')||'{}');
-    cfg.logo=logo; localStorage.setItem('platform_config',JSON.stringify(cfg));
-    if(typeof applyPlatformConfig==='function') applyPlatformConfig();
-    // update sidebar img directly
-    var si=document.getElementById('_sidebar-logo-img'); if(si){si.src=logo;si.style.display='';}
-    var lm=document.querySelector('.logo-mark'); if(lm) lm.classList.add('has-logo');
-  }catch(e){}
+  // حفظ في store_logo فقط — للمتجر والتاب فقط، مش السايدبار
+  S.settings.store_logo=logo; _svcLogoData='';
   lsSave(); cloudSave(S);
-  _syncStudioLogoToConfig();
-  toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ اللوجو');
+  toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ لوجو المتجر — سيظهر في المتجر وتاب المتجر');
 }
 
 // ── يوزرنيم الموقع ──
