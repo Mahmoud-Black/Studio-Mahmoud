@@ -2942,7 +2942,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
   <div class="page-header">
     <div><div class="page-title"><span data-i18n="title_team">فريق</span> <span data-i18n="title_team2">العمل</span></div><div class="page-subtitle" data-i18n="sub_team">تابع أعضاء الفريق ومشاريعهم</div></div>
     <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn btn-ghost btn-sm" onclick="openTeamInviteInbox()" id="team-invite-inbox-btn" style="position:relative">
+      <button class="btn btn-ghost btn-sm" onclick="openTeamInviteInbox()" id="team-invite-inbox-btn" style="position:relative;display:none">
         <i class="fa-solid fa-envelope-open-text"></i> الدعوات
         <span id="team-invite-inbox-badge" style="display:none;position:absolute;top:-5px;left:-5px;background:var(--accent4);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center">0</span>
       </button>
@@ -2956,6 +2956,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       <button class="btn btn-ghost btn-sm" onclick="closeMemberProfile()">← رجوع</button>
       <div id="member-profile-title" style="font-size:16px;font-weight:700"></div>
       <div style="margin-right:auto;display:flex;gap:6px">
+        <button class="btn btn-primary btn-sm" onclick="openMemberMessageModal()" style="background:linear-gradient(135deg,var(--accent),#5a52c9)"><i class="fa-solid fa-paper-plane"></i> رسالة</button>
         <button class="btn btn-ghost btn-sm" onclick="sendMemberWA('project')" style="background:#25D366;color:#fff;border:none"><i class="fa-solid fa-mobile"></i> واتساب مشروع</button>
         <button class="btn btn-ghost btn-sm" onclick="sendMemberWA('delay')" style="background:#f7c948;color:#1a1a2e;border:none"><i class="fa-solid fa-triangle-exclamation"></i> تأخير</button>
       </div>
@@ -4488,6 +4489,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     <!-- Tab Bar -->
     <div style="display:flex;gap:4px;padding:0 20px 0;border-bottom:1px solid var(--border);overflow-x:auto" id="profile-tabs">
       <button class="profile-tab active" data-tab="overview" onclick="switchProfileTab('overview',this)"><i class="fa-solid fa-chart-bar"></i> نظرة عامة</button>
+      <button class="profile-tab" data-tab="projects" onclick="switchProfileTab('projects',this)"><i class="fa-solid fa-folder-open"></i> المشاريع</button>
       <button class="profile-tab" data-tab="history" onclick="switchProfileTab('history',this)"><i class="fa-solid fa-calendar-days"></i> سجل الطلبات</button>
       <button class="profile-tab" data-tab="invoices" onclick="switchProfileTab('invoices',this)"><i class="fa-solid fa-receipt"></i> الفواتير</button>
       <button class="profile-tab" data-tab="contracts" onclick="switchProfileTab('contracts',this)"><i class="fa-solid fa-pen-to-square"></i> العقود</button>
@@ -5054,6 +5056,13 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
         </div>
         <div id="inv-project-qr-prev" style="width:90px;height:90px;flex-shrink:0;border-radius:8px;overflow:hidden;border:1px solid var(--border)"></div>
       </div>
+    </div>
+
+    <!-- ── Payment Link ── -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px"><i class="fa-solid fa-credit-card" style="color:var(--accent3)"></i> رابط الدفع الإلكتروني <span style="font-size:11px;color:var(--text3);font-weight:400">— اختياري</span></div>
+      <input class="form-input" id="inv-payment-link" placeholder="https://pay.example.com/... أو رابط فوري بياي / نون / تحويل" dir="ltr">
+      <div style="font-size:11px;color:var(--text3);margin-top:5px">يظهر كزرار "ادفع الآن" في الفاتورة المرسلة للعميل</div>
     </div>
 
     <div class="form-group">
@@ -7623,6 +7632,42 @@ function _renderProfileTab(tab, id){
       :'<div class="empty"><div class="empty-icon"><i class="fa-solid fa-pen-to-square"></i></div>لا عقود لهذا العميل</div>'}`;
   }
 
+  else if(tab==='projects'){
+    var cProjects = (S.projects||[]).filter(function(p){ return allClientNames.includes(p.client); });
+    var statusColors = {active:'var(--accent)',done:'var(--accent3)',paused:'var(--accent4)',planning:'#aaa'};
+    var statusLabels = {active:'نشط',done:'مكتمل',paused:'موقوف',planning:'تخطيط'};
+    var safeClientName = c.name.replace(/'/g,"\\'");
+    body.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'+
+      '<div style="font-size:13px;color:var(--text2)">'+cProjects.length+' مشروع</div>'+
+      '<button class="btn btn-primary btn-sm" onclick="closeM(\'modal-client-profile\');showPage(\'projects\');setTimeout(function(){openProjectModal(null,\''+safeClientName+'\')},200)">+ مشروع جديد</button>'+
+    '</div>'+
+    (cProjects.length ? cProjects.map(function(p){
+      var tasks=(S.project_tasks||[]).filter(function(t){return String(t.project_id)===String(p.id);});
+      var done=tasks.filter(function(t){return t.status==='done';}).length;
+      var pct=tasks.length?Math.round(done/tasks.length*100):0;
+      var sc=statusColors[p.status]||'var(--accent)';
+      var sl=statusLabels[p.status]||p.status||'—';
+      return '<div style="padding:14px;background:var(--surface2);border-radius:12px;margin-bottom:10px;border:1px solid var(--border);cursor:pointer" onclick="closeM(\'modal-client-profile\');showPage(\'projects\');setTimeout(function(){openProjectDetail('+p.id+')},200)">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'+
+          '<div>'+
+            '<div style="font-size:13px;font-weight:800">'+(p.name||'—')+'</div>'+
+            (p.desc?'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+p.desc.slice(0,60)+(p.desc.length>60?'…':'')+'</div>':'')+
+          '</div>'+
+          '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:'+sc+'22;color:'+sc+'">'+sl+'</span>'+
+        '</div>'+
+        (tasks.length?
+          '<div style="display:flex;align-items:center;gap:8px">'+
+            '<div style="flex:1;height:5px;background:var(--surface3);border-radius:3px;overflow:hidden">'+
+              '<div style="height:100%;width:'+pct+'%;background:'+sc+';border-radius:3px"></div>'+
+            '</div>'+
+            '<div style="font-size:10px;color:var(--text3)">'+done+'/'+tasks.length+'</div>'+
+          '</div>':'') +
+        (p.deadline?'<div style="font-size:10px;color:var(--text3);margin-top:6px"><i class="fa-solid fa-calendar-days"></i> '+p.deadline+'</div>':'')+
+      '</div>';
+    }).join('')
+    :'<div class="empty"><div class="empty-icon"><i class="fa-solid fa-folder-open"></i></div>لا مشاريع مرتبطة بهذا العميل<br><button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="closeM(\'modal-client-profile\');showPage(\'projects\')">+ إضافة مشروع</button></div>');
+  }
+
   else if(tab==='statements'){
     const cStmts=(_stmtsData?_stmtsData():[]).filter(s=>s.client===c.name);
     body.innerHTML=`
@@ -8703,6 +8748,8 @@ function openInvoiceModal(id){
     invPolicies=(inv.policies||[]).map(p=>({...p}));
     const puEl=document.getElementById('inv-project-url');
     if(puEl)puEl.value=inv.projectUrl||'';
+    const plEl=document.getElementById('inv-payment-link');
+    if(plEl)plEl.value=inv.paymentLink||'';
     // عرض مهام العميل
     setTimeout(()=>onInvClientChange(inv.client),120);
   } else {
@@ -8714,6 +8761,7 @@ function openInvoiceModal(id){
     document.getElementById('inv-notes').value=S.settings?.terms||'';
     invItems=[{desc:'',qty:1,price:0}];
     invPolicies=(S.settings?.policies||[]).map(p=>({...p}));
+    const plElN=document.getElementById('inv-payment-link'); if(plElN) plElN.value='';
   }
   setTimeout(()=>{
     const dep=document.getElementById('inv-deposit');if(dep){dep.oninput=calcTotal;}
@@ -8764,6 +8812,7 @@ function saveInvoice(){
     from:S.settings?.name||'العمل',status:'pending',
     policies:invPolicies.map(p=>({...p})),
     projectUrl:(document.getElementById('inv-project-url')?.value||'').trim(),
+    paymentLink:(document.getElementById('inv-payment-link')?.value||'').trim(),
     receiptImage: window._invReceiptData||null
   };
   if(eid){const i=S.invoices.findIndex(x=>x.id==eid);if(i>-1){d.id=+eid;d.status=S.invoices[i].status;if(!d.receiptImage&&S.invoices[i].receiptImage)d.receiptImage=S.invoices[i].receiptImage;S.invoices[i]=d;}}
@@ -8911,6 +8960,7 @@ function previewInv(id){
       </table>
       ${inv.notes?`<div style="margin-top:14px;padding:10px 14px;background:#f9f9ff;border-radius:8px;font-size:11px;color:#666;line-height:1.8">${inv.notes}</div>`:''}
       ${inv.policies&&inv.policies.length?buildPoliciesHTML(inv.policies):''}
+      ${inv.paymentLink?`<div style="margin-top:16px;text-align:center"><a href="${inv.paymentLink}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#4fd1a5,#38b28a);color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-size:14px;font-weight:900;box-shadow:0 4px 16px rgba(79,209,165,.35)"><i class="fa-solid fa-credit-card"></i> ادفع الفاتورة الآن</a></div>`:''}
       ${buildQRSectionHTML(inv, false)}
     </div>`;
 }
@@ -9420,6 +9470,7 @@ var _WIDGET_DEFS = [
   {id:'invoices',    label:'<i class="fa-solid fa-receipt"></i> فواتير معلقة',           full:false, visible:true,  row:6},
   {id:'goals',       label:'<i class="fa-solid fa-bullseye"></i> أهداف التطوير',         full:false, visible:true,  row:6},
   {id:'meetings',    label:'<i class="fa-solid fa-calendar-days"></i> الميتنجات',              full:true,  visible:true,  row:7},
+  {id:'active_projects', label:'<i class="fa-solid fa-diagram-project"></i> المشاريع النشطة',  full:false, visible:true,  row:3},
 ];
 
 function _getDashLayout(){
@@ -12097,14 +12148,6 @@ async function saveTeam(){
   const newMembers = d.members.filter(m=>m.email && !oldMemberEmails.includes((m.email||'').toLowerCase().trim()));
   if(!newMembers.length) return;
 
-  // ── سؤال المستخدم قبل إرسال الدعوات ──
-  const emailsList = newMembers.map(m=>m.name+' ('+m.email+')').join('، ');
-  const shouldSend = confirm('هل تريد إرسال دعوة فريق للأعضاء التاليين؟\n\n'+emailsList);
-  if(!shouldSend){
-    showMiniNotif('تم حفظ الفريق بدون إرسال دعوات');
-    return;
-  }
-
   const ownerName  = (S.settings&&S.settings.name)||'مشرف';
   const ownerEmail = (S.settings&&S.settings.email)||'';
 
@@ -12113,28 +12156,26 @@ async function saveTeam(){
       const email = (m.email||'').toLowerCase().trim();
       if(!email) continue;
 
-      // Build the invite notification object
-      const inviteNotif = {
+      // Build the direct add notification (no invite needed)
+      const addNotif = {
         id         : Date.now()+'_'+Math.random().toString(36).slice(2,7),
-        title      : 'دعوة فريق!',
-        body       : 'دُعيت للانضمام كـ '+(m.role||'عضو')+(m.extraSpecs&&m.extraSpecs.length?' ('+m.extraSpecs.join('، ')+')':'')+ ' في فريق "'+name+'" بواسطة '+ownerName,
-        type       : 'team_invite',
+        title      : '<i class="fa-solid fa-people-group"></i> تمت إضافتك لفريق!',
+        body       : 'تمت إضافتك كـ '+(m.role||'عضو')+' في فريق "'+name+'" بواسطة '+ownerName,
+        type       : 'team_added',
         teamName   : name,
         teamId     : d.id,
         memberName : m.name,
         memberRole : m.role,
-        extraSpecs : m.extraSpecs||[],
         ownerName,
         ownerEmail,
         ownerUserId: typeof _supaUserId!=='undefined' ? _supaUserId : '',
-        status     : 'pending',
         created_at : new Date().toISOString(),
         read       : false
       };
 
       let targetUserId = m.linkedUserId || null;
 
-      // Method 1: try auth.users via RPC (most reliable for Google users)
+      // Method 1: try RPC
       if(!targetUserId){
         try{
           const { data: authUser } = await supa.rpc('get_user_id_by_email', { p_email: email }).catch(()=>({data:null}));
@@ -12142,10 +12183,9 @@ async function saveTeam(){
         }catch(e){}
       }
 
-      // Method 2: search studio_data by settings.email or _user_email
+      // Method 2: search studio_data
       if(!targetUserId){
         try{
-          // Use a targeted query with filter (works if RLS allows)
           const { data: rows2 } = await supa.from('studio_data').select('user_id, data').limit(500);
           if(rows2){
             for(const row of rows2){
@@ -12159,52 +12199,33 @@ async function saveTeam(){
         }catch(e){}
       }
 
-      // Method 3: profiles table
+      // Method 3: profiles
       if(!targetUserId){
         const { data: pr } = await supa.from('profiles').select('id').eq('email',email).maybeSingle().catch(()=>({data:null}));
         if(pr) targetUserId=pr.id;
       }
 
-      // Save invite to team_invites table (works even if user not registered yet)
-      try{
-        await supa.from('team_invites').upsert({
-          id          : inviteNotif.id,
-          to_email    : email,
-          owner_id    : typeof _supaUserId!=='undefined' ? _supaUserId : '',
-          owner_name  : ownerName,
-          team_id     : String(d.id),
-          team_name   : name,
-          member_name : m.name,
-          member_role : m.role||'عضو',
-          status      : 'pending',
-          payload     : JSON.stringify(inviteNotif),
-          created_at  : inviteNotif.created_at
-        }, {onConflict:'id'}).catch(()=>null);
-      }catch(e){}
-
       if(!targetUserId){
-        console.log('Team: invite saved for pending user:', email);
-        showMiniNotif('📨 دعوة محفوظة لـ '+m.name+' — ستصله عند تسجيله');
+        showMiniNotif('⚠️ '+m.name+' — لم يُسجَّل بعد، سيظهر الفريق عند تسجيله');
         continue;
       }
 
-      // Deliver to existing user's studio_data
+      // Deliver notification directly to the user's studio_data
       const { data: tgt } = await supa.from('studio_data').select('data').eq('user_id',targetUserId).single().catch(()=>({data:null}));
       let ud = null;
       if(tgt){ try{ ud=typeof tgt.data==='string'?JSON.parse(tgt.data):tgt.data; }catch(e){} }
       if(!ud) ud={};
       ud._pending_notifications = ud._pending_notifications||[];
-      const already = ud._pending_notifications.find(n=>(n.type==='team'||n.type==='team_invite')&&n.teamId===d.id);
+      const already = ud._pending_notifications.find(n=>n.type==='team_added'&&String(n.teamId)===String(d.id));
       if(!already){
-        ud._pending_notifications.push(inviteNotif);
-        const {error:ue} = await supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',targetUserId);
-        if(ue) console.warn('Team notif save err:', ue.message);
-        else   console.log('✅ Team invite sent to', email);
+        ud._pending_notifications.push(addNotif);
+        await supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',targetUserId);
       }
-      showMiniNotif('✅ دعوة أُرسلت لـ '+m.name);
+      showMiniNotif('✅ تمت إضافة '+m.name+' للفريق وإرسال إشعار له');
     } catch(e){ console.warn('Team notify err:', m.name, e); }
   }
 }
+
 
 function delTeam(id){
   confirmDel('هل تريد حذف هذا الفريق؟',()=>{
@@ -12625,6 +12646,80 @@ function closeMemberProfile(){
   document.getElementById('teams-grid-view').style.display='block';
   document.getElementById('member-profile-view').style.display='none';
 }
+
+// ── Send message to team member ──
+function openMemberMessageModal(){
+  var memberName = window._mpCurrentMember;
+  if(!memberName){ toast('لم يُحدد عضو'); return; }
+  var ex=document.getElementById('_member-msg-overlay'); if(ex) ex.remove();
+  var ov=document.createElement('div');
+  ov.id='_member-msg-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+  ov.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px;width:400px;max-width:95vw;font-family:var(--font)">'+
+    '<div style="font-size:16px;font-weight:800;margin-bottom:16px;color:var(--text)"><i class="fa-solid fa-paper-plane" style="color:var(--accent)"></i> رسالة إلى '+escapeHtml(memberName)+'</div>'+
+    '<textarea id="_mbr-msg-txt" rows="4" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px;resize:vertical;box-sizing:border-box" placeholder="اكتب رسالتك هنا..."></textarea>'+
+    '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">'+
+      '<button onclick="document.getElementById(\'_member-msg-overlay\').remove()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 18px;font-family:var(--font);font-size:13px;cursor:pointer;color:var(--text2)">إلغاء</button>'+
+      '<button onclick="_sendMemberMessage(\''+memberName.replace(/'/g,"\\'")+'\')" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:9px 20px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer"><i class="fa-solid fa-paper-plane"></i> إرسال</button>'+
+    '</div>'+
+  '</div>';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  document.body.appendChild(ov);
+  setTimeout(function(){var t=document.getElementById('_mbr-msg-txt');if(t)t.focus();},100);
+}
+
+async function _sendMemberMessage(memberName){
+  var txt=(document.getElementById('_mbr-msg-txt')||{}).value||'';
+  if(!txt.trim()){toast('<i class="fa-solid fa-triangle-exclamation"></i> اكتب رسالة أولاً');return;}
+  var btn=document.querySelector('#_member-msg-overlay button[onclick*="_sendMemberMessage"]');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';}
+
+  var ownerName=(S.settings&&S.settings.name)||'مشرف';
+  var msgNotif={
+    id:Date.now()+'_m',
+    title:'<i class="fa-solid fa-envelope"></i> رسالة من '+ownerName,
+    body:txt.trim(),
+    type:'direct_message',
+    from:ownerName,
+    created_at:new Date().toISOString(),
+    read:false
+  };
+
+  // Find member's email
+  var memberEmail='';
+  for(var t of (S.teams||[])){
+    for(var m of (t.members||[])){
+      if(m.name===memberName&&m.email){memberEmail=m.email.toLowerCase().trim();break;}
+    }
+    if(memberEmail) break;
+  }
+
+  var saved=false;
+  if(typeof supa!=='undefined'&&memberEmail){
+    // Find target user
+    var targetUserId=null;
+    try{
+      var {data:rows}=await supa.from('studio_data').select('user_id,data').limit(500);
+      if(rows){for(var row of rows){try{var ud2=typeof row.data==='string'?JSON.parse(row.data):row.data;var se2=(ud2?.settings?.email||ud2?._user_email||'').toLowerCase().trim();if(se2&&se2===memberEmail){targetUserId=row.user_id;break;}}catch(e){}}}
+    }catch(e){}
+    if(targetUserId){
+      var {data:tgt}=await supa.from('studio_data').select('data').eq('user_id',targetUserId).single().catch(()=>({data:null}));
+      var ud=null;
+      if(tgt){try{ud=typeof tgt.data==='string'?JSON.parse(tgt.data):tgt.data;}catch(e){}}
+      if(!ud)ud={};
+      ud._pending_notifications=ud._pending_notifications||[];
+      ud._messages=ud._messages||[];
+      ud._messages.push(msgNotif);
+      ud._pending_notifications.push(msgNotif);
+      await supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',targetUserId);
+      saved=true;
+    }
+  }
+
+  document.getElementById('_member-msg-overlay').remove();
+  toast(saved?'<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم إرسال الرسالة لـ '+memberName:'<i class="fa-solid fa-triangle-exclamation"></i> لم يتمكن من إيجاد حساب '+memberName);
+}
+
 
 // ============================================================
 // SUBSCRIPTIONS — Remaining days + custom categories
@@ -16276,7 +16371,26 @@ window.openMyMemberTeamProfile = function(ownerId){
                 if(typeof renderServices==='function') setTimeout(renderServices,200);
                 addNotification('<i class="fa-solid fa-inbox"></i> '+n.title+': '+n.body, 'info');
               }
-              // Handle meeting_request: pull into S.support_msgs
+              // Handle direct_message: show in support page and notifications
+              if(n.type==='direct_message'){
+                S.support_msgs = S.support_msgs||[];
+                var msgEntry = {
+                  id: 'dm_'+n.id,
+                  type:'direct_message',
+                  from: n.from||'عضو',
+                  msg: n.body,
+                  created_at: n.created_at,
+                  read: false
+                };
+                if(!S.support_msgs.find(function(x){return x.id===msgEntry.id;})){
+                  S.support_msgs.unshift(msgEntry);
+                }
+                lsSave();
+                if(typeof renderSupport==='function') setTimeout(renderSupport,200);
+                var suppBadge=document.getElementById('support-badge');
+                if(suppBadge){ var unrD=(S.support_msgs||[]).filter(function(x){return !x.read;}).length; suppBadge.textContent=unrD; suppBadge.style.display=unrD?'':'none'; }
+                addNotification('<i class="fa-solid fa-envelope" style="color:var(--accent)"></i> رسالة من '+escapeHtml(n.from||'عضو')+': '+n.body, 'info');
+              }
               if((n.type==='meeting_request'||n.type==='meeting'||n.type==='support') && ud.support_msgs){
                 S.support_msgs = S.support_msgs||[];
                 ud.support_msgs.forEach(function(m){
@@ -16686,6 +16800,9 @@ function _openStoreInner(idx){
   if(linkEl) linkEl.textContent = storeLink;
   document.getElementById('svc-stores-home').style.display = 'none';
   document.getElementById('svc-store-inner').style.display = '';
+  // Refresh all tabs for current store context
+  renderServices();
+  renderStandalonePackages();
   switchSvcTab('services');
 }
 
@@ -16940,36 +17057,39 @@ function switchSvcTab(tab){
 // ══════════════════════════════════
 function initWebsiteTab(){
   renderMultiStoresList();
+  // Get current store object (null = main store)
+  var _stIdx = _currentStoreIdx;
+  var _curSt = (_stIdx != null) ? (_getStores()[_stIdx] || null) : null;
   // update preview link
   try{
     var wl=document.getElementById('svc-website-link-preview');
-    if(wl){ var lnk=getSvcLink(); wl.textContent=lnk; wl.title='انقر للمعاينة'; wl.style.cursor='pointer'; wl.onclick=function(){window.open(lnk,'_blank');}; }
+    var lnk=getSvcLink(_curSt ? _curSt.id : null);
+    if(wl){ wl.textContent=lnk; wl.title='انقر للمعاينة'; wl.style.cursor='pointer'; wl.onclick=function(){window.open(lnk,'_blank');}; }
   }catch(e){}
   var descEl=document.getElementById('svc-site-desc');
-  if(descEl) descEl.value=(S.settings&&S.settings.svc_site_desc)||'';
-  // orders open toggle
+  if(descEl) descEl.value=(_curSt ? (_curSt.desc||'') : (S.settings&&S.settings.svc_site_desc)||'');
+  // orders open toggle — only for main store
   var isOpen=(S.settings&&S.settings.svc_orders_open!==false);
   _setOrdersOpenUI(isOpen);
-  // socials
+  // socials — main store only
   var socs=S.settings&&S.settings.socials||[];
   ['instagram','behance','tiktok','twitter','whatsapp'].forEach(function(k){
     var el=document.getElementById('social-'+k); if(!el) return;
     var found=socs.find(function(s){return s.type===k;});
     el.value=found?found.url:'';
   });
-  // banner size
-  var sz=(S.settings&&S.settings.svc_banner_size)||'md';
+  // banner — per store
+  var stBanner = _curSt ? (_curSt.banner||'') : (S.settings&&S.settings.svc_banner||'');
+  var sz = _curSt ? (_curSt.banner_size||'md') : ((S.settings&&S.settings.svc_banner_size)||'md');
   ['sm','md','lg','custom'].forEach(function(s){ var b=document.getElementById('banner-size-'+s); if(b){ b.classList.toggle('active',s===sz); } });
   var customWrap=document.getElementById('banner-custom-px-wrap');
   if(customWrap) customWrap.style.display=(sz==='custom'?'flex':'none');
   if(sz==='custom'){
     var inp=document.getElementById('banner-custom-px');
-    if(inp) inp.value=(S.settings&&S.settings.svc_banner_custom_px)||300;
+    if(inp) inp.value=(_curSt ? (_curSt.banner_custom_px||300) : (S.settings&&S.settings.svc_banner_custom_px)||300);
   }
-  // banner preview
-  var banner=S.settings&&S.settings.svc_banner;
   var bannerPv=document.getElementById('svc-banner-preview'); var bannerIm=document.getElementById('svc-banner-img'); var bannerCl=document.getElementById('svc-banner-clear-btn');
-  if(banner){ if(bannerPv) bannerPv.style.display=''; if(bannerIm) bannerIm.src=banner; if(bannerCl) bannerCl.style.display=''; }
+  if(stBanner){ if(bannerPv) bannerPv.style.display=''; if(bannerIm) bannerIm.src=stBanner; if(bannerCl) bannerCl.style.display=''; }
   else { if(bannerPv) bannerPv.style.display='none'; if(bannerCl) bannerCl.style.display='none'; }
 }
 function _setOrdersOpenUI(isOpen){
@@ -17004,14 +17124,16 @@ function saveSocials(){
   lsSave(); cloudSave(S); toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ الروابط');
 }
 function setSvcBannerSize(sz){
-  if(!S.settings) S.settings={};
-  S.settings.svc_banner_size=sz;
+  var _stIdx=_currentStoreIdx;
+  var _curSt=(_stIdx!=null)?(_getStores()[_stIdx]||null):null;
+  if(_curSt){ _curSt.banner_size=sz; }
+  else { if(!S.settings) S.settings={}; S.settings.svc_banner_size=sz; }
   ['sm','md','lg','custom'].forEach(function(s){ var b=document.getElementById('banner-size-'+s); if(b) b.classList.toggle('active',s===sz); });
   var customWrap=document.getElementById('banner-custom-px-wrap');
   if(customWrap) customWrap.style.display=(sz==='custom'?'flex':'none');
   if(sz==='custom'){
     var inp=document.getElementById('banner-custom-px');
-    if(inp) inp.value=S.settings.svc_banner_custom_px||300;
+    if(inp) inp.value=(_curSt?(_curSt.banner_custom_px||300):(S.settings&&S.settings.svc_banner_custom_px)||300);
   }
   lsSave(); cloudSave(S); toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تغيير حجم البانر');
 }
@@ -17035,7 +17157,8 @@ function openPkgStandaloneModal(id){
   var ptInp=document.getElementById('pkg-st-thumb-input'); if(ptInp) ptInp.value='';
   document.getElementById('pkg-standalone-title').innerHTML=id?'<i class="fa-solid fa-box"></i> تعديل الباقة':'<i class="fa-solid fa-box"></i> باقة جديدة';
   document.getElementById('pkg-st-id').value=id||'';
-  ['pkg-st-name','pkg-st-price','pkg-st-desc','pkg-st-delivery','pkg-st-revisions'].forEach(function(i){ var el=document.getElementById(i); if(el) el.value=''; });
+  ['pkg-st-name','pkg-st-price','pkg-st-desc','pkg-st-delivery','pkg-st-revisions','pkg-st-payment-link'].forEach(function(i){ var el=document.getElementById(i); if(el) el.value=''; });
+  var curSel=document.getElementById('pkg-st-currency'); if(curSel) curSel.value='ج.م';
   document.getElementById('pkg-st-items').value='';
   // populate portfolio cats
   var pfCatSel=document.getElementById('pkg-st-portfolio-cat');
@@ -17048,10 +17171,12 @@ function openPkgStandaloneModal(id){
     if(pkg){
       document.getElementById('pkg-st-name').value=pkg.name||'';
       document.getElementById('pkg-st-price').value=pkg.price||'';
+      if(curSel) curSel.value=pkg.currency||'ج.م';
       document.getElementById('pkg-st-desc').value=pkg.desc||'';
       document.getElementById('pkg-st-delivery').value=pkg.delivery||'';
       document.getElementById('pkg-st-revisions').value=pkg.revisions||'';
       document.getElementById('pkg-st-items').value=(pkg.items||[]).join('\n');
+      var plEl=document.getElementById('pkg-st-payment-link'); if(plEl) plEl.value=pkg.payment_link||'';
       if(pfCatSel) pfCatSel.value=pkg.portfolio_cat||'';
       if(pkg.thumb){ _pkgStThumbData=pkg.thumb; var ptP=document.getElementById('pkg-st-thumb-preview'); if(ptP){ptP.src=pkg.thumb;ptP.style.display='';} var ptN=document.getElementById('pkg-st-thumb-name'); if(ptN) ptN.textContent='صورة محفوظة'; var ptC=document.getElementById('pkg-st-thumb-clear'); if(ptC) ptC.style.display=''; }
       _pkgStActive=pkg.active!==false;
@@ -17098,7 +17223,7 @@ function savePkgStandalone(){
   var pfCat=(document.getElementById('pkg-st-portfolio-cat')||{}).value||'';
   var eid=(document.getElementById('pkg-st-id')||{}).value||'';
   var _storeId = _getCurrentStoreId();
-  var d={name:name.trim(),price:+price||0,desc:desc.trim(),delivery:delivery.trim(),revisions:+revisions||0,items:items,portfolio_cat:pfCat,thumb:_pkgStThumbData,active:_pkgStActive,store_id:_storeId,updatedAt:new Date().toISOString()};
+  var d={name:name.trim(),price:+price||0,desc:desc.trim(),delivery:delivery.trim(),revisions:+revisions||0,items:items,portfolio_cat:pfCat,thumb:_pkgStThumbData,active:_pkgStActive,store_id:_storeId,currency:(document.getElementById('pkg-st-currency')||{}).value||'ج.م',payment_link:((document.getElementById('pkg-st-payment-link')||{}).value||'').trim(),updatedAt:new Date().toISOString()};
   if(!S.standalone_packages) S.standalone_packages=[];
   if(eid){ var i=S.standalone_packages.findIndex(function(p){return String(p.id)===String(eid);}); if(i>-1){d.id=+eid;d.createdAt=S.standalone_packages[i].createdAt||d.updatedAt;S.standalone_packages[i]=d;} }
   else { d.id=Date.now(); d.createdAt=d.updatedAt; S.standalone_packages.push(d); }
@@ -17282,8 +17407,10 @@ function handleSvcBanner(input){
   if(file.size>2*1024*1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> حجم البانر أكبر من 2 ميجا'); input.value=''; return; }
   var r=new FileReader();
   r.onload=function(e){
-    if(!S.settings) S.settings={};
-    S.settings.svc_banner=e.target.result;
+    var _stIdx=_currentStoreIdx;
+    var _curSt=(_stIdx!=null)?(_getStores()[_stIdx]||null):null;
+    if(_curSt){ _curSt.banner=e.target.result; }
+    else { if(!S.settings) S.settings={}; S.settings.svc_banner=e.target.result; }
     var prev=document.getElementById('svc-banner-preview'); var img=document.getElementById('svc-banner-img'); var clr=document.getElementById('svc-banner-clear-btn');
     if(prev) prev.style.display=''; if(img) img.src=e.target.result; if(clr) clr.style.display='';
     lsSave(); cloudSave(S); toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع البانر');
@@ -17291,7 +17418,10 @@ function handleSvcBanner(input){
   r.readAsDataURL(file);
 }
 function clearSvcBanner(){
-  if(!S.settings) S.settings={}; S.settings.svc_banner='';
+  var _stIdx=_currentStoreIdx;
+  var _curSt=(_stIdx!=null)?(_getStores()[_stIdx]||null):null;
+  if(_curSt){ _curSt.banner=''; }
+  else { if(!S.settings) S.settings={}; S.settings.svc_banner=''; }
   var prev=document.getElementById('svc-banner-preview'); var clr=document.getElementById('svc-banner-clear-btn');
   if(prev) prev.style.display='none'; if(clr) clr.style.display='none';
   lsSave(); cloudSave(S); toast('<i class="fa-solid fa-trash"></i> تم حذف البانر');
@@ -17664,10 +17794,12 @@ function renderServices(){
 
     // Link
     var linkEl=document.getElementById('svc-link-text');
-    if(linkEl){ try{ linkEl.textContent=getSvcLink(); }catch(e){ linkEl.textContent='—'; } }
+    if(linkEl){ try{ linkEl.textContent=getSvcLink(_getCurrentStoreId()); }catch(e){ linkEl.textContent='—'; } }
 
-    // Banner
-    var banner=S.settings&&S.settings.svc_banner;
+    // Banner — use current store's banner or main settings banner
+    var _activeSt = _getCurrentStoreId();
+    var _activeStObj = _activeSt ? (_getStores()||[]).find(function(s){return s.id===_activeSt;}) : null;
+    var banner = (_activeStObj && _activeStObj.banner) ? _activeStObj.banner : (S.settings&&S.settings.svc_banner);
     var bannerPv=document.getElementById('svc-banner-preview'); var bannerIm=document.getElementById('svc-banner-img'); var bannerCl=document.getElementById('svc-banner-clear-btn');
     if(banner){ if(bannerPv) bannerPv.style.display=''; if(bannerIm) bannerIm.src=banner; if(bannerCl) bannerCl.style.display=''; }
     else { if(bannerPv) bannerPv.style.display='none'; if(bannerCl) bannerCl.style.display='none'; }
@@ -18351,9 +18483,9 @@ function _buildSvcOrderPage(userId){
     var accent=settings.accent||settings.accentColor||settings.theme_color||'#7c6ff7';
     // Also try from localStorage platform_config as fallback
     try{ var _pc=JSON.parse(localStorage.getItem('platform_config')||'{}'); if(_pc.accent) accent=_pc.accent; }catch(e){}
-    var banner=settings.svc_banner||'';
-    var bannerSize=settings.svc_banner_size||'md';
-    var bannerCustomPx=settings.svc_banner_custom_px||300;
+    var banner=(_storeObj ? (_storeObj.banner||'') : (settings.svc_banner||''));
+    var bannerSize=(_storeObj ? (_storeObj.banner_size||'md') : (settings.svc_banner_size||'md'));
+    var bannerCustomPx=(_storeObj ? (_storeObj.banner_custom_px||300) : (settings.svc_banner_custom_px||300));
     var bannerH={sm:'160px',md:'260px',lg:'400px',custom:bannerCustomPx+'px'}[bannerSize]||'260px';
     var logo=settings.logo||'';
     var studioName=settings.name||'Studio';
@@ -18386,8 +18518,9 @@ function _buildSvcOrderPage(userId){
     styleEl.textContent=
       '@import url(\'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap\');'+
       '*{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}'+
-      'html,body{height:auto !important;min-height:100vh;overflow-x:hidden !important;overflow-y:auto !important;scroll-behavior:smooth}'+
-      'html.pub-page,body.pub-page{overflow:auto !important;height:auto !important}'+
+      'html,body{height:auto !important;min-height:100vh;overflow-x:hidden !important;overflow-y:auto !important;scroll-behavior:smooth;position:static !important}'+
+      'html.pub-page,body.pub-page{overflow:auto !important;overflow-y:auto !important;height:auto !important;position:static !important}'+
+      '.app-shell,.sidebar,.app-header,.bottom-nav,#auth-screen{display:none !important}'+
       'body{font-family:\'Cairo\',sans-serif;background:'+bg+';color:'+textMain+';direction:rtl;min-height:100vh;position:relative}'+
       // Ambient glow - مش position:fixed علشان ما يعطلش السكرول
       'body::before{content:\'\';position:absolute;inset:0;z-index:0;pointer-events:none;min-height:100vh;'+
@@ -18595,7 +18728,8 @@ function _buildSvcOrderPage(userId){
           '<div class="_svc-foot">'+
             '<div class="_svc-price">'+priceDisplay+'</div>'+
             '<div style="display:flex;gap:5px">'+
-              (svc.payment_link?'<a href="'+escapeHtml(svc.payment_link)+'" target="_blank" class="_svc-btn" style="text-decoration:none;background:'+accent+';color:#fff;display:flex;align-items:center;justify-content:center;gap:4px" onclick="event.stopPropagation()">اطلب ←</a>':'<button class="_svc-btn" onclick="event.stopPropagation();_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+')">اطلب ←</button>')+
+              (svc.payment_link?'<a href="'+escapeHtml(svc.payment_link)+'" target="_blank" class="_svc-btn" style="text-decoration:none;background:linear-gradient(135deg,#4fd1a5,#38b28a);color:#fff;display:flex;align-items:center;justify-content:center;gap:4px" onclick="event.stopPropagation()"><i class="fa-solid fa-credit-card" style="font-size:11px"></i> ادفع</a>':'') +
+              '<button class="_svc-btn" onclick="event.stopPropagation();_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+',\''+encodeURIComponent(svc.payment_link||'')+'\')">اطلب ←</button>'+
             '</div>'+
           '</div>'+
         '</div>'+
@@ -18627,10 +18761,11 @@ function _buildSvcOrderPage(userId){
             (p.desc?'<div class="_pkg-desc" onclick="_openPkgPage('+idx+')" style="cursor:pointer">'+escapeHtml(p.desc)+'</div>':'')+
             (p.items&&p.items.length?'<div class="_pkg-items">'+p.items.slice(0,3).map(function(it){return '<div class="_pkg-item"><span><i class="fa-solid fa-check"></i> </span>'+escapeHtml(it)+'</div>';}).join('')+'</div>':'')+
             '<div class="_pkg-foot">'+
-              '<div class="_pkg-price">'+(p.price?Number(p.price).toLocaleString()+' ج':'عند الطلب')+'</div>'+
-              '<div style="display:flex;gap:4px">'+
+              '<div class="_pkg-price">'+(p.price?Number(p.price).toLocaleString()+' '+(p.currency||'ج.م'):'عند الطلب')+'</div>'+
+              '<div style="display:flex;gap:4px;flex-wrap:wrap">'+
                 '<button class="_pkg-order-btn-sm" onclick="event.stopPropagation();_openPkgPage('+idx+')" style="background:transparent;border:1.5px solid '+accent+'55;color:'+accent+'">تفاصيل</button>'+
-                '<button class="_pkg-order-btn-sm" onclick="event.stopPropagation();_openOrderFormNew(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+')">اطلب ←</button>'+
+                (p.payment_link?'<a href="'+escapeHtml(p.payment_link)+'" target="_blank" class="_pkg-order-btn-sm" style="text-decoration:none;background:linear-gradient(135deg,#4fd1a5,#38b28a);color:#fff;display:inline-flex;align-items:center;gap:3px" onclick="event.stopPropagation()"><i class="fa-solid fa-credit-card" style="font-size:10px"></i> ادفع</a>':'')+
+                '<button class="_pkg-order-btn-sm" onclick="event.stopPropagation();_openOrderFormNew(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+',\''+encodeURIComponent(p.payment_link||'')+'\')">اطلب ←</button>'+
               '</div>'+
             '</div>'+
           '</div>'+
@@ -18705,14 +18840,16 @@ function _buildSvcOrderPage(userId){
     '</footer>';
 
     // ── Assemble page ──
-    document.body.innerHTML='';
+    // Clear body without using innerHTML= to preserve inline styles on html/body
+    while(document.body.firstChild) document.body.removeChild(document.body.firstChild);
 
-    // ═══ إزالة كل CSS الـ app اللي بيمنع الـ scroll ═══
+    // ═══ CSS override to force scroll ═══
+    var oldOv = document.getElementById('_pub-override'); if(oldOv) oldOv.remove();
     var pubOverride = document.createElement('style');
     pubOverride.id = '_pub-override';
     pubOverride.textContent =
-      'html.pub-page { overflow: auto !important; overflow-y: scroll !important; height: auto !important; }' +
-      'body.pub-page { overflow: visible !important; overflow-x: hidden !important; height: auto !important; position: static !important; min-height: 100vh; }' +
+      'html { overflow: auto !important; overflow-y: scroll !important; height: auto !important; min-height: 100vh !important; }' +
+      'body { overflow: auto !important; overflow-x: hidden !important; overflow-y: auto !important; height: auto !important; position: static !important; min-height: 100vh !important; margin:0 !important; padding:0 !important; }' +
       '.app-shell, #app-body, .main-content, .sidebar, #bottom-nav, .bottom-nav-bar, .app-header, #auth-screen { display: none !important; }';
     document.head.appendChild(pubOverride);
 
@@ -18720,9 +18857,18 @@ function _buildSvcOrderPage(userId){
     document.documentElement.classList.add('pub-page');
     document.body.classList.add('pub-page');
 
+    // Force inline styles
+    document.documentElement.style.overflow = 'auto';
+    document.documentElement.style.overflowY = 'scroll';
+    document.documentElement.style.height = 'auto';
+    document.body.style.overflow = 'auto';
+    document.body.style.overflowY = 'auto';
+    document.body.style.height = 'auto';
+    document.body.style.position = 'static';
     document.body.style.margin = '0';
     document.body.style.padding = '0';
-    document.body.innerHTML=navHtml;
+
+    document.body.insertAdjacentHTML('beforeend', navHtml);
     var main=document.createElement('div');
     main.className='_pub-main';
     main.innerHTML=heroHtml+svcsSection+pkgsSection+pfSection+contactHtml;
@@ -18732,16 +18878,16 @@ function _buildSvcOrderPage(userId){
     window._publicUd=ud; window._publicUserId=userId; window._publicAccent=accent;
     window._publicSettings=settings;
 
-    // ── تأكيد تفعيل السكرول — يجب يكون بعد innerHTML ──
-    document.documentElement.classList.add('pub-page');
-    document.body.classList.add('pub-page');
-    document.documentElement.style.overflow = 'auto';
-    document.documentElement.style.overflowY = 'scroll';
-    document.documentElement.style.height = 'auto';
-    document.body.style.overflow = 'auto';
-    document.body.style.overflowY = 'auto';
-    document.body.style.height = 'auto';
-    document.body.style.position = 'static';
+    // ── Re-apply scroll after all DOM mutations ──
+    requestAnimationFrame(function(){
+      document.documentElement.style.overflow = 'auto';
+      document.documentElement.style.overflowY = 'scroll';
+      document.documentElement.style.height = 'auto';
+      document.body.style.overflow = 'auto';
+      document.body.style.overflowY = 'auto';
+      document.body.style.height = 'auto';
+      document.body.style.position = 'static';
+    });
 
     // ── Navbar scroll active ──
     window.addEventListener('scroll', function(){
@@ -18859,19 +19005,20 @@ window._openSvcPage=function(idx){
       (svc.desc?'<p class="_svc-page-desc">'+escapeHtml(svc.desc)+'</p>':'')+
       termsHtml+
       portHtml+
-      '<button class="_order-big-btn" onclick="_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+')"><i class="fa-solid fa-rocket"></i> اطلب الخدمة الآن</button>'+
+      '<button class="_order-big-btn" onclick="_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+',\''+encodeURIComponent(svc.payment_link||'')+'\')"><i class="fa-solid fa-rocket"></i> اطلب الخدمة الآن</button>'+
     '</div>';
   document.body.appendChild(page);
   page.scrollTo({top:0}); window.scrollTo({top:0,behavior:'smooth'});
 };
 
 // ── Order Form (Service / Package) ──
-window._openOrderFormNew=function(svcName, pkgName, price){
+window._openOrderFormNew=function(svcName, pkgName, price, paymentLink){
   var accent=window._pubAccent||'#7c6ff7';
   var userId=window._pubUserId;
   var C=window._pubColors||{textMain:'#f0f0f5',textSub:'#aaaacc',textMuted:'#777799',cardBg:'rgba(255,255,255,.05)',borderC:'rgba(255,255,255,.08)',sheetBg:'#1a1a28'};
   var decodedSvc=svcName?decodeURIComponent(svcName):'';
   var decodedPkg=pkgName?decodeURIComponent(pkgName):'';
+  var decodedPayLink=paymentLink?decodeURIComponent(paymentLink):'';
   var title=(decodedSvc||(decodedPkg?'باقة '+decodedPkg:'طلب خدمة'));
   var ex=document.getElementById('_order-overlay'); if(ex) ex.remove();
   var ov=document.createElement('div');
@@ -18890,35 +19037,32 @@ window._openOrderFormNew=function(svcName, pkgName, price){
     '<input id="_order-phone" class="_ord-input" placeholder="رقم الواتساب *" type="tel">'+
     '<input id="_order-email" class="_ord-input" placeholder="البريد الإلكتروني (اختياري)" type="email" dir="ltr">'+
     '<textarea id="_order-desc" class="_ord-input" rows="3" placeholder="وصف المشروع أو ملاحظاتك..."></textarea>'+
-    '<button class="_ord-submit" onclick="_submitOrderForm(\''+userId+'\',\''+encodeURIComponent(decodedSvc)+'\',\''+encodeURIComponent(decodedPkg)+'\','+(price||0)+')"><i class="fa-solid fa-paper-plane"></i> إرسال الطلب</button>'+
+    '<button class="_ord-submit" onclick="_submitOrderForm(\''+userId+'\',\''+encodeURIComponent(decodedSvc)+'\',\''+encodeURIComponent(decodedPkg)+'\','+(price||0)+',\''+encodeURIComponent(decodedPayLink)+'\')"><i class="fa-solid fa-paper-plane"></i> إرسال الطلب</button>'+
   '</div>';
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   document.body.appendChild(ov);
 };
 
-window._submitOrderForm=function(userId,svcName,pkgName,price){
+window._submitOrderForm=function(userId,svcName,pkgName,price,paymentLink){
   var name=(document.getElementById('_order-name')||{}).value||'';
   var phone=(document.getElementById('_order-phone')||{}).value||'';
   var email=(document.getElementById('_order-email')||{}).value||'';
   var desc=(document.getElementById('_order-desc')||{}).value||'';
-  if(!name||!phone){alert('الاسم ورقم الواتساب مطلوبان');return;}
-  var btn=document.querySelector('._ord-submit[onclick*="_submitOrderForm"]');
-  if(btn){btn.disabled=true;btn.textContent='⏳ جاري الإرسال...';}
+  if(!name.trim()||!phone.trim()){
+    var errEl=document.getElementById('_ord-err');
+    if(!errEl){errEl=document.createElement('div');errEl.id='_ord-err';errEl.style.cssText='color:#ff6b6b;font-size:12px;margin-bottom:8px;padding:8px 12px;background:rgba(255,107,107,.1);border-radius:8px;border:1px solid rgba(255,107,107,.3)';
+    var sheet=document.querySelector('._ord-sheet');if(sheet){var sb=document.getElementById('_ord-submit-btn');sheet.insertBefore(errEl,sb);}}
+    errEl.textContent='الاسم ورقم الواتساب مطلوبان'; return;
+  }
+  var btn=document.getElementById('_ord-submit-btn')||document.querySelector('._ord-submit');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> جاري الإرسال...';}
   var decodedSvc=svcName?decodeURIComponent(svcName):'';
   var decodedPkg=pkgName?decodeURIComponent(pkgName):'';
+  var decodedPay=paymentLink?decodeURIComponent(paymentLink):'';
   var order={
-    id:Date.now()+'_o',
-    type:'svc_order',
-    client_name:name,
-    client_phone:phone,
-    client_email:email,
-    service_name:decodedSvc||decodedPkg||'خدمة',
-    pkg_name:decodedPkg||'',
-    price:+price||0,
-    desc:desc,
-    status:'pending',
-    created_at:new Date().toISOString(),
-    read:false
+    id:Date.now()+'_o',type:'svc_order',client_name:name,client_phone:phone,client_email:email,
+    service_name:decodedSvc||decodedPkg||'خدمة',pkg_name:decodedPkg||'',price:+price||0,
+    desc:desc,status:'pending',created_at:new Date().toISOString(),read:false
   };
   supa.from('studio_data').select('data').eq('user_id',userId).maybeSingle().then(function(res){
     if(!res||!res.data) return;
@@ -18930,7 +19074,25 @@ window._submitOrderForm=function(userId,svcName,pkgName,price){
     return supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',userId);
   }).then(function(){
     document.getElementById('_order-overlay')&&document.getElementById('_order-overlay').remove();
-    alert('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم إرسال طلبك بنجاح! سنتواصل معك قريباً.');
+    var accent=window._pubAccent||'#7c6ff7';
+    var C=window._pubColors||{textMain:'#f0f0f5',sheetBg:'#1a1a28',borderC:'rgba(255,255,255,.08)'};
+    var popup=document.createElement('div');
+    popup.id='_success-popup';
+    popup.style.cssText='position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:20px;animation:_pubFadeIn .2s ease';
+    popup.innerHTML=
+      '<div style="background:'+C.sheetBg+';border-radius:22px;max-width:400px;width:100%;padding:28px 22px;text-align:center;border:1px solid '+C.borderC+'">'+
+        '<div style="font-size:56px;margin-bottom:12px">\uD83C\uDF89</div>'+
+        '<div style="font-size:20px;font-weight:900;color:'+C.textMain+';margin-bottom:8px">تم إرسال طلبك!</div>'+
+        '<div style="font-size:13px;color:#aaa;margin-bottom:24px;line-height:1.8">شكراً <b>'+escapeHtml(name)+'</b>!<br>سنتواصل معك قريباً عبر الواتساب.</div>'+
+        '<div style="display:flex;flex-direction:column;gap:10px">'+
+          (decodedPay
+            ?'<a href="'+escapeHtml(decodedPay)+'" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#4fd1a5,#38b28a);color:#fff;text-decoration:none;padding:14px 18px;border-radius:13px;font-size:14px;font-weight:900;font-family:Cairo,sans-serif" onclick="document.getElementById(\'_success-popup\').remove()"><i class="fa-solid fa-credit-card"></i> ادفع الآن</a>'
+            :'')+
+          '<button onclick="document.getElementById(\'_success-popup\').remove()" style="background:'+accent+'18;border:1.5px solid '+accent+'44;color:'+accent+';padding:12px 18px;border-radius:13px;font-size:13px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;width:100%"><i class="fa-solid fa-check"></i> حسناً، شكراً!</button>'+
+        '</div>'+
+      '</div>';
+    popup.onclick=function(e){if(e.target===popup)popup.remove();};
+    document.body.appendChild(popup);
   }).catch(function(e){if(btn){btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-paper-plane"></i> إرسال الطلب';}});
 };
 
@@ -18959,7 +19121,7 @@ window._openPkgPage=function(idx){
           '<div class="_terms-title"><i class="fa-solid fa-clipboard-list"></i> ما يشمله الباقة</div>'+
           p.items.map(function(it){return '<div class="_term-item"><span class="_term-tick"><i class="fa-solid fa-check"></i></span><span>'+escapeHtml(it)+'</span></div>';}).join('')+
         '</div>':'')+
-      '<button class="_order-big-btn" onclick="_openOrderFormNew(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+')"><i class="fa-solid fa-rocket"></i> اطلب الباقة الآن</button>'+
+      '<button class="_order-big-btn" onclick="_openOrderFormNew(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+',\''+encodeURIComponent(p.payment_link||'')+'\')"><i class="fa-solid fa-rocket"></i> اطلب الباقة الآن</button>'+
     '</div>';
   document.body.appendChild(page);
   page.scrollTo({top:0}); window.scrollTo({top:0,behavior:'smooth'});
@@ -19517,13 +19679,13 @@ function renderSupport(){
     return;
   }
   el.innerHTML=msgs.map(function(m){
-    var typeIcon={meeting:'<i class="fa-solid fa-calendar-days"></i>',support:'🆘',message:'<i class="fa-solid fa-comments"></i>',svc_order:'<i class="fa-solid fa-inbox"></i>',contact:'<i class="fa-solid fa-envelope-open-text"></i>',meeting_request:'<i class="fa-solid fa-calendar-days"></i>'}[m.type]||'<i class="fa-solid fa-comments"></i>';
-    var typeLabel={meeting:'طلب اجتماع',support:'طلب دعم',message:'رسالة',svc_order:'طلب خدمة',meeting_request:'طلب اجتماع',contact:'رسالة تواصل'}[m.type]||m.type||'رسالة';
-    return '<div class="support-msg-card '+(m.read?'':'unread')+'" onclick="openSupportMsg(\''+m.id+'\')">'+
+    var typeIcon={meeting:'<i class="fa-solid fa-calendar-days"></i>',support:'🆘',message:'<i class="fa-solid fa-comments"></i>',svc_order:'<i class="fa-solid fa-inbox"></i>',contact:'<i class="fa-solid fa-envelope-open-text"></i>',meeting_request:'<i class="fa-solid fa-calendar-days"></i>',direct_message:'<i class="fa-solid fa-envelope" style="color:var(--accent)"></i>'}[m.type]||'<i class="fa-solid fa-comments"></i>';
+    var typeLabel={meeting:'طلب اجتماع',support:'طلب دعم',message:'رسالة',svc_order:'طلب خدمة',meeting_request:'طلب اجتماع',contact:'رسالة تواصل',direct_message:'رسالة داخلية'}[m.type]||m.type||'رسالة';
+    var senderName = m.client_name || m.from || 'عضو';
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
         '<div style="display:flex;align-items:center;gap:8px">'+
           '<span style="font-size:18px">'+typeIcon+'</span>'+
-          '<div><div style="font-size:13px;font-weight:800">'+escapeHtml(m.client_name||'عميل')+'</div>'+
+          '<div><div style="font-size:13px;font-weight:800">'+escapeHtml(senderName)+'</div>'+
           '<div style="font-size:10px;color:var(--accent);font-weight:700">'+typeLabel+'</div></div>'+
         '</div>'+
         (!m.read?'<span style="width:8px;height:8px;background:var(--accent4);border-radius:50%;display:inline-block"></span>':'')+
@@ -20815,6 +20977,26 @@ function _widgetInnerHTML(id){
   if(id==='goals'){
     return '<div class="card" style="height:100%"><div class="section-title">\uD83C\uDFAF \u0623\u0647\u062F\u0627\u0641 \u0627\u0644\u062A\u0637\u0648\u064A\u0631</div>' +
       '<div id="dash-goals-list"><div class="empty"><div class="empty-icon">\u25C6</div>\u0623\u0636\u0641 \u0623\u0647\u062F\u0627\u0641\u0643</div></div></div>';
+  }
+  if(id==='active_projects'){
+    var activeProjs = (S.projects||[]).filter(function(p){return p.status==='active'||p.status==='progress'||(!p.status&&p.name);}).slice(0,5);
+    var projHtml = activeProjs.length ? activeProjs.map(function(p){
+      var tasks=(S.project_tasks||[]).filter(function(t){return String(t.project_id)===String(p.id);});
+      var done=tasks.filter(function(t){return t.status==='done';}).length;
+      var pct=tasks.length?Math.round(done/tasks.length*100):0;
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="showPage(\'projects\');setTimeout(function(){openProjectDetail('+p.id+')},150)">'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(p.name||'—')+'</div>'+
+          (p.client?'<div style="font-size:10px;color:var(--text3)">'+p.client+'</div>':'')+
+          (tasks.length?'<div style="height:3px;background:var(--surface3);border-radius:2px;margin-top:5px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:var(--accent);border-radius:2px"></div></div>':'')+
+        '</div>'+
+        (tasks.length?'<div style="font-size:10px;color:var(--text3);flex-shrink:0">'+pct+'%</div>':'')+
+      '</div>';
+    }).join('') : '<div class="empty" style="padding:8px 0"><div style="font-size:12px">لا مشاريع نشطة</div></div>';
+    return '<div class="card" style="height:100%"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
+      '<div class="section-title" style="margin:0"><i class="fa-solid fa-diagram-project" style="color:var(--accent)"></i> المشاريع النشطة</div>'+
+      '<button onclick="showPage(\'projects\')" class="btn btn-ghost btn-sm" style="font-size:10px">كل المشاريع ←</button></div>'+
+      projHtml+'</div>';
   }
   if(id==='meetings'){
     return '<div class="card" style="border-color:rgba(124,111,247,.3)">' +
@@ -24153,7 +24335,20 @@ function _showTrackingShareModal(t){
     <input type="hidden" id="pkg-st-id">
     <div class="form-row">
       <div class="form-group"><label class="form-label">اسم الباقة *</label><input class="form-input" id="pkg-st-name" placeholder="مثال: باقة التميز"></div>
-      <div class="form-group"><label class="form-label">السعر (ج) *</label><input class="form-input" type="number" id="pkg-st-price" placeholder="0"></div>
+      <div class="form-group">
+        <label class="form-label">السعر *</label>
+        <div style="display:flex;gap:6px">
+          <input class="form-input" type="number" id="pkg-st-price" placeholder="0" style="flex:1">
+          <select class="form-input" id="pkg-st-currency" style="width:85px;flex-shrink:0">
+            <option value="ج.م">ج.م</option>
+            <option value="ر.س">ر.س</option>
+            <option value="د.إ">د.إ</option>
+            <option value="د.ك">د.ك</option>
+            <option value="$">$</option>
+            <option value="€">€</option>
+          </select>
+        </div>
+      </div>
     </div>
     <div class="form-group"><label class="form-label">وصف الباقة</label><textarea class="form-input" id="pkg-st-desc" rows="2" placeholder="ما الذي يحصل عليه العميل..."></textarea></div>
     <div class="form-group">
@@ -24191,6 +24386,10 @@ function _showTrackingShareModal(t){
         <button class="btn btn-danger btn-sm" id="pkg-st-thumb-clear" style="display:none" onclick="clearPkgStThumb()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <img id="pkg-st-thumb-preview" src="" style="display:none;margin-top:8px;width:100%;max-height:110px;object-fit:cover;border-radius:10px">
+    </div>
+    <div class="form-group">
+      <label class="form-label"><i class="fa-solid fa-credit-card" style="color:var(--accent3)"></i> رابط الدفع <span style="color:var(--text3);font-size:10px">(اختياري — يظهر زرار "ادفع الآن" في الموقع)</span></label>
+      <input class="form-input" id="pkg-st-payment-link" placeholder="https://pay.example.com/..." dir="ltr">
     </div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="savePkgStandalone()"><i class="fa-solid fa-floppy-disk"></i> حفظ الباقة</button>
