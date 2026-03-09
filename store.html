@@ -854,7 +854,7 @@ window._openOrd=function(sn,pn,price,pl){
       '<div style="font-size:52px;margin-bottom:10px">🎉</div>'+
       '<div style="font-size:17px;font-weight:800;color:'+(C.textMain||'#f0f0f5')+';margin-bottom:6px">تم إرسال طلبك!</div>'+
       '<div style="font-size:12px;color:'+(C.textMuted||'#777799')+';margin-bottom:20px">سنتواصل معك قريباً</div>'+
-      '<a href="'+PORTAL+'?uid='+encodeURIComponent(userId)+'" style="display:inline-flex;align-items:center;gap:8px;background:'+accent+'18;border:1.5px solid '+accent+'44;color:'+accent+';border-radius:11px;padding:11px 18px;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;text-decoration:none"><i class="fa-solid fa-folder-open"></i>تابع طلبك من بورتال العميل</a>'+
+      '<a class="_portal-link" href="#" style="display:none;align-items:center;gap:8px;background:'+accent+'18;border:1.5px solid '+accent+'44;color:'+accent+';border-radius:11px;padding:11px 18px;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;text-decoration:none"><i class="fa-solid fa-id-card"></i>تابع طلبك من بوابة العميل</a>'+
     '</div>'+
   '</div>';
   document.body.appendChild(ov);
@@ -876,13 +876,37 @@ window._submitOrd=function(ue,se,pe,price,ple){
   var order={id:Date.now()+'_o',type:'svc_order',client_name:nm,client_phone:ph,client_email:em,service_name:sn||pn||sv||'خدمة',pkg_name:pn||'',price:+price||0,desc:ds,status:'pending',created_at:new Date().toISOString(),read:false};
   var studioPhone=(window._pubSettings&&window._pubSettings.phone)||'';
   var studioName=(window._pubSettings&&window._pubSettings.name)||'Studio';
+  var savedClientId=null;
+
   supa.from('studio_data').select('data').eq('user_id',uid).maybeSingle().then(function(r){
     if(r.data){
       var ud2=null;
       try{ud2=typeof r.data.data==='string'?JSON.parse(r.data.data):r.data.data;}catch(e){}
-      // unwrap nested if needed
       if(ud2&&ud2.data&&!ud2.svc_orders){try{ud2=typeof ud2.data==='string'?JSON.parse(ud2.data):ud2.data;}catch(e){}}
       if(ud2){
+        // ── تسجيل العميل تلقائياً في قاعدة العملاء ──
+        ud2.clients=ud2.clients||[];
+        var existingClient=ud2.clients.find(function(c){
+          return c.phone===ph||(em&&c.email===em)||c.name===nm;
+        });
+        if(existingClient){
+          savedClientId=String(existingClient.id);
+          // تحديث بيانات العميل لو ناقصة
+          if(!existingClient.email&&em) existingClient.email=em;
+          if(!existingClient.phone&&ph) existingClient.phone=ph;
+        } else {
+          savedClientId=String(Date.now());
+          ud2.clients.push({
+            id:savedClientId,
+            name:nm,
+            phone:ph,
+            email:em||'',
+            source:'store_order',
+            createdAt:new Date().toISOString()
+          });
+        }
+        // ربط الطلب بالعميل
+        order.client_id=savedClientId;
         ud2.svc_orders=ud2.svc_orders||[];ud2.svc_orders.push(order);
         ud2._pending_notifications=ud2._pending_notifications||[];
         ud2._pending_notifications.push({id:order.id+'_n',title:'طلب جديد!',body:nm+' — '+(sn||pn||sv),type:'svc_order',created_at:new Date().toISOString(),read:false});
@@ -891,7 +915,17 @@ window._submitOrd=function(ue,se,pe,price,ple){
     }
   }).then(function(){
     var f=document.getElementById('_ord-form');if(f)f.style.display='none';
-    var sc=document.getElementById('_ord-succ');if(sc)sc.style.display='block';
+    var sc=document.getElementById('_ord-succ');if(sc){
+      sc.style.display='block';
+      // ── تحديث رابط البوابة بعد معرفة client_id ──
+      var portalLink=sc.querySelector('._portal-link');
+      if(portalLink&&savedClientId){
+        var indexUrl=window.location.origin+window.location.pathname.replace(/\/[^\/]*$/,'/index.html');
+        var newHref=indexUrl+'?clientportal='+encodeURIComponent(uid)+'&cid='+encodeURIComponent(savedClientId);
+        portalLink.href=newHref;
+        portalLink.style.display='inline-flex';
+      }
+    }
     if(studioPhone){
       var txt='مرحباً '+studioName+' 👋\nطلب جديد من: '+nm+'\nالخدمة: '+(sn||pn||sv)+'\nالهاتف: '+ph+(ds?'\nملاحظات: '+ds:'');
       setTimeout(function(){window.open('https://wa.me/'+studioPhone.replace(/\D/g,'')+'?text='+encodeURIComponent(txt),'_blank');},700);
