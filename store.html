@@ -181,7 +181,7 @@ async function buildPage(userId){
     var settings=ud.settings||{};
     var accent=settings.accent||settings.accentColor||settings.theme_color||'#7c6ff7';
     var isLight=(settings.displayMode||settings.display_mode||'dark')==='light';
-    var logo=settings.logo||'';
+    var logo=settings.store_logo||settings.logo||'';
     var studioName=(settings.name||'Studio');
     var phone=settings.phone||'';
     var email=settings.email||'';
