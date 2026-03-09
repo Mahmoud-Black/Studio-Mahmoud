@@ -16723,7 +16723,7 @@ function renderCorpEmployees(){
 // ── Helpers ──
 function getSvcLink(storeId){
   var uid = (typeof _supaUserId!=='undefined' && _supaUserId) ? _supaUserId : '';
-  // ── NEW: point to standalone store.html page ──
+  // بيشير لـ store.html في نفس المجلد
   var base = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + 'store.html';
   // Use username if set
   var un = S&&S.settings&&S.settings.username;
