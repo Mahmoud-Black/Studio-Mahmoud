@@ -1950,9 +1950,21 @@ window._appReady = false;
 window._showApp = function(){
   window._appReady = true;
   document.body.style.visibility = 'visible';
+  // لو صفحة متجر عام - تأكد تفعيل الـ scroll
+  var isPublic = new URLSearchParams(window.location.search).get('svcorder');
+  if(isPublic) {
+    document.documentElement.style.overflow = 'auto';
+    document.documentElement.style.height = 'auto';
+    document.body.style.overflow = 'auto';
+    document.body.style.overflowY = 'auto';
+    document.body.style.height = 'auto';
+    document.body.style.position = 'relative';
+  }
 };
-// Fallback: show after 4s no matter what (increased from 2s to allow sub load)
+// Fallback: show after 4s no matter what
 setTimeout(window._showApp, 4000);
+// لو صفحة متجر - تفعيل أسرع
+if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(window._showApp, 500);
 </script>
 
 <!-- ═══ AUTH SCREEN ═══ -->
@@ -9553,6 +9565,9 @@ async function loginWithSupaSession(supaUser, session, userMeta){
 
   // إخفاء اللوجين وإظهار التطبيق
   if(window._showApp) window._showApp();
+  // تأكد إن body مش hidden
+  document.body.style.visibility = 'visible';
+  document.body.style.opacity = '1';
   // ── إظهار App Shell لو كان مخفياً (بعد logout) ──
   const shell = document.getElementById('app-body') || document.querySelector('.app-shell');
   if(shell && shell.style.display === 'none') shell.style.display = '';
@@ -17473,9 +17488,10 @@ function _buildSvcOrderPage(userId){
     styleEl.textContent=
       '@import url(\'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap\');'+
       '*{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}'+
-      'body{font-family:\'Cairo\',sans-serif;background:'+bg+';color:'+textMain+';direction:rtl;min-height:100vh}'+
-      // Ambient glow
-      'body::before{content:\'\';position:fixed;inset:0;z-index:0;pointer-events:none;'+
+      'html,body{height:auto !important;overflow-x:hidden;overflow-y:auto !important;scroll-behavior:smooth}'+
+      'body{font-family:\'Cairo\',sans-serif;background:'+bg+';color:'+textMain+';direction:rtl;min-height:100vh;position:relative}'+
+      // Ambient glow - مش position:fixed علشان ما يعطلش السكرول
+      'body::before{content:\'\';position:absolute;inset:0;z-index:0;pointer-events:none;min-height:100vh;'+
         'background:radial-gradient(ellipse 80% 60% at 15% 5%,'+accent+'1e 0%,transparent 60%),'+
         'radial-gradient(ellipse 60% 50% at 85% 90%,'+accent+'12 0%,transparent 60%)}'+
 
@@ -17501,7 +17517,7 @@ function _buildSvcOrderPage(userId){
       '._mob-link:hover{background:'+cardBg+';color:'+textMain+'}'+
 
       // ── Main wrap ──
-      '._pub-main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 20px 80px}'+
+      '._pub-main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 20px 80px;overflow:visible}'+
       '@media(max-width:640px){._pub-main{padding:0 12px 60px}}'+
 
       // ── Hero/Banner ──
@@ -17605,6 +17621,16 @@ function _buildSvcOrderPage(userId){
       '._footer-bottom{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding-top:16px;border-top:1px solid '+borderC+';font-size:12px;color:'+textMuted+'}';
     document.head.appendChild(styleEl);
 
+    // CSS إضافي لضمان السكرول - يتغلب على أي CSS موروث من الـ app
+    var scrollFixStyle = document.createElement('style');
+    scrollFixStyle.id = '_pub-scroll-fix';
+    scrollFixStyle.textContent =
+      'html { overflow-y: auto !important; height: auto !important; scroll-behavior: smooth; }' +
+      'body { overflow-y: auto !important; overflow-x: hidden !important; height: auto !important; position: relative !important; }' +
+      '.app-shell { display: none !important; }' +  // إخفاء الـ app shell
+      '#auth-screen { display: none !important; }';
+    document.head.appendChild(scrollFixStyle);
+
     // ── SOCIALS map ──
     var SICONS={instagram:'<i class="fa-solid fa-camera"></i>',facebook:'<i class="fa-solid fa-book"></i>',tiktok:'<i class="fa-solid fa-music"></i>',youtube:'<i class="fa-solid fa-play"></i>️',twitter:'<i class="fa-solid fa-bird"></i>',whatsapp:'<i class="fa-solid fa-comments"></i>',website:'<i class="fa-solid fa-globe"></i>',behance:'<i class="fa-solid fa-palette"></i>',snapchat:'👻',linkedin:'<i class="fa-solid fa-briefcase"></i>'};
     var SURLS={whatsapp:function(v){return 'https://wa.me/'+v.replace(/\D/g,'');},instagram:function(v){return v.startsWith('http')?v:'https://instagram.com/'+v;},facebook:function(v){return v.startsWith('http')?v:'https://facebook.com/'+v;},tiktok:function(v){return v.startsWith('http')?v:'https://tiktok.com/@'+v;}};
@@ -17686,7 +17712,11 @@ function _buildSvcOrderPage(userId){
       '</div>'+
       (services.length
         ?'<div class="_svc-grid" id="_svc-grid-main">'+svcsHtml+'</div>'
-        :'<div style="text-align:center;padding:50px;color:'+textMuted+'">لا توجد خدمات متاحة حالياً</div>')+
+        :'<div style="text-align:center;padding:50px 20px">'+
+            '<div style="font-size:48px;margin-bottom:12px">🛍️</div>'+
+            '<div style="font-size:15px;font-weight:700;color:'+textMain+';margin-bottom:6px">لا توجد خدمات متاحة حالياً</div>'+
+            '<div style="font-size:12px;color:'+textMuted+'">سيتم إضافة الخدمات قريباً</div>'+
+          '</div>')+
     '</div>';
 
     // ── PACKAGES section ──
@@ -17779,6 +17809,20 @@ function _buildSvcOrderPage(userId){
 
     // ── Assemble page ──
     document.body.innerHTML='';
+
+    // ═══ إزالة كل CSS الـ app اللي بيمنع الـ scroll ═══
+    // الـ style tags الموروثة من الـ app بتحتوي على app-shell: overflow:hidden
+    // نضيف override قوي
+    var pubOverride = document.createElement('style');
+    pubOverride.id = '_pub-override';
+    pubOverride.textContent =
+      'html { height: auto !important; overflow: auto !important; }' +
+      'body { height: auto !important; overflow: auto !important; overflow-y: scroll !important; position: static !important; }' +
+      '.app-shell { display: none !important; height: auto !important; overflow: visible !important; }' +
+      '#auth-screen { display: none !important; }' +
+      '#app-body, .main-content, .sidebar, #bottom-nav, .bottom-nav-bar { display: none !important; }';
+    document.head.appendChild(pubOverride);
+
     document.body.style.cssText='margin:0;padding:0';
     document.body.innerHTML=navHtml;
     var main=document.createElement('div');
@@ -17789,6 +17833,15 @@ function _buildSvcOrderPage(userId){
 
     window._publicUd=ud; window._publicUserId=userId; window._publicAccent=accent;
     window._publicSettings=settings;
+
+    // ── تأكيد تفعيل السكرول ──
+    document.documentElement.style.overflow = 'auto';
+    document.documentElement.style.height = 'auto';
+    document.body.style.overflow = 'auto';
+    document.body.style.overflowY = 'auto';
+    document.body.style.overflowX = 'hidden';
+    document.body.style.height = 'auto';
+    document.body.style.position = 'relative';
 
     // ── Navbar scroll active ──
     window.addEventListener('scroll', function(){
