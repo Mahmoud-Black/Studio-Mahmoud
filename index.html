@@ -12156,72 +12156,60 @@ async function saveTeam(){
       const email = (m.email||'').toLowerCase().trim();
       if(!email) continue;
 
-      // Build the direct add notification (no invite needed)
-      const addNotif = {
-        id         : Date.now()+'_'+Math.random().toString(36).slice(2,7),
-        title      : '<i class="fa-solid fa-people-group"></i> تمت إضافتك لفريق!',
-        body       : 'تمت إضافتك كـ '+(m.role||'عضو')+' في فريق "'+name+'" بواسطة '+ownerName,
-        type       : 'team_added',
-        teamName   : name,
-        teamId     : d.id,
-        memberName : m.name,
-        memberRole : m.role,
-        ownerName,
-        ownerEmail,
-        ownerUserId: typeof _supaUserId!=='undefined' ? _supaUserId : '',
-        created_at : new Date().toISOString(),
-        read       : false
-      };
-
+      // Find target user_id — Method 1: RPC by email
       let targetUserId = m.linkedUserId || null;
-
-      // Method 1: try RPC
       if(!targetUserId){
         try{
-          const { data: authUser } = await supa.rpc('get_user_id_by_email', { p_email: email }).catch(()=>({data:null}));
-          if(authUser) targetUserId = authUser;
+          const { data: rpcId } = await supa.rpc('get_user_id_by_email', { p_email: email }).catch(()=>({data:null}));
+          if(rpcId) targetUserId = rpcId;
         }catch(e){}
       }
 
-      // Method 2: search studio_data
+      // Method 2: scan auth_users via admin (may not work with anon key — fallback only)
       if(!targetUserId){
         try{
-          const { data: rows2 } = await supa.from('studio_data').select('user_id, data').limit(500);
-          if(rows2){
-            for(const row of rows2){
-              try{
-                const ud2 = typeof row.data==='string' ? JSON.parse(row.data) : row.data;
-                const se2 = (ud2?.settings?.email||ud2?._user_email||'').toLowerCase().trim();
-                if(se2 && se2===email){ targetUserId=row.user_id; break; }
-              }catch(e){}
-            }
-          }
+          const { data: pr } = await supa.from('profiles').select('id').eq('email', email).maybeSingle().catch(()=>({data:null}));
+          if(pr) targetUserId = pr.id;
         }catch(e){}
       }
 
-      // Method 3: profiles
       if(!targetUserId){
-        const { data: pr } = await supa.from('profiles').select('id').eq('email',email).maybeSingle().catch(()=>({data:null}));
-        if(pr) targetUserId=pr.id;
-      }
-
-      if(!targetUserId){
-        showMiniNotif('⚠️ '+m.name+' — لم يُسجَّل بعد، سيظهر الفريق عند تسجيله');
+        showMiniNotif('⚠️ '+m.name+' — لم يُعثر على حساب بهذا الإيميل');
         continue;
       }
 
-      // Deliver notification directly to the user's studio_data
-      const { data: tgt } = await supa.from('studio_data').select('data').eq('user_id',targetUserId).single().catch(()=>({data:null}));
-      let ud = null;
-      if(tgt){ try{ ud=typeof tgt.data==='string'?JSON.parse(tgt.data):tgt.data; }catch(e){} }
-      if(!ud) ud={};
-      ud._pending_notifications = ud._pending_notifications||[];
-      const already = ud._pending_notifications.find(n=>n.type==='team_added'&&String(n.teamId)===String(d.id));
-      if(!already){
-        ud._pending_notifications.push(addNotif);
-        await supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',targetUserId);
+      // ── Deliver notification via user_notifications table (no RLS problem) ──
+      const notifRow = {
+        user_id    : targetUserId,
+        title      : 'تمت إضافتك لفريق!',
+        body       : 'تمت إضافتك كـ '+(m.role||'عضو')+' في فريق "'+name+'" بواسطة '+ownerName,
+        type       : 'team_added',
+        data       : JSON.stringify({ teamId: d.id, teamName: name, memberRole: m.role, ownerName, ownerEmail }),
+        read       : false,
+        created_at : new Date().toISOString()
+      };
+
+      const { error: notifErr } = await supa.from('user_notifications').insert([notifRow]).catch(e=>({error:e}));
+
+      if(notifErr){
+        // Fallback: write to studio_data if we somehow have access
+        console.warn('user_notifications insert failed:', notifErr.message, '— trying studio_data fallback');
+        try{
+          const { data: tgtRow } = await supa.from('studio_data').select('data').eq('user_id',targetUserId).maybeSingle().catch(()=>({data:null}));
+          if(tgtRow && tgtRow.data){
+            let ud2 = typeof tgtRow.data==='string' ? JSON.parse(tgtRow.data) : tgtRow.data;
+            ud2._pending_notifications = ud2._pending_notifications||[];
+            const alreadyEx = ud2._pending_notifications.find(n=>n.type==='team_added'&&String(n.teamId)===String(d.id));
+            if(!alreadyEx){
+              ud2._pending_notifications.push({ id:Date.now()+'_ta', title:'تمت إضافتك لفريق!', body:notifRow.body, type:'team_added', teamId:d.id, teamName:name, created_at:notifRow.created_at, read:false });
+              await supa.from('studio_data').update({data:JSON.stringify(ud2),updated_at:new Date().toISOString()}).eq('user_id',targetUserId).catch(()=>null);
+            }
+          }
+        }catch(e2){}
+        showMiniNotif('⚠️ تم الحفظ لكن قد لا يصل إشعار لـ '+m.name);
+      } else {
+        showMiniNotif('✅ تمت إضافة '+m.name+' وسيصله إشعار');
       }
-      showMiniNotif('✅ تمت إضافة '+m.name+' للفريق وإرسال إشعار له');
     } catch(e){ console.warn('Team notify err:', m.name, e); }
   }
 }
@@ -16234,41 +16222,50 @@ window.openMyMemberTeamProfile = function(ownerId){
   window._myTeamMemberships = [];
 
   window._checkTeamMembership = async function(myEmail){
-    if(!myEmail) return;
+    if(!myEmail || typeof supa==='undefined') return;
     myEmail = myEmail.toLowerCase().trim();
     try {
-      // Strategy: query studio_data rows where data contains this email in teams members
-      // Use limit to avoid overloading, and filter by email stored in _user_email field
-      var allRows = [];
-      try {
-        // First try: get rows where _user_email might match (not reliable, just reduces load)
-        var r1 = await supa.from('studio_data').select('user_id, data').limit(300);
-        if(r1.data) allRows = r1.data;
-      } catch(e){ return; }
-      if(!allRows || !allRows.length) return;
+      // Use user_notifications table — no RLS issues (each user reads own rows)
+      if(!_supaUserId) return;
+      var { data: notifRows } = await supa
+        .from('user_notifications')
+        .select('*')
+        .eq('user_id', _supaUserId)
+        .eq('type', 'team_added')
+        .order('created_at', {ascending:false});
+
       var memberships = [];
-      allRows.forEach(function(row){
-        if(!row.data) return;
-        try {
-          var ud = typeof row.data==='string' ? JSON.parse(row.data) : row.data;
-          if(!ud || !ud.teams) return;
-          ud.teams.forEach(function(team){
-            (team.members||[]).forEach(function(m){
-              var memberEmail = (m.email||'').toLowerCase().trim();
-              var emailMatch = memberEmail && memberEmail===myEmail;
-              // Also match by name vs email username (fallback)
-              var emailUser  = myEmail.split('@')[0].toLowerCase();
-              var nameMatch  = !m.email && m.name && (m.name.toLowerCase()===emailUser || m.name.toLowerCase().replace(/\s+/g,'')===emailUser);
-              if(emailMatch || nameMatch){
-                var myTasks = (ud.tasks||[]).filter(function(t){ return t.workerMember && t.workerMember.toLowerCase()===m.name.toLowerCase() && !t.done; });
-                var myDone  = (ud.tasks||[]).filter(function(t){ return t.workerMember && t.workerMember.toLowerCase()===m.name.toLowerCase() && t.done; });
-                var already = memberships.find(function(x){ return x.ownerId===row.user_id && x.teamName===team.name; });
-                if(!already) memberships.push({ ownerId:row.user_id, ownerName:(ud.settings&&ud.settings.name)||'مشرف', ownerLogo:(ud.settings&&ud.settings.logo)||'', teamName:team.name||'الفريق', memberName:m.name, role:m.role||'عضو', tasks:myTasks, doneTasks:myDone });
-              }
+      if(notifRows && notifRows.length){
+        notifRows.forEach(function(n){
+          try{
+            var d2 = typeof n.data==='string' ? JSON.parse(n.data||'{}') : (n.data||{});
+            var already = memberships.find(function(x){ return x.teamName===d2.teamName && x.ownerName===d2.ownerName; });
+            if(!already) memberships.push({
+              ownerId   : d2.ownerUserId||'',
+              ownerName : d2.ownerName||'مشرف',
+              ownerLogo : '',
+              teamName  : d2.teamName||'الفريق',
+              memberName: n.title||'',
+              role      : d2.memberRole||'عضو',
+              tasks     : [],
+              doneTasks : []
             });
+          }catch(e){}
+        });
+      }
+
+      // Also check local S.teams for membership
+      if(myEmail){
+        (S.teams||[]).forEach(function(team){
+          (team.members||[]).forEach(function(m){
+            if((m.email||'').toLowerCase().trim() === myEmail){
+              var already = memberships.find(function(x){ return x.teamName===team.name && x.ownerId==='local'; });
+              if(!already) memberships.push({ ownerId:'local', ownerName:(S.settings&&S.settings.name)||'مشرف', ownerLogo:'', teamName:team.name||'الفريق', memberName:m.name, role:m.role||'عضو', tasks:[], doneTasks:[] });
+            }
           });
-        } catch(e){}
-      });
+        });
+      }
+
       window._myTeamMemberships = memberships;
       if(typeof renderMyMemberTeams === 'function') renderMyMemberTeams();
       _updateInboxBadge();
@@ -16276,10 +16273,10 @@ window.openMyMemberTeamProfile = function(ownerId){
         _showTeamMembershipBanner(memberships);
         var knownKey  = 'known_teams_'+(_supaUserId||'g');
         var knownList = JSON.parse(localStorage.getItem(knownKey)||'[]');
-        var newTeams  = memberships.filter(function(m){ return !knownList.includes(m.ownerId+'_'+m.teamName); });
+        var newTeams  = memberships.filter(function(m){ return !knownList.includes(m.ownerName+'_'+m.teamName); });
         if(newTeams.length){
-          newTeams.forEach(function(m){ showMiniNotif('<i class="fa-solid fa-users"></i> أنت عضو في فريق "'+m.teamName+'" — '+m.ownerName); });
-          localStorage.setItem(knownKey, JSON.stringify(memberships.map(function(m){ return m.ownerId+'_'+m.teamName; })));
+          newTeams.forEach(function(m){ showMiniNotif('<i class="fa-solid fa-users" style="color:var(--accent3)"></i> انضممت لفريق "'+m.teamName+'" — '+m.ownerName); });
+          localStorage.setItem(knownKey, JSON.stringify(memberships.map(function(m){ return m.ownerName+'_'+m.teamName; })));
         }
       }
     } catch(e){ console.warn('_checkTeamMembership:', e); }
@@ -18355,15 +18352,39 @@ function _checkSvcOrderUrl(){
   var uid=params.get('svcorder');
   // Handle username-based URL: ?u=username
   var _uname=params.get('u');
+  // Inject scroll-unlock CSS immediately at start — before any DOM changes
+  if(uid || _uname || params.get('portal')){
+    var _earlyStyle = document.getElementById('_pub-early-style') || document.createElement('style');
+    _earlyStyle.id = '_pub-early-style';
+    _earlyStyle.textContent = 'html,body{overflow:auto!important;overflow-y:scroll!important;height:auto!important;min-height:100vh!important;position:static!important;}';
+    if(!document.getElementById('_pub-early-style')) document.head.insertBefore(_earlyStyle, document.head.firstChild);
+  }
   if(!uid && _uname){
     // Show loading immediately and unlock scroll
     if(window._showApp) window._showApp();
     document.documentElement.classList.add('pub-page');
     document.body.classList.add('pub-page');
+
+    // Force scroll on html — do NOT use cssText= as it gets wiped by innerHTML=
     document.documentElement.style.overflow = 'auto';
+    document.documentElement.style.overflowY = 'scroll';
     document.documentElement.style.height = 'auto';
-    document.body.style.cssText = 'margin:0;padding:0;overflow-x:hidden;overflow-y:auto;height:auto;position:static;font-family:Cairo,Tajawal,sans-serif;direction:rtl';
-    document.body.innerHTML = '<div style="position:fixed;inset:0;background:#0a0a0f;display:flex;align-items:center;justify-content:center;font-family:Cairo,Tajawal,sans-serif;direction:rtl"><div style="text-align:center"><div style="font-size:36px;margin-bottom:12px">⏳</div><div style="font-size:14px;color:#aaa">جاري تحميل المتجر...</div></div></div>';
+
+    // Build loading screen WITHOUT innerHTML= (which destroys inline styles)
+    while(document.body.firstChild) document.body.removeChild(document.body.firstChild);
+    document.body.style.overflow = 'auto';
+    document.body.style.overflowY = 'auto';
+    document.body.style.height = 'auto';
+    document.body.style.position = 'static';
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
+    document.body.style.fontFamily = 'Cairo,Tajawal,sans-serif';
+    document.body.style.direction = 'rtl';
+
+    var loadDiv = document.createElement('div');
+    loadDiv.style.cssText = 'position:fixed;inset:0;background:#0a0a0f;display:flex;align-items:center;justify-content:center;font-family:Cairo,Tajawal,sans-serif;direction:rtl';
+    loadDiv.innerHTML = '<div style="text-align:center"><div style="font-size:36px;margin-bottom:12px">⏳</div><div style="font-size:14px;color:#aaa">جاري تحميل المتجر...</div></div>';
+    document.body.appendChild(loadDiv);
     // Lookup UID from username stored in studio_data JSON
     if(typeof supa!=='undefined'){
       // Use Supabase JSON path filter — efficient, no full scan
@@ -18415,6 +18436,11 @@ function _checkSvcOrderUrl(){
   if(p.get('svcorder')||( p.get('portal')&&p.get('uid') )||p.get('u')){
     // Mark as public page — auth functions check this flag
     window._isPublicPage = true;
+    // Inject scroll-unlock style as FIRST child of head — overrides everything
+    var earlyStyle = document.createElement('style');
+    earlyStyle.id = '_pub-early-style';
+    earlyStyle.textContent = 'html,body{overflow:auto!important;overflow-y:scroll!important;height:auto!important;min-height:100vh!important;position:static!important;max-height:none!important;}';
+    document.head.insertBefore(earlyStyle, document.head.firstChild);
     // Add pub-page class IMMEDIATELY to unlock scroll before any CSS applies
     document.documentElement.classList.add('pub-page');
     document.addEventListener('DOMContentLoaded',function(){
@@ -18467,14 +18493,22 @@ function _buildSvcOrderPage(userId){
       if(!s.active && s.active !== undefined) return false;
       if(s.active === false) return false;
       if(_storeId) return s.store_id === _storeId;
-      return !s.store_id; // main store: services with no store_id
+      return !s.store_id || s.store_id === null || s.store_id === undefined || s.store_id === '';
     });
+    // Fallback: if no services matched and no specific store requested, show all active
+    if(!services.length && !_storeId){
+      services=(ud.services||[]).filter(function(s){ return s.active!==false; });
+    }
     // Filter packages by store_id
     var standalonePkgs=(ud.standalone_packages||[]).filter(function(p){
       if(p.active === false) return false;
       if(_storeId) return p.store_id === _storeId;
-      return !p.store_id;
+      return !p.store_id || p.store_id === null || p.store_id === undefined || p.store_id === '';
     });
+    // Fallback: if no packages matched and no specific store requested, show all active packages
+    if(!standalonePkgs.length && !_storeId){
+      standalonePkgs=(ud.standalone_packages||[]).filter(function(p){ return p.active!==false; });
+    }
     var pfProjects=ud.portfolio_projects||[];
     var settings=ud.settings||{};
     var isOrdersOpen=settings.svc_orders_open!==false;
@@ -18511,6 +18545,7 @@ function _buildSvcOrderPage(userId){
     // ── Store globally ──
     window._pubUd=ud; window._pubUserId=userId; window._pubAccent=accent;
     window._pubSettings=settings;
+    window._pubStoreId=_storeId;  // save store filter for detail pages
     window._pubColors={bg,surface,surface2,surface3,textMain,textSub,textMuted,borderC,cardBg,cardBorder,sheetBg,isLight};
 
     // ── Inject CSS ──
@@ -18910,10 +18945,15 @@ window._toggleMobMenu=function(){
 window._showAllSvcs=function(){
   var ud=window._pubUd; if(!ud) return;
   var C=window._pubColors; var accent=window._pubAccent;
-  var services=(ud.services||[]).filter(function(s){return s.active!==false;});
+  var _sid=window._pubStoreId;
+  var services=(ud.services||[]).filter(function(s){
+    if(s.active===false) return false;
+    if(_sid) return s.store_id===_sid;
+    return !s.store_id;
+  });
   var grid=document.getElementById('_svc-grid-main'); if(!grid) return;
   grid.innerHTML=services.map(function(svc,idx){
-    var priceDisplay=svc.price&&+svc.price?Number(svc.price).toLocaleString()+' ج':'عند الطلب';
+    var priceDisplay=svc.price&&+svc.price?Number(svc.price).toLocaleString()+' '+(svc.currency||'ج.م'):'عند الطلب';
     return '<div class="_svc-card">'+
       (svc.image?'<img class="_svc-img" src="'+escapeHtml(svc.image)+'" alt="" loading="lazy" onclick="_openSvcPage('+idx+')" style="cursor:pointer">':'<div class="_svc-img-ph" onclick="_openSvcPage('+idx+')" style="cursor:pointer">'+(svc.icon||'<i class="fa-solid fa-bag-shopping"></i>')+'</div>')+
       '<div class="_svc-body">'+
@@ -18922,8 +18962,8 @@ window._showAllSvcs=function(){
         (svc.desc?'<div class="_svc-desc" onclick="_openSvcPage('+idx+')" style="cursor:pointer">'+escapeHtml(svc.desc)+'</div>':'')+
         '<div class="_svc-foot"><div class="_svc-price">'+priceDisplay+'</div>'+
           '<div style="display:flex;gap:5px">'+
-            '<button class="_svc-btn" onclick="event.stopPropagation();_openSvcPage('+idx+')" style="background:transparent;border:1.5px solid '+accent+'55;color:'+accent+'">تفاصيل</button>'+
-            '<button class="_svc-btn" onclick="event.stopPropagation();_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+')">اطلب ←</button>'+
+            (svc.payment_link?'<a href="'+escapeHtml(svc.payment_link)+'" target="_blank" class="_svc-btn" style="text-decoration:none;background:linear-gradient(135deg,#4fd1a5,#38b28a);color:#fff;display:flex;align-items:center;gap:3px" onclick="event.stopPropagation()"><i class="fa-solid fa-credit-card" style="font-size:10px"></i> ادفع</a>':'')+
+            '<button class="_svc-btn" onclick="event.stopPropagation();_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+',\''+encodeURIComponent(svc.payment_link||'')+'\')">اطلب ←</button>'+
           '</div>'+
         '</div>'+
       '</div></div>';
@@ -18935,7 +18975,12 @@ window._showAllSvcs=function(){
 window._showAllPkgs=function(){
   var ud=window._pubUd; if(!ud) return;
   var accent=window._pubAccent;
-  var standalonePkgs=(ud.standalone_packages||[]).filter(function(p){return p.active!==false;});
+  var _sid=window._pubStoreId;
+  var standalonePkgs=(ud.standalone_packages||[]).filter(function(p){
+    if(p.active===false) return false;
+    if(_sid) return p.store_id===_sid;
+    return !p.store_id;
+  });
   var grid=document.querySelector('#_sec-pkgs ._pkg-grid'); if(!grid) return;
   grid.innerHTML=standalonePkgs.map(function(p,idx){
     return '<div class="_pkg-card">'+
@@ -18959,7 +19004,12 @@ window._showAllPkgs=function(){
 window._openSvcPage=function(idx){
   var ud=window._pubUd; var accent=window._pubAccent; var C=window._pubColors;
   if(!ud) return;
-  var svc=(ud.services||[]).filter(function(s){return s.active!==false;})[idx]; if(!svc) return;
+  var _sid=window._pubStoreId;
+  var svc=(ud.services||[]).filter(function(s){
+    if(s.active===false) return false;
+    if(_sid) return s.store_id===_sid;
+    return !s.store_id;
+  })[idx]; if(!svc) return;
   var ex=document.getElementById('_svc-full-page'); if(ex) ex.remove();
 
   // Terms
@@ -19100,7 +19150,12 @@ window._submitOrderForm=function(userId,svcName,pkgName,price,paymentLink){
 window._openPkgPage=function(idx){
   var ud=window._pubUd; var accent=window._pubAccent; var C=window._pubColors;
   if(!ud) return;
-  var standalonePkgs=(ud.standalone_packages||[]).filter(function(p){return p.active!==false;});
+  var _sid=window._pubStoreId;
+  var standalonePkgs=(ud.standalone_packages||[]).filter(function(p){
+    if(p.active===false) return false;
+    if(_sid) return p.store_id===_sid;
+    return !p.store_id;
+  });
   var p=standalonePkgs[idx]; if(!p) return;
   var ex=document.getElementById('_pkg-full-page'); if(ex) ex.remove();
   var page=document.createElement('div');
@@ -20859,7 +20914,12 @@ async function _loadServerNotifications(){
       });
       if(newCount2 > 0) {
         _saveNotifications(); _updateNotifBell();
-        if(typeof toast === 'function') toast('<i class="fa-solid fa-comments"></i> لديك '+newCount2+' رسالة جديدة من الإدارة');
+        // Check if any team_added notifications
+        var hasTeamNotif = res.data.some(function(n){ return n.type==='team_added'; });
+        var toastMsg = hasTeamNotif
+          ? '<i class="fa-solid fa-people-group" style="color:var(--accent3)"></i> تمت إضافتك لفريق جديد!'
+          : '<i class="fa-solid fa-bell"></i> لديك '+newCount2+' إشعار جديد';
+        if(typeof toast === 'function') toast(toastMsg);
       }
     }
   } catch(e){ _notifTableExists = false; }
