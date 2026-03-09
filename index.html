@@ -1977,7 +1977,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
         <div class="auth-logo-mark"><i class="fa-solid fa-bolt"></i></div>
         <div class="auth-logo-text">
           <div class="auth-app-name" data-platform-name>Ordo - Tasks</div>
-          <div class="auth-app-sub">نظام إدارة الأعمال</div>
+          <div class="auth-app-sub">Freelance System</div>
         </div>
       </div>
       <div class="auth-tabs">
@@ -2085,7 +2085,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       </div>
     </div>
 
-    <div class="auth-footer">Ordo - Tasks — نظام إدارة الأعمال الاحترافي <i class="fa-solid fa-bolt"></i></div>
+    <div class="auth-footer">Ordo - Tasks — Freelance System الاحترافي <i class="fa-solid fa-bolt"></i></div>
 
     </div><!-- end auth-card-body -->
   </div>
@@ -2108,7 +2108,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     </div>
     <div class="logo-text">
       <div class="logo-title" data-platform-name>Ordo - Tasks</div>
-      <div class="logo-sub" id="_sidebar-logo-sub">نظام إدارة الأعمال</div>
+      <div class="logo-sub" id="_sidebar-logo-sub">Freelance System</div>
     </div>
   </div>
   <div class="nav-section-label" data-i18n="sec_main">الرئيسية</div>
@@ -7321,7 +7321,7 @@ function _genStatement(id){
   const totalTasks=tasks.reduce((s,t)=>s+(t.value||0),0);
   const totalInvPaid=invs.filter(i=>i.status==='paid').reduce((s,i)=>s+i.total,0);
   const totalInvPend=invs.filter(i=>i.status==='pending').reduce((s,i)=>s+i.total,0);
-  const studio=S.settings?.name||'نظام إدارة الأعمال';
+  const studio=S.settings?.name||'Freelance System';
   const arabicMonths=['','يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
   const html=`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>كشف حساب — ${c.name}</title>
@@ -7365,7 +7365,7 @@ function _genStatement(id){
   ${invs.map(i=>`<tr><td>#${i.num||'—'}</td><td>${i.date||'—'}</td><td>${i.total.toLocaleString()} ج</td><td><span class="badge ${i.status==='paid'?'paid':'pend'}">${i.status==='paid'?'مدفوع':'معلق'}</span></td></tr>`).join('')}
   </tbody></table>`:''}
   <div style="margin-top:30px;padding-top:16px;border-top:2px solid #e8eaf0;display:flex;justify-content:space-between;font-size:11px;color:#aaa">
-    <span>${studio}</span><span>كشف حساب صادر تلقائياً من نظام إدارة الأعمال</span>
+    <span>${studio}</span><span>كشف حساب صادر تلقائياً من Freelance System</span>
   </div>
   </div><${'script'}>window.onload=()=>setTimeout(()=>window.print(),400)</${'script'}>
   <!-- مؤشر حالة البيانات -->
@@ -7546,7 +7546,7 @@ function _delStmt(id){
 
 function _printStmt(id){
   const s=_stmtsData().find(x=>x.id===id); if(!s)return;
-  const studio=S.settings?.name||'نظام إدارة الأعمال';
+  const studio=S.settings?.name||'Freelance System';
   const stFmt={new:'جديد',progress:'جاري',review:'مراجعة',done:'مكتمل'};
   const html=`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>كشف حساب ${s.num} — ${s.client}</title>
   <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Cairo',Arial,sans-serif;background:#f5f6fa;color:#1a1a2e;padding:30px}
@@ -7585,7 +7585,7 @@ function _printStmt(id){
 
 function _waStmt(id){
   const s=_stmtsData().find(x=>x.id===id); if(!s)return;
-  const studio=S.settings?.name||'نظام إدارة الأعمال';
+  const studio=S.settings?.name||'Freelance System';
   const c=S.clients.find(x=>x.name===s.client);
   const phone=(c?.phone||'').replace(/[^\d]/g,'');
   const msg=`مرحباً ${s.client} <i class="fa-solid fa-hand-wave"></i>\n\nنرفق لك كشف حساب رقم ${s.num}\nالفترة: ${s.from||'—'} → ${s.to||'—'}\nإجمالي الطلبات: ${s.tasks_count} طلب\nالمحصّل: ${s.paid.toLocaleString()} ج\nالمعلق: ${s.pending.toLocaleString()} ج\n\n${studio}`;
@@ -13421,7 +13421,7 @@ function _printClientReport(id){
   const totalPaid=invs.filter(i=>i.status==='paid').reduce((s,i)=>s+i.total,0);
   const totalPend=invs.filter(i=>i.status==='pending').reduce((s,i)=>s+i.total,0);
   const score=_calcClientScore(c);
-  const studio=S.settings?.name||'نظام إدارة الأعمال';
+  const studio=S.settings?.name||'Freelance System';
 
   // Group by month
   const byMonth={};
