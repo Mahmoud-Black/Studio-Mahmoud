@@ -255,87 +255,49 @@ let _currentMode = 'user';
 let _cloudSaving = false;
 let _cloudSavePending = false;
 
-// ══════════════════════════════════════════════════════════════
-// VERSIONING SYSTEM — حماية البيانات بالـ version number
-// كل حفظ بيزوّد version بـ 1 — ما بنكتبش على السحابة إلا لو
-// الـ version المحلي >= version السحابة
-// ══════════════════════════════════════════════════════════════
-function _getDataVersion(data){
-  return (data && typeof data._v === 'number') ? data._v : 0;
-}
-function _calcDataScore(data){
-  if(!data) return 0;
-  return (data.tasks?.length||0) + (data.clients?.length||0) +
-         (data.invoices?.length||0) + (data.transactions?.length||0) +
-         (data.services?.length||0) + (data.stores?.length||0) +
-         (data.svc_orders?.length||0) + (data.projects?.length||0) +
-         (data.income?.length||0) + (data.teams?.length||0) +
-         Object.keys(data.settings||{}).length;
-}
-
 async function _doCloudSave(data) {
   if(!_supaUserId || !data) return;
   if(_cloudSaving) { _cloudSavePending = true; return; }
   _cloudSaving = true;
   try {
-    // ── خطوة 1: زوّد الـ version قبل الحفظ ──
-    if(typeof data._v !== 'number') data._v = 1;
-    else data._v = data._v + 1;
-
-    const _myVersion = data._v;
-    const _myScore   = _calcDataScore(data);
-
-    // ── خطوة 2: اقرأ السحابة للمقارنة (كل 3 دقائق) ──
-    const _lastCheck = window._lastCloudCheck || 0;
-    if(Date.now() - _lastCheck > 180000){
-      window._lastCloudCheck = Date.now();
-      try{
-        const {data: _cv} = await supa.from('studio_data')
-          .select('data').eq('user_id',_supaUserId).maybeSingle();
-        if(_cv?.data){
+    // ─── حماية من رفع بيانات فارغة ───
+    // لو S فارغة تقريباً (مش معقول) لا ترفعها
+    const _dataScore = (data.tasks?.length||0) + (data.clients?.length||0) +
+                       (data.invoices?.length||0) + (data.transactions?.length||0);
+    // جلب آخر نسخة من السحابة للمقارنة (كل 5 دقائق بس)
+    const _lastCloudCheck = window._lastCloudScoreCheck || 0;
+    if(Date.now() - _lastCloudCheck > 300000) { // كل 5 دقائق
+      try {
+        const {data: _cv} = await supa.from('studio_data').select('data').eq('user_id',_supaUserId).maybeSingle();
+        if(_cv?.data) {
           const _cd = typeof _cv.data==='string' ? JSON.parse(_cv.data) : _cv.data;
-          const _cloudVersion = _getDataVersion(_cd);
-          const _cloudScore   = _calcDataScore(_cd);
-          window._lastCloudVersion = _cloudVersion;
-          window._lastCloudScore   = _cloudScore;
-
-          // السحابة عندها version أحدث وبيانات أكثر — إحنا تخلفنا
-          if(_cloudVersion > _myVersion && _cloudScore > _myScore + 3){
-            console.warn('Cloud is newer (v'+_cloudVersion+'/score:'+_cloudScore+') vs local (v'+_myVersion+'/score:'+_myScore+') — pulling cloud');
+          const _cloudScore = (_cd?.tasks?.length||0) + (_cd?.clients?.length||0) +
+                              (_cd?.invoices?.length||0) + (_cd?.transactions?.length||0);
+          window._lastCloudScore = _cloudScore;
+          window._lastCloudScoreCheck = Date.now();
+          // إذا البيانات المحلية أقل بكثير من السحابة - خطر!
+          if(_dataScore < _cloudScore - 5 && _cloudScore > 3) {
+            console.error('⛔ ABORT cloudSave: local data smaller than cloud! local:', _dataScore, 'cloud:', _cloudScore);
+            // استرد من السحابة بدل ما نكتب عليها
             S = _cd;
             migrateSFields && migrateSFields();
             try { localStorage.setItem(userKey(), JSON.stringify(S)); } catch(e) {}
-            try { localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(S)); } catch(e) {}
-            showSyncIndicator('<i class="fa-solid fa-rotate"></i> تم تحديث البيانات من السحابة', '#7c6ff7');
-            _cloudSaving = false;
-            return;
-          }
-
-          // بياناتنا المحلية أقل بكثير من السحابة — خطر مسح
-          if(_myScore < _cloudScore - 10 && _cloudScore > 5 && _cloudVersion >= _myVersion){
-            console.error('ABORT: local score('+_myScore+') << cloud score('+_cloudScore+') — restoring');
-            S = _cd;
-            migrateSFields && migrateSFields();
-            try { localStorage.setItem(userKey(), JSON.stringify(S)); } catch(e) {}
-            try { localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(S)); } catch(e) {}
             showSyncIndicator('<i class="fa-solid fa-rotate"></i> تم استرداد البيانات من السحابة', '#7c6ff7');
             _cloudSaving = false;
             return;
           }
         }
-      } catch(e){ /* ignore */ }
+      } catch(e) { /* ignore check errors */ }
     }
-
-    // ── خطوة 3: تنظيف البيانات ──
     const _replacer = (key, val) => {
       if(val === null || val === undefined) return val;
       const t = typeof val;
       if(t === 'string' || t === 'number' || t === 'boolean') return val;
       if(Array.isArray(val)) return val;
-      if(t === 'object'){
+      if(t === 'object') {
         if(val instanceof Headers || val instanceof Response || val instanceof Request ||
            val instanceof Blob || val instanceof File || val instanceof ArrayBuffer ||
-           val instanceof ImageData || (typeof Node !== 'undefined' && val instanceof Node)){
+           val instanceof ImageData || (typeof Node !== 'undefined' && val instanceof Node)) {
           return undefined;
         }
         return val;
@@ -346,43 +308,46 @@ async function _doCloudSave(data) {
     try { _safeData = JSON.parse(JSON.stringify(data, _replacer)); }
     catch(e) { try { _safeData = JSON.parse(JSON.stringify(data)); } catch(e2) { _safeData = {}; } }
 
-    // ── خطوة 4: حفظ محلي دائماً ──
+    // احفظ نسخة احتياطية محلية دايماً قبل الإرسال
     try { localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(_safeData)); } catch(e) {}
     try { localStorage.setItem(userKey(), JSON.stringify(_safeData)); } catch(e) {}
 
-    // ── خطوة 5: رفع للسحابة ──
-    var _un = (_safeData?.settings?.username) || null;
-    const payload = {
-      user_id    : _supaUserId,
-      data       : JSON.stringify(_safeData),
-      updated_at : new Date().toISOString(),
-      ...(_un ? {username_index: _un.toLowerCase()} : {})
-    };
+    var _un = (_safeData&&_safeData.settings&&_safeData.settings.username)||null;
+    const payload = { user_id: _supaUserId, data: JSON.stringify(_safeData), updated_at: new Date().toISOString(), ...(_un?{username_index:_un.toLowerCase()}:{}) };
     let _upsertError;
-    try{
+    try {
       const { error } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
       _upsertError = error;
-    } catch(fetchErr){
-      if(fetchErr?.message?.includes('DataCloneError') ||
-         fetchErr?.message?.includes('postMessage') ||
-         fetchErr?.message?.includes('Headers')){
-        _upsertError = null;
-      } else { throw fetchErr; }
+    } catch(fetchErr) {
+      // Silently ignore DataCloneError / postMessage / Headers errors from fetch internals
+      if(fetchErr && fetchErr.message && (
+        fetchErr.message.includes('DataCloneError') ||
+        fetchErr.message.includes('postMessage') ||
+        fetchErr.message.includes('Headers')
+      )) {
+        _upsertError = null; // treat as success — data was likely saved
+      } else {
+        throw fetchErr;
+      }
     }
-    if(_upsertError){
-      if(!_upsertError.message?.includes('DataCloneError'))
+    if(_upsertError) {
+      // Only log real errors, not DataClone noise
+      if(!_upsertError.message || !_upsertError.message.includes('DataCloneError')) {
         console.error('cloudSave error:', _upsertError.message);
+      }
       showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل الحفظ - محفوظ محلياً', '#f7c948');
     } else {
       showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
     }
-  } catch(e){
-    if(!e.message?.includes('DataCloneError') && !e.message?.includes('postMessage') && !e.message?.includes('Headers'))
+  } catch(e) {
+    // Suppress DataCloneError / postMessage errors silently — these are cosmetic only
+    if(!e.message || (!e.message.includes('DataCloneError') && !e.message.includes('postMessage') && !e.message.includes('Headers'))) {
       console.error('cloudSave exception:', e.message);
+    }
     showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل المزامنة', '#f76f7c');
   } finally {
     _cloudSaving = false;
-    if(_cloudSavePending){
+    if(_cloudSavePending) {
       _cloudSavePending = false;
       setTimeout(() => _doCloudSave(S), 300);
     }
@@ -4342,9 +4307,24 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
           <div style="font-size:13px;font-weight:800;margin-bottom:4px"><i class="fa-solid fa-at" style="color:var(--accent)"></i> يوزرنيم الموقع</div>
           <div style="font-size:11px;color:var(--text3);margin-bottom:10px">رابط موقعك: store.html?u=<span id="svc-un-live-preview" style="color:var(--accent);font-weight:700">...</span></div>
           <div style="display:flex;gap:8px;align-items:center">
-            <input class="form-input" id="svc-main-username" placeholder="mahmoud-studio" style="flex:1;direction:ltr" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');document.getElementById('svc-un-live-preview').textContent=this.value||'...'">
+            <input class="form-input" id="svc-main-username" placeholder="mahmoud-studio" style="flex:1;direction:ltr" oninput="
+              this.value=this.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');
+              document.getElementById('svc-un-live-preview').textContent=this.value||'...';
+              clearTimeout(window._unCheckTimer);
+              var _v=this.value;
+              var _st=document.getElementById('_un-main-status');
+              if(_st){ if(_v.length>0&&_v.length<3){_st.innerHTML='<span style=\'color:#f7c948;font-size:11px\'><i class=\'fa-solid fa-triangle-exclamation\'></i> 3 حروف على الأقل</span>';}else if(_v.length===0){_st.innerHTML='';}else{_st.innerHTML='<span style=\'color:var(--text3);font-size:11px\'><i class=\'fa-solid fa-spinner fa-spin\'></i> جاري التحقق...</span>';}}
+              if(_v.length>=3){window._unCheckTimer=setTimeout(async function(){
+                var r=await _checkUsernameAvailable(_v,typeof _supaUserId!=='undefined'?_supaUserId:null);
+                var _s=document.getElementById('_un-main-status');
+                if(!_s)return;
+                if(r.ok){_s.innerHTML='<span style=\'color:#4fd1a5;font-size:11px\'><i class=\'fa-solid fa-circle-check\'></i> متاح ✓</span>';}
+                else{_s.innerHTML='<span style=\'color:#f76f7c;font-size:11px\'><i class=\'fa-solid fa-circle-xmark\'></i> مستخدم من قبل ✗</span>';}
+              },600);}
+            ">
             <button onclick="saveSvcUsername()" class="btn btn-primary btn-sm" style="flex-shrink:0;white-space:nowrap"><i class="fa-solid fa-floppy-disk"></i> حفظ</button>
           </div>
+          <div id="_un-main-status" style="margin-top:5px;min-height:18px"></div>
         </div>
 
         <!-- Multi-Store Manager -->
@@ -10090,27 +10070,22 @@ async function loginWithSupaSession(supaUser, session, userMeta){
   showSyncIndicator('<i class="fa-solid fa-cloud"></i>️ جاري تحميل بياناتك...', 'var(--accent)');
   const cloudData = await cloudLoad();
   if(cloudData){
+    // تحقق من صحة البيانات - لو السحابة بترجع object فارغ تقريباً، قارن بالـ local backup
     const _localBackupRaw = localStorage.getItem('studioOS_backup_'+supaUser.id);
     let _localBackup = null;
     try { if(_localBackupRaw) _localBackup = JSON.parse(_localBackupRaw); } catch(e) {}
 
-    // ✅ المقارنة بالـ version أولاً — أحدث version يكسب
-    const _cloudV = _getDataVersion(cloudData);
-    const _localV = _getDataVersion(_localBackup);
-    const _cloudScore = _calcDataScore(cloudData);
-    const _localScore = _calcDataScore(_localBackup);
+    const _cloudHasData = (cloudData.tasks?.length || 0) + (cloudData.clients?.length || 0) +
+                          (cloudData.invoices?.length || 0) + (cloudData.transactions?.length || 0);
+    const _localHasData = (_localBackup?.tasks?.length || 0) + (_localBackup?.clients?.length || 0) +
+                          (_localBackup?.invoices?.length || 0) + (_localBackup?.transactions?.length || 0);
 
-    console.log('Login merge: cloud v'+_cloudV+'/score:'+_cloudScore+' | local v'+_localV+'/score:'+_localScore);
-
-    // لو السحابة أحدث — استخدمها
-    if(_cloudV >= _localV || _cloudScore >= _localScore - 5){
-      S = cloudData;
-    } else {
-      // اللوكال أحدث وعنده بيانات أكثر بكثير — استخدمه وارفعه
-      console.warn('Local is newer — using local backup and re-uploading');
+    // لو الـ local backup أكبر بشكل واضح - ده مؤشر إن السحابة اتكتب عليها بيانات فارغة
+    if(_localHasData > _cloudHasData + 10 && _localBackup) {
+      console.warn('⚠️ Cloud data seems incomplete vs local backup — using local');
       S = _localBackup;
-      // ارفع اللوكال للسحابة بعد ثانيتين
-      setTimeout(() => _doCloudSave(S), 2000);
+    } else {
+      S = cloudData;
     }
     migrateSFields();
     if(S._admin_updated && S._admin_name) {
@@ -17325,9 +17300,23 @@ function openNewStoreModal(editIdx){
       '<label class="form-label"><i class="fa-solid fa-at" style="color:var(--accent)"></i> يوزرنيم المتجر <span style="font-size:10px;color:var(--text3)">(اختياري — للرابط المخصص)</span></label>'+
       '<div style="display:flex;align-items:center;border:1.5px solid var(--border);border-radius:10px;overflow:hidden">'+
         '<span style="padding:0 10px;font-size:12px;color:var(--text3);border-left:1.5px solid var(--border);background:var(--surface2);height:40px;display:flex;align-items:center;flex-shrink:0">@</span>'+
-        '<input class="form-input" id="_store-username" placeholder="my-store" value="'+(st?escapeHtml(st.username||''):'')+'" style="border:none;border-radius:0;background:transparent;direction:ltr" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_-]/g,\'\')">'+
+        '<input class="form-input" id="_store-username" placeholder="my-store" value="'+(st?escapeHtml(st.username||''):'')+'" style="border:none;border-radius:0;background:transparent;direction:ltr" oninput="'+
+          'this.value=this.value.toLowerCase().replace(/[^a-z0-9_-]/g,\'\');'+
+          'clearTimeout(window._stUnTimer);'+
+          'var _v=this.value;'+
+          'var _s=document.getElementById(\'_store-un-status\');'+
+          'if(_s){if(_v.length>0&&_v.length<3){_s.innerHTML=\'<span style=\\\'color:#f7c948;font-size:11px\\\'><i class=\\\'fa-solid fa-triangle-exclamation\\\'></i> 3 حروف على الأقل</span>\';}else if(_v.length===0){_s.innerHTML=\'\';}else{_s.innerHTML=\'<span style=\\\'color:var(--text3);font-size:11px\\\'><i class=\\\'fa-solid fa-spinner fa-spin\\\'></i> جاري التحقق...</span>\';}}'+
+          'var _cur=\''+(st?escapeHtml(st.username||''):'')+'\';'+
+          'if(_v.length>=3&&_v!==_cur){window._stUnTimer=setTimeout(async function(){'+
+            'var r=await _checkUsernameAvailable(_v,typeof _supaUserId!==\'undefined\'?_supaUserId:null);'+
+            'var _s2=document.getElementById(\'_store-un-status\');if(!_s2)return;'+
+            'if(r.ok){_s2.innerHTML=\'<span style=\\\'color:#4fd1a5;font-size:11px\\\'><i class=\\\'fa-solid fa-circle-check\\\'></i> متاح ✓</span>\';}'+
+            'else{_s2.innerHTML=\'<span style=\\\'color:#f76f7c;font-size:11px\\\'><i class=\\\'fa-solid fa-circle-xmark\\\'></i> مستخدم من قبل ✗</span>\';}'+
+          '},700);}'+
+        '">'+
       '</div>'+
-      '<div style="font-size:10px;color:var(--text3);margin-top:3px">حروف إنجليزية صغيرة وأرقام و - و _ فقط</div>'+
+      '<div id="_store-un-status" style="margin-top:5px;min-height:18px"></div>'+
+      '<div style="font-size:10px;color:var(--text3);margin-top:2px">حروف إنجليزية صغيرة وأرقام و - و _ فقط</div>'+
     '</div>'+
     '<div class="form-group">'+
       '<label class="form-label"><i class="fa-solid fa-image" style="color:var(--accent)"></i> لوجو المتجر <span style="font-size:10px;color:var(--text3)">(اختياري)</span></label>'+
@@ -17363,13 +17352,48 @@ window._clearStoreLogoModal=function(){
   var cl=document.getElementById('_store-logo-clear'); if(cl) cl.style.display='none';
   var inp=document.getElementById('_store-logo-input'); if(inp) inp.value='';
 };
-function _saveStore(editIdx, btn){
+async function _saveStore(editIdx, btn){
   var modal=btn.closest('.modal-overlay');
   var name=(modal.querySelector('#_store-name')||{}).value.trim();
   var desc=(modal.querySelector('#_store-desc')||{}).value.trim();
   var username=(modal.querySelector('#_store-username')||{}).value.trim().toLowerCase().replace(/[^a-z0-9_-]/g,'')||'';
   var logo=window._storeLogoData||'';
-  if(!name){toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل اسم المتجر');return;}
+  if(!name){ toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل اسم المتجر'); return; }
+
+  // ── تحقق من اليوزرنيم لو موجود ──
+  if(username){
+    if(username.length < 3){
+      toast('<i class="fa-solid fa-triangle-exclamation"></i> يوزرنيم المتجر 3 حروف على الأقل');
+      return;
+    }
+
+    // تغيير الزر لـ loading
+    btn.disabled=true;
+    btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق...';
+
+    // الـ username الحالي للمتجر (لو تعديل) — نستثنيه من الفحص
+    var currentUsername = '';
+    if(editIdx!=null && S.stores && S.stores[editIdx]){
+      currentUsername = (S.stores[editIdx].username||'').toLowerCase();
+    }
+
+    var result = await _checkUsernameAvailable(
+      username,
+      typeof _supaUserId!=='undefined' ? _supaUserId : null
+    );
+
+    btn.disabled=false;
+    btn.innerHTML='<i class="fa-solid fa-floppy-disk" style="margin-left:5px"></i> حفظ المتجر';
+
+    // لو مأخوذ — لكن لو نفس اليوزرنيم القديم لنفس المتجر → مسموح
+    if(!result.ok && username !== currentUsername){
+      if(result.reason === 'taken'){
+        toast('<i class="fa-solid fa-circle-xmark" style="color:#f76f7c"></i> يوزرنيم <b>@'+username+'</b> مستخدم بالفعل لمتجر آخر — جرّب اسماً مختلفاً');
+      }
+      return;
+    }
+  }
+
   if(!S.stores) S.stores=[];
   if(editIdx!=null && editIdx>=0){
     S.stores[editIdx].name=name; S.stores[editIdx].desc=desc;
@@ -17377,11 +17401,12 @@ function _saveStore(editIdx, btn){
     if(logo) S.stores[editIdx].logo=logo;
     else if(window._storeLogoData==='') S.stores[editIdx].logo='';
   } else {
+    if(!checkLimit('max_stores', S.stores.length)) return;
     S.stores.push({id:'store_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name:name,desc:desc,username:username,logo:logo,createdAt:new Date().toISOString()});
   }
   window._storeLogoData='';
   lsSave(); cloudSave(S); modal.remove(); renderMultiStoresList(); renderStoresHomeList();
-  toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ المتجر');
+  toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ المتجر'+(username?' — رابطه: @'+username:''));
 }
 function copyStoreLink(idx){ var link=getSvcLink(_getStores()[idx]?.id); navigator.clipboard.writeText(link).then(function(){toast('<i class="fa-solid fa-copy"></i> تم نسخ الرابط');}).catch(function(){toast(link);}); }
 function previewStore(idx){ window.open(getSvcLink(_getStores()[idx]?.id),'_blank'); }
@@ -17537,18 +17562,90 @@ function saveSvcLogo(){
   toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ لوجو المتجر — سيظهر في المتجر وتاب المتجر');
 }
 
+// ══════════════════════════════════════════════════════════════
+// USERNAME AVAILABILITY CHECK — مركزي لكل أنواع اليوزرنيم
+// يتحقق من Supabase + البيانات المحلية
+// ══════════════════════════════════════════════════════════════
+async function _checkUsernameAvailable(un, excludeUserId){
+  if(!un || un.length < 3) return { ok: false, reason: 'short' };
+  if(typeof supa === 'undefined') return { ok: true };
+  try{
+    // ── بحث 1: username_index column (أسرع) ──
+    var { data, error } = await supa
+      .from('studio_data').select('user_id')
+      .ilike('username_index', un).maybeSingle();
+    if(!error && data && data.user_id){
+      if(excludeUserId && data.user_id === excludeUserId) return { ok: true };
+      return { ok: false, reason: 'taken' };
+    }
+    // ── بحث 2: JSON scan احتياطي (للسجلات القديمة) ──
+    var { data: rows } = await supa
+      .from('studio_data').select('user_id,data')
+      .ilike('data', '%"username":"'+un+'"%').limit(10);
+    if(rows && rows.length){
+      for(var i=0;i<rows.length;i++){
+        if(excludeUserId && rows[i].user_id === excludeUserId) continue;
+        try{
+          var d = typeof rows[i].data==='string' ? JSON.parse(rows[i].data) : rows[i].data;
+          // يوزرنيم رئيسي
+          if((d?.settings?.username||'').toLowerCase() === un) return { ok: false, reason: 'taken' };
+          // يوزرنيم أي متجر
+          var sts = d?.stores||[];
+          for(var j=0;j<sts.length;j++){
+            if((sts[j].username||'').toLowerCase() === un) return { ok: false, reason: 'taken' };
+          }
+        }catch(pe){}
+      }
+    }
+    return { ok: true };
+  }catch(e){
+    console.warn('username check err:', e.message);
+    return { ok: true }; // في حال خطأ — لا توقف المستخدم
+  }
+}
+
 // ── يوزرنيم الموقع ──
-function saveSvcUsername(){
+async function saveSvcUsername(){
   var inp=document.getElementById('svc-main-username'); if(!inp) return;
   var un=inp.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g,'');
-  if(!un){toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل يوزرنيم أولاً');return;}
+  if(!un){ toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل يوزرنيم أولاً'); return; }
+  if(un.length < 3){ toast('<i class="fa-solid fa-triangle-exclamation"></i> اليوزرنيم 3 حروف على الأقل'); return; }
+
+  // ── تغيير زر الحفظ لـ loading ──
+  var btn=document.querySelector('button[onclick="saveSvcUsername()"]');
+  if(btn){ btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق...'; }
+
+  // ── تحقق من التوفر ──
+  var result = await _checkUsernameAvailable(un, typeof _supaUserId!=='undefined' ? _supaUserId : null);
+
+  if(btn){ btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-floppy-disk"></i> حفظ'; }
+
+  if(!result.ok){
+    if(result.reason === 'taken'){
+      toast('<i class="fa-solid fa-circle-xmark" style="color:#f76f7c"></i> اليوزرنيم <b>@'+un+'</b> مستخدم بالفعل — جرّب اسم آخر');
+    } else if(result.reason === 'short'){
+      toast('<i class="fa-solid fa-triangle-exclamation"></i> اليوزرنيم قصير جداً — 3 حروف على الأقل');
+    }
+    return;
+  }
+
+  // ── حفظ ──
   if(!S.settings) S.settings={};
   S.settings.username=un;
   var setInp=document.getElementById('set-username'); if(setInp) setInp.value=un;
   var pv=document.getElementById('svc-un-live-preview'); if(pv) pv.textContent=un;
+
+  // تحديث username_index مباشرة في Supabase
+  if(typeof supa!=='undefined' && typeof _supaUserId!=='undefined' && _supaUserId){
+    try{
+      await supa.from('studio_data')
+        .update({ username_index: un, updated_at: new Date().toISOString() })
+        .eq('user_id', _supaUserId);
+    }catch(e){ console.warn('username_index update err:', e); }
+  }
+
   lsSave(); cloudSave(S);
   toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ اليوزرنيم: @'+un);
-  // تحديث الرابط في الـ header
   try{ var lnk=document.getElementById('svc-inner-store-link'); if(lnk) lnk.textContent=getSvcLink(_getCurrentStoreId()); }catch(e){}
 }
 
