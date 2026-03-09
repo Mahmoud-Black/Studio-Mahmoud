@@ -46,7 +46,8 @@ var supa=supabase.createClient(SUPA_URL,SUPA_KEY);
 var P=new URLSearchParams(location.search);
 var _pUid=P.get('uid')||P.get('svcorder');
 var _pUname=P.get('u');
-var _storeId=P.get('store')||null;
+// دعم روابط ?store=ID أو ?s=ID
+var _storeId=P.get('store')||P.get('s')||null;
 
 // ── helpers ──
 function xe(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -115,11 +116,17 @@ async function buildPage(userId){
     var isOrdersOpen=settings.svc_orders_open!==false;
     var siteDesc=settings.svc_site_desc||settings.bio||settings.desc||'';
 
-    // ── تحديث loading screen ──
+    // ── تحديث loading screen بلوجو المستخدم فور تحميل الداتا ──
     var lsLogo=document.getElementById('_ls-logo');
     if(lsLogo){
       lsLogo.style.background='linear-gradient(135deg,'+accent+','+accent+'99)';
-      if(logo) lsLogo.innerHTML='<img src="'+xe(logo)+'" alt="">';
+      if(logo){
+        // إظهار لوجو المستخدم في شاشة التحميل
+        lsLogo.innerHTML='<img src="'+xe(logo)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:16px">';
+      } else {
+        // fallback: حرف أول من الاسم
+        lsLogo.innerHTML='<span style="font-size:22px;font-weight:900;color:#fff">'+(studioName||'S').charAt(0)+'</span>';
+      }
     }
     document.getElementById('_ls-fill').style.background='linear-gradient(90deg,'+accent+','+accent+'99)';
 
@@ -141,11 +148,22 @@ async function buildPage(userId){
     document.body.style.background=bg;
     document.getElementById('_ls').style.background=bg;
 
-    // ── banner ──
-    var storeObj=_storeId?(ud.stores||[]).find(function(s){return s.id===_storeId;}):null;
+    // ── banner & store identity ──
+    var storeObj=_storeId?(ud.stores||[]).find(function(s){return String(s.id)===String(_storeId);}):null;
     if(storeObj){
-      studioName=storeObj.name||studioName;
-      siteDesc=storeObj.desc||siteDesc;
+      // اسم ولوجو ووصف المتجر المحدد
+      if(storeObj.name) studioName=storeObj.name;
+      if(storeObj.logo) logo=storeObj.logo;
+      if(storeObj.desc) siteDesc=storeObj.desc;
+    }
+    // تحديث loading logo بعد تحديد هوية المتجر
+    if(lsLogo){
+      lsLogo.style.background='linear-gradient(135deg,'+accent+','+accent+'99)';
+      if(logo){
+        lsLogo.innerHTML='<img src="'+xe(logo)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:16px" onerror="this.parentNode.innerHTML=\'<span style=font-size:22px;font-weight:900;color:#fff>\'+(studioName||\'S\').charAt(0)+\'</span>\'">';
+      } else {
+        lsLogo.innerHTML='<span style="font-size:22px;font-weight:900;color:#fff">'+(studioName||'S').charAt(0)+'</span>';
+      }
     }
     var banner=(storeObj&&storeObj.banner)||settings.svc_banner||'';
     var bannerSize=(storeObj&&storeObj.banner_size)||settings.svc_banner_size||'md';
@@ -158,17 +176,31 @@ async function buildPage(userId){
     var allPkgs=ud.standalone_packages||ud.packages||[];
     var pfProjects=ud.portfolio_projects||[];
 
-    var services, standalonePkgs;
+    var services, standalonePkgs, storePortfolio;
 
     if(_storeId){
-      // متجر محدد: بس اللي ليه نفس الـ store_id
+      // متجر محدد: بس اللي ليه نفس الـ store_id (مقارنة string لتجنب مشاكل النوع)
       services     =allSvcs.filter(function(s){return s.active!==false && String(s.store_id)===String(_storeId);});
       standalonePkgs=allPkgs.filter(function(p){return p.active!==false && String(p.store_id)===String(_storeId);});
+      // البورتفوليو: لو عنده store_id مطابق أو لو مفيش store_id على البورتفوليو → يظهر للكل
+      storePortfolio=pfProjects.filter(function(p){return !p.store_id || String(p.store_id)===String(_storeId);});
+
+      // ★ Smart Fallback: لو المتجر مفيهوش خدمات محددة،
+      //   نعرض الخدمات اللي مش متعيّنة لأي متجر (store_id=null/undefined)
+      if(services.length===0){
+        services=allSvcs.filter(function(s){return s.active!==false && !s.store_id;});
+      }
+      if(standalonePkgs.length===0){
+        standalonePkgs=allPkgs.filter(function(p){return p.active!==false && !p.store_id;});
+      }
     } else {
-      // ★ الصفحة الرئيسية: عرض كل الخدمات والباقات النشطة بدون فلتر store_id
+      // ★ بدون store محدد: عرض كل الخدمات والباقات النشطة
       services     =allSvcs.filter(function(s){return s.active!==false;});
       standalonePkgs=allPkgs.filter(function(p){return p.active!==false;});
+      storePortfolio=pfProjects;
     }
+    // override pfProjects بالمفلترة
+    pfProjects=storePortfolio;
 
     // ── store globally ──
     window._pubUd=ud; window._pubUserId=userId; window._pubAccent=accent;
