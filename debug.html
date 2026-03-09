@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><meta charset="UTF-8"><title>Debug</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>body{font-family:monospace;background:#0a0a0f;color:#f0f0f5;padding:20px;direction:ltr}
+pre{background:#111;border:1px solid #333;border-radius:8px;padding:16px;overflow:auto;font-size:12px;white-space:pre-wrap;word-break:break-all}
+.ok{color:#4fd1a5}.err{color:#f76f7c}.warn{color:#f7c948}
+h3{color:#a89cff;margin:16px 0 8px}
+</style></head>
+<body>
+<h2>🔍 Supabase Data Debug</h2>
+<div id="out">Loading...</div>
+<script>
+var SUPA_URL='https://mpfmcjgigpvdxbhgzufo.supabase.co';
+var SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM';
+var P=new URLSearchParams(location.search);
+var uid=P.get('uid')||P.get('u')||P.get('svcorder');
+var supa=supabase.createClient(SUPA_URL,SUPA_ANON);
+
+async function run(){
+  var out=document.getElementById('out');
+  if(!uid){out.innerHTML='<span class="err">❌ أضف ?uid=... في الرابط</span>';return;}
+  out.innerHTML='جاري التحميل...';
+
+  var res=await supa.from('studio_data').select('data,user_id,username_index').eq('user_id',uid).maybeSingle();
+  if(res.error||!res.data){out.innerHTML='<span class="err">❌ Error: '+(res.error&&res.error.message)+' | data: '+JSON.stringify(res.data)+'</span>';return;}
+
+  var raw=res.data.data;
+  var ud=typeof raw==='string'?JSON.parse(raw):raw;
+  if(ud&&ud.data&&typeof ud.services==='undefined'){ud=typeof ud.data==='string'?JSON.parse(ud.data):ud.data;}
+
+  var html='<h3>✅ User ID: '+res.data.user_id+'</h3>';
+  html+='<h3>Top-level keys in ud:</h3><pre class="ok">'+JSON.stringify(Object.keys(ud||{}))+'</pre>';
+  html+='<h3>Settings (name, accent, logo):</h3><pre>'+JSON.stringify({name:ud.settings&&ud.settings.name,accent:ud.settings&&ud.settings.accent,logo:ud.settings&&ud.settings.logo,displayMode:ud.settings&&ud.settings.displayMode},'',2)+'</pre>';
+  html+='<h3>services count: <span class="'+(( ud.services||[]).length>0?'ok':'err')+'">'+((ud.services||[]).length)+'</span></h3>';
+  if((ud.services||[]).length>0){
+    html+='<pre>'+JSON.stringify((ud.services||[]).map(function(s){return {id:s.id,name:s.name,active:s.active,store_id:s.store_id,has_image:!!(s.image||s.img)};}))+'</pre>';
+  }
+  html+='<h3>standalone_packages count: <span class="'+(( ud.standalone_packages||[]).length>0?'ok':'err')+'">'+((ud.standalone_packages||[]).length)+'</span></h3>';
+  if((ud.standalone_packages||[]).length>0){
+    html+='<pre>'+JSON.stringify((ud.standalone_packages||[]).map(function(p){return {id:p.id,name:p.name,active:p.active,store_id:p.store_id};}))+'</pre>';
+  }
+  html+='<h3>packages (legacy) count: <span class="warn">'+((ud.packages||[]).length)+'</span></h3>';
+  html+='<h3>stores count: '+((ud.stores||[]).length)+'</h3>';
+  if((ud.stores||[]).length>0){html+='<pre>'+JSON.stringify((ud.stores||[]).map(function(s){return {id:s.id,name:s.name};}))+'</pre>';}
+  html+='<h3>portfolio_projects count: '+((ud.portfolio_projects||[]).length)+'</h3>';
+  html+='<h3>Raw type: '+typeof raw+' | double-wrapped: '+(raw&&raw.data&&typeof ud.services==='undefined')+'</h3>';
+  out.innerHTML=html;
+}
+run();
+</script>
+</body></html>
