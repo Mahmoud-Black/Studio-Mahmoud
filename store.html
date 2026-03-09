@@ -55,46 +55,50 @@ html,body{min-height:100vh;background:#f4f5fb;color:#1a1a2e;font-family:'Cairo',
   <div id="_ls-bar"><div id="_ls-fill"></div></div>
 </div>
 <script>
-// ── محاولة إظهار اللوجو المحفوظ مسبقاً في شاشة التحميل فوراً ──
+// ── إظهار اللوجو المحفوظ فوراً في شاشة التحميل ──
 (function(){
   try{
     var P=new URLSearchParams(location.search);
     var uid=P.get('uid')||P.get('svcorder');
-    if(uid){
-      // ── Apply cached theme instantly (no flash) ──
-      var themeKey='_store_theme_'+uid;
-      var cachedTheme=localStorage.getItem(themeKey);
-      if(cachedTheme){
-        try{
-          var th=JSON.parse(cachedTheme);
-          var bg=th.bg||'#f4f5fb';
-          var acc=th.accent||'#7c6ff7';
-          document.documentElement.style.background=bg;
-          document.body.style.background=bg;
-          var ls=document.getElementById('_ls');
-          if(ls) ls.style.background=bg;
-          var lsBar=document.getElementById('_ls-bar');
-          if(lsBar) lsBar.style.background=th.isLight?'rgba(0,0,0,.08)':'rgba(255,255,255,.08)';
-          var lsFill=document.getElementById('_ls-fill');
-          if(lsFill) lsFill.style.background='linear-gradient(90deg,'+acc+','+acc+'aa)';
-          var lsLogoEl=document.getElementById('_ls-logo');
-          if(lsLogoEl && !localStorage.getItem('_store_logo_'+uid)){
-            lsLogoEl.style.background='linear-gradient(135deg,'+acc+','+acc+'aa)';
-            lsLogoEl.style.borderRadius='16px';
-          }
-        }catch(e){}
-      }
-      // ── Apply cached logo ──
-      var cacheKey='_store_logo_'+uid;
-      var cached=localStorage.getItem(cacheKey);
-      if(cached){
-        var lsLogo=document.getElementById('_ls-logo');
-        if(lsLogo){
-          lsLogo.className='_has-logo';
-          lsLogo.style.cssText='background:transparent;box-shadow:none;border-radius:0;animation:none;width:auto;height:auto;display:flex;align-items:center;justify-content:center';
-          lsLogo.innerHTML='<img src="'+cached+'" style="max-height:80px;max-width:200px;width:auto;height:auto;object-fit:contain;display:block">';
-        }
-      }
+    var uname=P.get('u');
+
+    // جرّب الـ cache بكل المفاتيح الممكنة
+    var cacheKeys=[];
+    if(uid)    cacheKeys.push('_store_logo_'+uid);
+    if(uname)  cacheKeys.push('_store_logo_u_'+uname.toLowerCase());
+
+    function applyLogo(src){
+      var lsLogo=document.getElementById('_ls-logo');
+      if(!lsLogo) return;
+      lsLogo.className='_has-logo';
+      lsLogo.style.cssText='background:transparent;box-shadow:none;border-radius:0;animation:none;width:auto;height:auto;display:flex;align-items:center;justify-content:center';
+      lsLogo.innerHTML='<img src="'+src+'" style="max-height:80px;max-width:200px;width:auto;height:auto;object-fit:contain;display:block">';
+    }
+
+    // ── Apply cached theme instantly ──
+    var themeKey=uid?('_store_theme_'+uid):(uname?('_store_theme_u_'+uname.toLowerCase()):'');
+    var cachedTheme=themeKey?localStorage.getItem(themeKey):'';
+    if(cachedTheme){
+      try{
+        var th=JSON.parse(cachedTheme);
+        var bg=th.bg||'#f4f5fb';
+        var acc=th.accent||'#7c6ff7';
+        document.documentElement.style.background=bg;
+        document.body.style.background=bg;
+        var ls=document.getElementById('_ls');
+        if(ls) ls.style.background=bg;
+        var lsBar=document.getElementById('_ls-bar');
+        if(lsBar) lsBar.style.background=th.isLight?'rgba(0,0,0,.08)':'rgba(255,255,255,.08)';
+        var lsFill=document.getElementById('_ls-fill');
+        if(lsFill) lsFill.style.background='linear-gradient(90deg,'+acc+','+acc+'aa)';
+      }catch(e){}
+    }
+
+    // ── Apply cached logo ──
+    var found=false;
+    for(var i=0;i<cacheKeys.length;i++){
+      var cached=localStorage.getItem(cacheKeys[i]);
+      if(cached){ applyLogo(cached); found=true; break; }
     }
   }catch(e){}
 })();
@@ -374,10 +378,12 @@ async function buildPage(userId){
       var _existFl=document.querySelector('link[rel="icon"]');
       if(_existFl) _existFl.href=logo;
       else{ var fl=document.createElement('link');fl.rel='icon';fl.href=logo;document.head.appendChild(fl); }
-      // كاش اللوجو للمرة القادمة (للظهور الفوري في شاشة التحميل)
+      // كاش اللوجو بـ uid وبـ username معاً
       try{ localStorage.setItem('_store_logo_'+userId, logo); }catch(e){}
-      // كاش الثيم للظهور الفوري في المرة القادمة
+      if(_pUname) try{ localStorage.setItem('_store_logo_u_'+_pUname.toLowerCase(), logo); }catch(e){}
+      // كاش الثيم بـ uid وبـ username معاً
       try{ localStorage.setItem('_store_theme_'+userId, JSON.stringify({bg:bg,accent:accent,isLight:isLight})); }catch(e){}
+      if(_pUname) try{ localStorage.setItem('_store_theme_u_'+_pUname.toLowerCase(), JSON.stringify({bg:bg,accent:accent,isLight:isLight})); }catch(e){}
     }
 
     // ══════════════════════════════════
