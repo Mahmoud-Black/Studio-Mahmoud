@@ -255,49 +255,87 @@ let _currentMode = 'user';
 let _cloudSaving = false;
 let _cloudSavePending = false;
 
+// ══════════════════════════════════════════════════════════════
+// VERSIONING SYSTEM — حماية البيانات بالـ version number
+// كل حفظ بيزوّد version بـ 1 — ما بنكتبش على السحابة إلا لو
+// الـ version المحلي >= version السحابة
+// ══════════════════════════════════════════════════════════════
+function _getDataVersion(data){
+  return (data && typeof data._v === 'number') ? data._v : 0;
+}
+function _calcDataScore(data){
+  if(!data) return 0;
+  return (data.tasks?.length||0) + (data.clients?.length||0) +
+         (data.invoices?.length||0) + (data.transactions?.length||0) +
+         (data.services?.length||0) + (data.stores?.length||0) +
+         (data.svc_orders?.length||0) + (data.projects?.length||0) +
+         (data.income?.length||0) + (data.teams?.length||0) +
+         Object.keys(data.settings||{}).length;
+}
+
 async function _doCloudSave(data) {
   if(!_supaUserId || !data) return;
   if(_cloudSaving) { _cloudSavePending = true; return; }
   _cloudSaving = true;
   try {
-    // ─── حماية من رفع بيانات فارغة ───
-    // لو S فارغة تقريباً (مش معقول) لا ترفعها
-    const _dataScore = (data.tasks?.length||0) + (data.clients?.length||0) +
-                       (data.invoices?.length||0) + (data.transactions?.length||0);
-    // جلب آخر نسخة من السحابة للمقارنة (كل 5 دقائق بس)
-    const _lastCloudCheck = window._lastCloudScoreCheck || 0;
-    if(Date.now() - _lastCloudCheck > 300000) { // كل 5 دقائق
-      try {
-        const {data: _cv} = await supa.from('studio_data').select('data').eq('user_id',_supaUserId).maybeSingle();
-        if(_cv?.data) {
+    // ── خطوة 1: زوّد الـ version قبل الحفظ ──
+    if(typeof data._v !== 'number') data._v = 1;
+    else data._v = data._v + 1;
+
+    const _myVersion = data._v;
+    const _myScore   = _calcDataScore(data);
+
+    // ── خطوة 2: اقرأ السحابة للمقارنة (كل 3 دقائق) ──
+    const _lastCheck = window._lastCloudCheck || 0;
+    if(Date.now() - _lastCheck > 180000){
+      window._lastCloudCheck = Date.now();
+      try{
+        const {data: _cv} = await supa.from('studio_data')
+          .select('data').eq('user_id',_supaUserId).maybeSingle();
+        if(_cv?.data){
           const _cd = typeof _cv.data==='string' ? JSON.parse(_cv.data) : _cv.data;
-          const _cloudScore = (_cd?.tasks?.length||0) + (_cd?.clients?.length||0) +
-                              (_cd?.invoices?.length||0) + (_cd?.transactions?.length||0);
-          window._lastCloudScore = _cloudScore;
-          window._lastCloudScoreCheck = Date.now();
-          // إذا البيانات المحلية أقل بكثير من السحابة - خطر!
-          if(_dataScore < _cloudScore - 5 && _cloudScore > 3) {
-            console.error('⛔ ABORT cloudSave: local data smaller than cloud! local:', _dataScore, 'cloud:', _cloudScore);
-            // استرد من السحابة بدل ما نكتب عليها
+          const _cloudVersion = _getDataVersion(_cd);
+          const _cloudScore   = _calcDataScore(_cd);
+          window._lastCloudVersion = _cloudVersion;
+          window._lastCloudScore   = _cloudScore;
+
+          // السحابة عندها version أحدث وبيانات أكثر — إحنا تخلفنا
+          if(_cloudVersion > _myVersion && _cloudScore > _myScore + 3){
+            console.warn('Cloud is newer (v'+_cloudVersion+'/score:'+_cloudScore+') vs local (v'+_myVersion+'/score:'+_myScore+') — pulling cloud');
             S = _cd;
             migrateSFields && migrateSFields();
             try { localStorage.setItem(userKey(), JSON.stringify(S)); } catch(e) {}
+            try { localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(S)); } catch(e) {}
+            showSyncIndicator('<i class="fa-solid fa-rotate"></i> تم تحديث البيانات من السحابة', '#7c6ff7');
+            _cloudSaving = false;
+            return;
+          }
+
+          // بياناتنا المحلية أقل بكثير من السحابة — خطر مسح
+          if(_myScore < _cloudScore - 10 && _cloudScore > 5 && _cloudVersion >= _myVersion){
+            console.error('ABORT: local score('+_myScore+') << cloud score('+_cloudScore+') — restoring');
+            S = _cd;
+            migrateSFields && migrateSFields();
+            try { localStorage.setItem(userKey(), JSON.stringify(S)); } catch(e) {}
+            try { localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(S)); } catch(e) {}
             showSyncIndicator('<i class="fa-solid fa-rotate"></i> تم استرداد البيانات من السحابة', '#7c6ff7');
             _cloudSaving = false;
             return;
           }
         }
-      } catch(e) { /* ignore check errors */ }
+      } catch(e){ /* ignore */ }
     }
+
+    // ── خطوة 3: تنظيف البيانات ──
     const _replacer = (key, val) => {
       if(val === null || val === undefined) return val;
       const t = typeof val;
       if(t === 'string' || t === 'number' || t === 'boolean') return val;
       if(Array.isArray(val)) return val;
-      if(t === 'object') {
+      if(t === 'object'){
         if(val instanceof Headers || val instanceof Response || val instanceof Request ||
            val instanceof Blob || val instanceof File || val instanceof ArrayBuffer ||
-           val instanceof ImageData || (typeof Node !== 'undefined' && val instanceof Node)) {
+           val instanceof ImageData || (typeof Node !== 'undefined' && val instanceof Node)){
           return undefined;
         }
         return val;
@@ -308,46 +346,43 @@ async function _doCloudSave(data) {
     try { _safeData = JSON.parse(JSON.stringify(data, _replacer)); }
     catch(e) { try { _safeData = JSON.parse(JSON.stringify(data)); } catch(e2) { _safeData = {}; } }
 
-    // احفظ نسخة احتياطية محلية دايماً قبل الإرسال
+    // ── خطوة 4: حفظ محلي دائماً ──
     try { localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(_safeData)); } catch(e) {}
     try { localStorage.setItem(userKey(), JSON.stringify(_safeData)); } catch(e) {}
 
-    var _un = (_safeData&&_safeData.settings&&_safeData.settings.username)||null;
-    const payload = { user_id: _supaUserId, data: JSON.stringify(_safeData), updated_at: new Date().toISOString(), ...(_un?{username_index:_un.toLowerCase()}:{}) };
+    // ── خطوة 5: رفع للسحابة ──
+    var _un = (_safeData?.settings?.username) || null;
+    const payload = {
+      user_id    : _supaUserId,
+      data       : JSON.stringify(_safeData),
+      updated_at : new Date().toISOString(),
+      ...(_un ? {username_index: _un.toLowerCase()} : {})
+    };
     let _upsertError;
-    try {
+    try{
       const { error } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
       _upsertError = error;
-    } catch(fetchErr) {
-      // Silently ignore DataCloneError / postMessage / Headers errors from fetch internals
-      if(fetchErr && fetchErr.message && (
-        fetchErr.message.includes('DataCloneError') ||
-        fetchErr.message.includes('postMessage') ||
-        fetchErr.message.includes('Headers')
-      )) {
-        _upsertError = null; // treat as success — data was likely saved
-      } else {
-        throw fetchErr;
-      }
+    } catch(fetchErr){
+      if(fetchErr?.message?.includes('DataCloneError') ||
+         fetchErr?.message?.includes('postMessage') ||
+         fetchErr?.message?.includes('Headers')){
+        _upsertError = null;
+      } else { throw fetchErr; }
     }
-    if(_upsertError) {
-      // Only log real errors, not DataClone noise
-      if(!_upsertError.message || !_upsertError.message.includes('DataCloneError')) {
+    if(_upsertError){
+      if(!_upsertError.message?.includes('DataCloneError'))
         console.error('cloudSave error:', _upsertError.message);
-      }
       showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل الحفظ - محفوظ محلياً', '#f7c948');
     } else {
       showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
     }
-  } catch(e) {
-    // Suppress DataCloneError / postMessage errors silently — these are cosmetic only
-    if(!e.message || (!e.message.includes('DataCloneError') && !e.message.includes('postMessage') && !e.message.includes('Headers'))) {
+  } catch(e){
+    if(!e.message?.includes('DataCloneError') && !e.message?.includes('postMessage') && !e.message?.includes('Headers'))
       console.error('cloudSave exception:', e.message);
-    }
     showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل المزامنة', '#f76f7c');
   } finally {
     _cloudSaving = false;
-    if(_cloudSavePending) {
+    if(_cloudSavePending){
       _cloudSavePending = false;
       setTimeout(() => _doCloudSave(S), 300);
     }
@@ -10055,22 +10090,27 @@ async function loginWithSupaSession(supaUser, session, userMeta){
   showSyncIndicator('<i class="fa-solid fa-cloud"></i>️ جاري تحميل بياناتك...', 'var(--accent)');
   const cloudData = await cloudLoad();
   if(cloudData){
-    // تحقق من صحة البيانات - لو السحابة بترجع object فارغ تقريباً، قارن بالـ local backup
     const _localBackupRaw = localStorage.getItem('studioOS_backup_'+supaUser.id);
     let _localBackup = null;
     try { if(_localBackupRaw) _localBackup = JSON.parse(_localBackupRaw); } catch(e) {}
 
-    const _cloudHasData = (cloudData.tasks?.length || 0) + (cloudData.clients?.length || 0) +
-                          (cloudData.invoices?.length || 0) + (cloudData.transactions?.length || 0);
-    const _localHasData = (_localBackup?.tasks?.length || 0) + (_localBackup?.clients?.length || 0) +
-                          (_localBackup?.invoices?.length || 0) + (_localBackup?.transactions?.length || 0);
+    // ✅ المقارنة بالـ version أولاً — أحدث version يكسب
+    const _cloudV = _getDataVersion(cloudData);
+    const _localV = _getDataVersion(_localBackup);
+    const _cloudScore = _calcDataScore(cloudData);
+    const _localScore = _calcDataScore(_localBackup);
 
-    // لو الـ local backup أكبر بشكل واضح - ده مؤشر إن السحابة اتكتب عليها بيانات فارغة
-    if(_localHasData > _cloudHasData + 10 && _localBackup) {
-      console.warn('⚠️ Cloud data seems incomplete vs local backup — using local');
-      S = _localBackup;
-    } else {
+    console.log('Login merge: cloud v'+_cloudV+'/score:'+_cloudScore+' | local v'+_localV+'/score:'+_localScore);
+
+    // لو السحابة أحدث — استخدمها
+    if(_cloudV >= _localV || _cloudScore >= _localScore - 5){
       S = cloudData;
+    } else {
+      // اللوكال أحدث وعنده بيانات أكثر بكثير — استخدمه وارفعه
+      console.warn('Local is newer — using local backup and re-uploading');
+      S = _localBackup;
+      // ارفع اللوكال للسحابة بعد ثانيتين
+      setTimeout(() => _doCloudSave(S), 2000);
     }
     migrateSFields();
     if(S._admin_updated && S._admin_name) {
@@ -17498,42 +17538,17 @@ function saveSvcLogo(){
 }
 
 // ── يوزرنيم الموقع ──
-async function saveSvcUsername(){
+function saveSvcUsername(){
   var inp=document.getElementById('svc-main-username'); if(!inp) return;
   var un=inp.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g,'');
-  if(!un){ toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل يوزرنيم أولاً'); return; }
-  if(un.length < 3){ toast('<i class="fa-solid fa-triangle-exclamation"></i> اليوزرنيم لازم 3 حروف على الأقل'); return; }
-
-  var btn=document.querySelector('button[onclick="saveSvcUsername()"]');
-  if(btn){ btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>'; }
-
-  // ── تحقق من التكرار ──
-  if(typeof supa!=='undefined' && _supaUserId){
-    try{
-      var chk=await supa.from('studio_data').select('user_id').ilike('username_index',un).maybeSingle();
-      if(chk.data && chk.data.user_id && chk.data.user_id !== _supaUserId){
-        toast('<i class="fa-solid fa-triangle-exclamation"></i> هذا اليوزرنيم مستخدم — جرّب اسم آخر');
-        if(btn){ btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-floppy-disk"></i> حفظ'; }
-        return;
-      }
-    }catch(e){}
-
-    // ── تحديث username_index مباشرةً في Supabase ──
-    try{
-      await supa.from('studio_data')
-        .update({ username_index: un, updated_at: new Date().toISOString() })
-        .eq('user_id', _supaUserId);
-    }catch(e){ console.warn('username_index update err:', e); }
-  }
-
+  if(!un){toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل يوزرنيم أولاً');return;}
   if(!S.settings) S.settings={};
-  S.settings.username = un;
+  S.settings.username=un;
   var setInp=document.getElementById('set-username'); if(setInp) setInp.value=un;
   var pv=document.getElementById('svc-un-live-preview'); if(pv) pv.textContent=un;
   lsSave(); cloudSave(S);
-
-  if(btn){ btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-floppy-disk"></i> حفظ'; }
   toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ اليوزرنيم: @'+un);
+  // تحديث الرابط في الـ header
   try{ var lnk=document.getElementById('svc-inner-store-link'); if(lnk) lnk.textContent=getSvcLink(_getCurrentStoreId()); }catch(e){}
 }
 
