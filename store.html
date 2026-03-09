@@ -416,6 +416,9 @@ async function buildPage(userId){
     function buildSvcCard(s,i){
       var pr=s.price&&+s.price?Number(s.price).toLocaleString()+' '+(s.currency||'ج.م'):'عند الطلب';
       var img=s.image||s.img||s.photo||s.cover||'';
+      var payBtn=s.payment_link
+        ?'<a href="'+xe(s.payment_link)+'" target="_blank" class="_btn _btn-pay" onclick="event.stopPropagation()"><i class="fa-solid fa-credit-card"></i>ادفع</a>'
+        :'<button class="_btn _btn-pay" onclick="event.stopPropagation();_openOrd(\''+encodeURIComponent(s.name)+'\',\'\','+(s.price||0)+',\'\')"><i class="fa-solid fa-credit-card"></i>ادفع</button>';
       return '<div class="_sc">'+
         (img?'<img class="_sc-img" src="'+xe(img)+'" alt="" loading="lazy" onclick="_openSvc('+i+')">':
              '<div class="_sc-ph" onclick="_openSvc('+i+')">'+(s.icon||'<i class="fa-solid fa-bag-shopping"></i>')+'</div>')+
@@ -426,7 +429,7 @@ async function buildPage(userId){
           '<div class="_sc-foot">'+
             '<div class="_sc-price">'+pr+'</div>'+
             '<div style="display:flex;gap:4px;flex-wrap:wrap">'+
-              (s.payment_link?'<a href="'+xe(s.payment_link)+'" target="_blank" class="_btn _btn-pay" onclick="event.stopPropagation()"><i class="fa-solid fa-credit-card"></i>ادفع</a>':'')+
+              payBtn+
               '<button class="_btn _btn-ghost" onclick="event.stopPropagation();_openSvc('+i+')">تفاصيل</button>'+
               '<button class="_btn _btn-main" onclick="event.stopPropagation();_openOrd(\''+encodeURIComponent(s.name)+'\',\'\','+(s.price||0)+',\''+encodeURIComponent(s.payment_link||'')+'\')">اطلب ←</button>'+
             '</div>'+
@@ -451,6 +454,9 @@ async function buildPage(userId){
     function buildPkgCard(p,i){
       var pr=p.price?Number(p.price).toLocaleString()+' '+(p.currency||'ج.م'):'عند الطلب';
       var cvr=p.thumb||p.image||p.cover||p.thumbnail||p.img||'';
+      var payBtn=p.payment_link
+        ?'<a href="'+xe(p.payment_link)+'" target="_blank" class="_btn _btn-pay" onclick="event.stopPropagation()"><i class="fa-solid fa-credit-card"></i>ادفع</a>'
+        :'<button class="_btn _btn-pay" onclick="event.stopPropagation();_openOrd(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+',\'\')"><i class="fa-solid fa-credit-card"></i>ادفع</button>';
       return '<div class="_pc">'+
         (cvr?'<img class="_pc-thumb" src="'+xe(cvr)+'" alt="" loading="lazy" onclick="_openPkg('+i+')">':
              '<div class="_pc-ph" onclick="_openPkg('+i+')">'+(p.icon||'<i class="fa-solid fa-box"></i>')+'</div>')+
@@ -463,7 +469,7 @@ async function buildPage(userId){
             '<div class="_pc-price">'+pr+'</div>'+
             '<div class="_pc-btns">'+
               '<button class="_btn _btn-ghost" onclick="event.stopPropagation();_openPkg('+i+')">تفاصيل</button>'+
-              (p.payment_link?'<a href="'+xe(p.payment_link)+'" target="_blank" class="_btn _btn-pay" onclick="event.stopPropagation()"><i class="fa-solid fa-credit-card"></i>ادفع</a>':'')+
+              payBtn+
               '<button class="_btn _btn-main" onclick="event.stopPropagation();_openOrd(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+',\''+encodeURIComponent(p.payment_link||'')+'\')">اطلب ←</button>'+
             '</div>'+
           '</div>'+
@@ -492,10 +498,17 @@ async function buildPage(userId){
       (pfProjects.length
         ?'<div class="_pf-grid" id="_pf-grid">'+
             pfProjects.slice(0,9).map(function(p){
-              var img=p.image||p.thumb||''; var link=p.link||p.url||'#';
-              return '<a class="_pf-card" href="'+xe(link)+'" target="_blank">'+
-                (img?'<img src="'+xe(img)+'" alt="" loading="lazy">':
-                '<div class="_pf-ph"><div style="font-size:28px">'+(p.type==='behance'?'<i class="fa-brands fa-behance"></i>':'<i class="fa-solid fa-folder"></i>')+'</div><div style="font-size:10px;font-weight:700">'+xe((p.title||p.label||'مشروع').slice(0,20))+'</div></div>')+
+              // الـ fields الحقيقية: thumb, url, name, cat, link_type
+              var img=p.thumb||p.image||'';
+              var link=p.url||p.link||'#';
+              var title=p.name||p.title||p.label||'مشروع';
+              var isB=p.link_type==='behance'||p.type==='behance';
+              return '<a class="_pf-card" href="'+xe(link)+'" target="_blank" title="'+xe(title)+'">'+
+                (img?'<img src="'+xe(img)+'" alt="'+xe(title)+'" loading="lazy">':
+                '<div class="_pf-ph">'+
+                  '<div style="font-size:28px">'+(isB?'<i class="fa-brands fa-behance"></i>':'<i class="fa-solid fa-folder"></i>')+'</div>'+
+                  '<div style="font-size:11px;font-weight:700;margin-top:6px;padding:0 8px;text-align:center;word-break:break-word">'+xe(title.slice(0,24))+'</div>'+
+                '</div>')+
               '</a>';
             }).join('')+
           '</div>'
@@ -622,10 +635,13 @@ window._showAllPf=function(){
   var g=document.getElementById('_pf-grid');if(!g)return;
   var pf=(window._pubUd&&window._pubUd.portfolio_projects)||[];
   g.innerHTML=pf.map(function(p){
-    var img=p.image||p.thumb||'';var link=p.link||p.url||'#';
-    return '<a class="_pf-card" href="'+xe(link)+'" target="_blank">'+
-      (img?'<img src="'+xe(img)+'" alt="" loading="lazy">':
-      '<div class="_pf-ph"><div style="font-size:28px">'+(p.type==='behance'?'<i class="fa-brands fa-behance"></i>':'<i class="fa-solid fa-folder"></i>')+'</div><div style="font-size:10px;font-weight:700">'+xe((p.title||'').slice(0,18))+'</div></div>')+'</a>';
+    var img=p.thumb||p.image||'';
+    var link=p.url||p.link||'#';
+    var title=p.name||p.title||'مشروع';
+    var isB=p.link_type==='behance'||p.type==='behance';
+    return '<a class="_pf-card" href="'+xe(link)+'" target="_blank" title="'+xe(title)+'">'+
+      (img?'<img src="'+xe(img)+'" alt="'+xe(title)+'" loading="lazy">':
+      '<div class="_pf-ph"><div style="font-size:28px">'+(isB?'<i class="fa-brands fa-behance"></i>':'<i class="fa-solid fa-folder"></i>')+'</div><div style="font-size:11px;font-weight:700;margin-top:6px;padding:0 8px;text-align:center">'+xe(title.slice(0,22))+'</div></div>')+'</a>';
   }).join('');
   var btn=document.querySelector('[onclick="_showAllPf()"]');if(btn)btn.remove();
 };
@@ -641,7 +657,7 @@ window._openSvc=function(i){
   var metaHtml='';
   if(s.delivery||s.revisions)metaHtml='<div class="_chips">'+(s.delivery?'<div class="_chip"><i class="fa-solid fa-clock"></i>'+xe(s.delivery)+'</div>':'')+(s.revisions?'<div class="_chip"><i class="fa-solid fa-rotate"></i>'+s.revisions+' تعديل</div>':'')+'</div>';
   var portHtml='';
-  if(s.portfolio_cat&&ud){var rp=(ud.portfolio_projects||[]).filter(function(p){return p.cat===s.portfolio_cat;}).slice(0,6);if(rp.length)portHtml='<div class="_dtl-box"><div class="_dtl-box-title"><i class="fa-solid fa-image"></i>أعمال مشابهة</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'+rp.map(function(p){var img2=p.image||p.thumb||'';return '<a class="_pf-card" href="'+(p.link||'#')+'" target="_blank">'+(img2?'<img src="'+xe(img2)+'" alt="" loading="lazy">':'<div class="_pf-ph"><i class="fa-solid fa-folder" style="font-size:22px"></i></div>')+'</a>';}).join('')+'</div></div>';}
+  if(s.portfolio_cat&&ud){var rp=(ud.portfolio_projects||[]).filter(function(p){return p.cat===s.portfolio_cat;}).slice(0,6);if(rp.length)portHtml='<div class="_dtl-box"><div class="_dtl-box-title"><i class="fa-solid fa-image"></i>أعمال مشابهة</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'+rp.map(function(p){var img2=p.thumb||p.image||'';var lnk=p.url||p.link||'#';return '<a class="_pf-card" href="'+xe(lnk)+'" target="_blank">'+(img2?'<img src="'+xe(img2)+'" alt="" loading="lazy">':'<div class="_pf-ph"><i class="fa-solid fa-folder" style="font-size:22px"></i></div>')+'</a>';}).join('')+'</div></div>';}
   var ex=document.getElementById('_sdtl');if(ex)ex.remove();
   var pg=document.createElement('div');pg.id='_sdtl';pg.className='_dtl';
   pg.innerHTML='<div class="_dtl-in">'+
@@ -653,7 +669,9 @@ window._openSvc=function(i){
     (s.desc?'<div class="_dtl-desc">'+xe(s.desc)+'</div>':'')+
     metaHtml+termsHtml+portHtml+
     '<div class="_dtl-cta">'+
-      (s.payment_link?'<a href="'+xe(s.payment_link)+'" target="_blank" class="_cta-btn _cta-pay"><i class="fa-solid fa-credit-card"></i>ادفع الآن</a>':'')+
+      (s.payment_link
+        ?'<a href="'+xe(s.payment_link)+'" target="_blank" class="_cta-btn _cta-pay"><i class="fa-solid fa-credit-card"></i>ادفع الآن</a>'
+        :'<button class="_cta-btn _cta-pay" onclick="_openOrd(\''+encodeURIComponent(s.name)+'\',\'\','+(s.price||0)+',\'\')"><i class="fa-solid fa-credit-card"></i>ادفع الآن</button>')+
       '<button class="_cta-btn _cta-main" onclick="_openOrd(\''+encodeURIComponent(s.name)+'\',\'\','+(s.price||0)+',\''+encodeURIComponent(s.payment_link||'')+'\')"><i class="fa-solid fa-paper-plane"></i>اطلب الآن</button>'+
     '</div>'+
   '</div>';
@@ -677,7 +695,9 @@ window._openPkg=function(i){
     ((p.delivery||p.revisions)?'<div class="_chips">'+(p.delivery?'<div class="_chip"><i class="fa-solid fa-clock"></i>'+xe(p.delivery)+'</div>':'')+(p.revisions?'<div class="_chip"><i class="fa-solid fa-rotate"></i>'+p.revisions+' تعديل</div>':'')+'</div>':'')+
     (p.items&&p.items.length?'<div class="_dtl-box"><div class="_dtl-box-title"><i class="fa-solid fa-clipboard-list"></i>ما يشمله الباقة</div>'+p.items.map(function(it){return '<div class="_dtl-row"><i class="fa-solid fa-check"></i><span>'+xe(it)+'</span></div>';}).join('')+'</div>':'')+
     '<div class="_dtl-cta">'+
-      (p.payment_link?'<a href="'+xe(p.payment_link)+'" target="_blank" class="_cta-btn _cta-pay"><i class="fa-solid fa-credit-card"></i>ادفع الآن</a>':'')+
+      (p.payment_link
+        ?'<a href="'+xe(p.payment_link)+'" target="_blank" class="_cta-btn _cta-pay"><i class="fa-solid fa-credit-card"></i>ادفع الآن</a>'
+        :'<button class="_cta-btn _cta-pay" onclick="_openOrd(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+',\'\')"><i class="fa-solid fa-credit-card"></i>ادفع الآن</button>')+
       '<button class="_cta-btn _cta-main" onclick="_openOrd(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+',\''+encodeURIComponent(p.payment_link||'')+'\')"><i class="fa-solid fa-paper-plane"></i>اطلب الباقة</button>'+
     '</div>'+
   '</div>';
