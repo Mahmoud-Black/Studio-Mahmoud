@@ -15,7 +15,8 @@ html,body{min-height:100vh;overflow-x:hidden;scroll-behavior:smooth}
 body{font-family:var(--font);background:var(--bg);color:var(--t1);direction:rtl;line-height:1.6}
 body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 80% 60% at 10% 0%,rgba(124,111,247,.1) 0%,transparent 60%),radial-gradient(ellipse 60% 50% at 90% 100%,rgba(168,156,255,.07) 0%,transparent 60%)}
 #ls{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;transition:opacity .4s}
-.ll{width:54px;height:54px;background:linear-gradient(135deg,var(--ac),var(--ac2));border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;animation:lp 1.5s ease-in-out infinite}
+.ll{width:60px;height:60px;background:linear-gradient(135deg,var(--ac),var(--ac2));border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;animation:lp 1.5s ease-in-out infinite;overflow:hidden;flex-shrink:0}
+.ll img{width:100%;height:100%;object-fit:cover;display:block}
 @keyframes lp{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,111,247,.4)}50%{transform:scale(1.06);box-shadow:0 0 0 12px rgba(124,111,247,0)}}
 .lb{width:130px;height:3px;background:var(--s3);border-radius:3px;overflow:hidden}
 .lbf{height:100%;background:linear-gradient(90deg,var(--ac),var(--ac2));animation:lb 1.8s ease-in-out infinite}
@@ -170,7 +171,7 @@ body.lm .sht{background:var(--s1)}
 </style>
 </head>
 <body>
-<div id="ls"><div class="ll"><i class="fa-solid fa-bolt"></i></div><div class="lb"><div class="lbf"></div></div></div>
+<div id="ls"><div class="ll" id="ll-logo"><i class="fa-solid fa-bolt"></i></div><div class="lb"><div class="lbf"></div></div></div>
 <div id="er"><div style="font-size:52px;opacity:.4">🔍</div><div style="font-size:19px;font-weight:800;color:var(--t2)">لم يتم العثور على المتجر</div><div style="font-size:13px;color:var(--t3);max-width:320px;line-height:1.7" id="er-msg">تأكد من صحة الرابط</div></div>
 <div id="tw" style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;gap:7px;align-items:center;pointer-events:none"></div>
 <div id="root" style="display:none"></div>
@@ -178,8 +179,7 @@ body.lm .sht{background:var(--s1)}
 const SUPA_URL='https://mpfmcjgigpvdxbhgzufo.supabase.co';
 const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM';
 const ORDO_HOME='https://ordo.app';
-// ← رابط صفحة داشبورد العميل (غيره لو كان في فولدر مختلف)
-const DASH_URL='./client-dashboard.html';
+const DASH_URL=(()=>{const b=window.location.origin+window.location.pathname.replace(/\/[^\/]*$/,'/');return b+'client-portal.html';})();
 
 const db=supabase.createClient(SUPA_URL,SUPA_ANON);
 const xe=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -220,6 +220,18 @@ async function build(){
     const isLight=(_settings.displayMode||_settings.display_mode||'dark')==='light';
     if(isLight)document.body.classList.add('lm');
     document.documentElement.style.setProperty('--ac',accent);
+    document.documentElement.style.setProperty('--ac2',accent+'bb');
+    // ── تحديث شاشة التحميل فوراً بلوجو ولون المستخدم ──
+    const logo=_settings.logo||'';
+    const lsEl=document.getElementById('ll-logo');
+    if(lsEl){
+      if(logo){
+        lsEl.style.cssText='width:60px;height:60px;border-radius:16px;overflow:hidden;animation:lp 1.5s ease-in-out infinite;box-shadow:0 0 0 0 rgba(124,111,247,.4)';
+        lsEl.innerHTML=`<img src="${logo}" style="width:100%;height:100%;object-fit:cover;display:block" alt="">`;
+      } else {
+        lsEl.style.background=`linear-gradient(135deg,${accent},${accent}cc)`;
+      }
+    }
     document.title=_settings.name||'متجر الخدمات';
 
     // ── FILTER: separate stores correctly ──
@@ -238,7 +250,6 @@ async function build(){
     const storeObj=_storeId?(ud.stores||[]).find(s=>s.id===_storeId):null;
     const nm=(storeObj?.name)||_settings.name||'Studio';
     const desc=(storeObj?.desc)||_settings.svc_site_desc||_settings.bio||'';
-    const logo=_settings.logo||'';
     const phone=_settings.phone||'';
     const email=_settings.email||'';
     const socials=_settings.socials||[];
