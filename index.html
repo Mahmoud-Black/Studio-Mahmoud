@@ -2149,6 +2149,32 @@ function getQRDataURL(text, size) {
 </style>
 </head>
 <body style="visibility:hidden">
+<!-- Offline indicator -->
+<div id="_offline-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:rgba(20,20,30,.94);backdrop-filter:blur(8px);padding:7px 16px;text-align:center;font-family:Cairo,Tajawal,sans-serif;font-size:12px;font-weight:400;color:#f7c948;letter-spacing:.3px;border-bottom:1px solid rgba(247,201,72,.15)">
+  <i class="fa-solid fa-wifi" style="opacity:.6;margin-left:6px;font-size:11px"></i>لا يوجد اتصال بالإنترنت
+</div>
+<script>
+(function(){
+  function _syncOffline(){
+    var bar=document.getElementById('_offline-bar');
+    if(!bar) return;
+    if(!navigator.onLine){
+      bar.style.display='block';
+    } else {
+      if(bar.style.display!=='none'){
+        bar.style.background='rgba(20,40,30,.94)';
+        bar.style.color='#4fd1a5';
+        bar.innerHTML='<i class="fa-solid fa-wifi" style="margin-left:6px;font-size:11px"></i>عاد الاتصال بالإنترنت';
+        setTimeout(function(){ bar.style.display='none'; bar.style.background='rgba(20,20,30,.94)'; bar.style.color='#f7c948'; bar.innerHTML='<i class="fa-solid fa-wifi" style="opacity:.6;margin-left:6px;font-size:11px"></i>لا يوجد اتصال بالإنترنت'; },2500);
+      }
+    }
+  }
+  window.addEventListener('online', _syncOffline);
+  window.addEventListener('offline', _syncOffline);
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_syncOffline);
+  else _syncOffline();
+})();
+</script>
 <script>
 // Prevent flash: show body only after auth check AND subscription load
 window._appReady = false;
