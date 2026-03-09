@@ -2629,9 +2629,31 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       </div>
     </div>
     <div class="form-group"><label class="form-label">الموعد النهائي</label><input class="form-input" type="date" id="ptask-deadline"></div>
+    <div class="form-row" style="grid-template-columns:1fr 1fr">
+      <div class="form-group">
+        <label class="form-label"><i class="fa-solid fa-coins" style="color:var(--accent3)"></i> قيمة المهمة (المقابل المادي)</label>
+        <input class="form-input" type="number" id="ptask-value" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">العملة</label>
+        <select class="form-input" id="ptask-currency">
+          <option value="ج.م">ج.م</option>
+          <option value="ر.س">ر.س</option>
+          <option value="$">$</option>
+          <option value="€">€</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">حالة التحصيل</label>
+      <select class="form-input" id="ptask-payment-status">
+        <option value="pending">⏳ لم يُحصّل بعد</option>
+        <option value="collected">✅ تم التحصيل</option>
+      </select>
+    </div>
     <div class="form-group">
       <label class="form-label">الخطوات / Subtasks</label>
-      <div id="ptask-steps-list" style="margin-bottom:8px;display:flex;flex-direction:column;gap:4px"></div>
+      <div id="ptask-steps-list" style="margin-bottom:8px;display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;padding-right:2px"></div>
       <div style="display:flex;gap:6px">
         <input class="form-input" id="ptask-new-step" placeholder="أضف خطوة..." style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addPTaskStep()}">
         <button class="btn btn-ghost btn-sm" onclick="addPTaskStep()">+ إضافة</button>
@@ -3906,6 +3928,11 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button onclick="openSvcModal()" class="btn btn-primary btn-sm">+ خدمة جديدة</button>
       <button onclick="openPkgStandaloneModal()" class="btn btn-ghost btn-sm" style="background:rgba(79,209,165,.12);color:var(--accent3);border-color:rgba(79,209,165,.25)">+ إنشاء باقة</button>
+      <div style="position:relative;display:inline-flex">
+        <button onclick="openNewStoreModal()" class="btn btn-ghost btn-sm" style="border-radius:10px 0 0 10px;border-left:none;padding-left:12px"><i class="fa-solid fa-store" style="margin-left:4px"></i> متجر جديد</button>
+        <button onclick="toggleStoresDropdown(this)" class="btn btn-ghost btn-sm" style="border-radius:0 10px 10px 0;padding:0 8px;border-right:2px solid var(--border)"><i class="fa-solid fa-chevron-down" style="font-size:10px"></i></button>
+        <div id="stores-quick-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;min-width:240px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:6px"></div>
+      </div>
     </div>
   </div>
 
@@ -3929,6 +3956,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     <button onclick="switchSvcTab('portfolio')" id="svctab-portfolio" class="btn btn-ghost btn-sm" style="border-radius:10px;min-width:90px;justify-content:center;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-image"></i> البورتفوليو</button>
     <button onclick="switchSvcTab('website')" id="svctab-website" class="btn btn-ghost btn-sm" style="border-radius:10px;min-width:90px;justify-content:center;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-globe"></i> الموقع</button>
     <button onclick="switchSvcTab('orders')" id="svctab-orders" class="btn btn-ghost btn-sm" style="border-radius:10px;min-width:90px;justify-content:center;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-clipboard-list"></i> الطلبات <span id="svc-orders-tab-badge" style="display:none;background:var(--accent4);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-right:4px">0</span></button>
+    <button onclick="switchSvcTab('stores')" id="svctab-stores" class="btn btn-ghost btn-sm" style="border-radius:10px;min-width:90px;justify-content:center;white-space:nowrap;flex-shrink:0"><i class="fa-solid fa-store"></i> المتاجر <span id="svc-stores-tab-badge" style="display:none;background:var(--accent2);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-right:4px">0</span></button>
   </div>
 
   <!-- ══ TAB: SERVICES ══ -->
@@ -3963,6 +3991,10 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
   </div>
 
   <!-- ══ TAB: WEBSITE SETTINGS ══ -->
+  <div id="svc-stores-wrap" style="display:none">
+    <div id="svc-stores-tab-content"></div>
+  </div>
+
   <div id="svc-website-wrap" style="display:none">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
 
@@ -8276,7 +8308,34 @@ function filterTransactions(transactions){
   });
 }
 
+
+// ── Sync project task income to S.transactions (auto-record) ──
+function _syncProjTaskTransactions(){
+  if(!S.project_tasks) return;
+  if(!S.transactions) S.transactions=[];
+  S.project_tasks.forEach(function(t){
+    if(!t.paymentCollected || !t.value || t.value<=0) return;
+    // Check if already recorded
+    var exists=S.transactions.some(function(tx){return tx.linkedProjTaskId===t.id;});
+    if(!exists){
+      var proj=_getProjById?_getProjById(t.project_id):null;
+      S.transactions.push({
+        id:Date.now()+Math.random(),
+        type:'income',
+        amount:t.value,
+        currency:t.currency||'ج.م',
+        desc:'مهمة مشروع: '+(t.title||'')+(proj?' — '+proj.name:''),
+        date:t.createdAt?t.createdAt.slice(0,10):new Date().toISOString().slice(0,10),
+        linkedProjTaskId:t.id,
+        source:'project_task',
+        createdAt:new Date().toISOString()
+      });
+    }
+  });
+}
 function renderFinance(){
+  // Sync project task completions into transactions (avoid duplicates)
+  _syncProjTaskTransactions();
   populateFinYears();
   renderMonthlyTimeline();
   const filtered = filterTransactions(S.transactions);
@@ -8337,7 +8396,12 @@ function renderFinance(){
 function renderUnpaidReminders(){
   const wrap = document.getElementById('fin-unpaid-reminders'); if(!wrap) return;
   // Find completed tasks whose payment was not collected
-  const uncollected = S.tasks.filter(t=>t.done && !t.paymentCollected && t.value>0);
+  // Include project tasks in uncollected
+  const _projUncollected=(S.project_tasks||[]).filter(t=>t.status==='done'&&!t.paymentCollected&&t.value>0).map(t=>{
+    var proj=_getProjById&&_getProjById(t.project_id);
+    return Object.assign({},t,{title:(proj?proj.name+' — ':'')+t.title,_isProjTask:true});
+  });
+  const uncollected = [...S.tasks.filter(t=>t.done && !t.paymentCollected && t.value>0), ..._projUncollected];
   if(!uncollected.length){ wrap.style.display='none'; return; }
   wrap.style.display='block';
   wrap.innerHTML = `<div class="card" style="border-color:rgba(247,201,72,.4)">
@@ -8355,6 +8419,25 @@ function renderUnpaidReminders(){
 }
 
 function markTaskPaymentCollected(taskId){
+  // Check project task first
+  var ptask=(S.project_tasks||[]).find(function(t){return String(t.id)===String(taskId);});
+  if(ptask){
+    ptask.paymentCollected=true;
+    if(ptask.value>0){
+      if(!S.transactions) S.transactions=[];
+      var proj=typeof _getProjById==='function'?_getProjById(ptask.project_id):null;
+      S.transactions.push({id:Date.now()+Math.random(),type:'income',amount:ptask.value,
+        currency:ptask.currency||'ج.م',
+        desc:'تحصيل: '+(ptask.title||'')+(proj?' — '+proj.name:''),
+        date:new Date().toISOString().slice(0,10),
+        linkedProjTaskId:ptask.id,source:'project_task',createdAt:new Date().toISOString()});
+    }
+    lsSave(); cloudSave(S);
+    if(typeof renderFinance==='function') renderFinance();
+    if(typeof renderProjectDetail==='function') renderProjectDetail();
+    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تسجيل التحصيل');
+    return;
+  }
   const task = S.tasks.find(x=>x.id===taskId); if(!task) return;
   task.paymentCollected = true;
   lsSave();
@@ -16477,6 +16560,87 @@ async function checkAndSaveUsername(){
 
 // ══ MULTI-STORE FUNCTIONS ══
 function _getStores(){ return S.stores||[]; }
+
+function toggleStoresDropdown(btn){
+  var dd=document.getElementById('stores-quick-dropdown');
+  if(!dd) return;
+  if(dd.style.display!=='none'){dd.style.display='none';return;}
+  var stores=_getStores();
+  var mainLink=getSvcLink();
+  var html='<div style="padding:6px 8px;font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">المتاجر</div>';
+  html+='<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700" onclick="svcPreviewPublic();document.getElementById(\'stores-quick-dropdown\').style.display=\'none\';" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'none\'">'+
+    '<i class="fa-solid fa-globe" style="color:var(--accent)"></i> المتجر الرئيسي</div>';
+  stores.forEach(function(st,i){
+    html+='<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer" onclick="previewStore('+i+');document.getElementById(\'stores-quick-dropdown\').style.display=\'none\';" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'none\'">'+
+      '<i class="fa-solid fa-store" style="color:var(--accent2)"></i>'+
+      '<span style="flex:1;font-size:12px;font-weight:600">'+escapeHtml(st.name)+'</span>'+
+      '<button onclick="event.stopPropagation();copyStoreLink('+i+');document.getElementById(\'stores-quick-dropdown\').style.display=\'none\';" class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:10px"><i class="fa-solid fa-copy"></i></button>'+
+    '</div>';
+  });
+  if(!stores.length){
+    html+='<div style="padding:12px;text-align:center;font-size:11px;color:var(--text3)">لا توجد متاجر</div>';
+    html+='<div style="padding:0 6px 6px"><button onclick="switchSvcTab(\'stores\');document.getElementById(\'stores-quick-dropdown\').style.display=\'none\';" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;font-size:11px">+ إنشاء متجر</button></div>';
+  } else {
+    html+='<div style="border-top:1px solid var(--border);margin-top:4px;padding:6px 6px 0"><button onclick="switchSvcTab(\'stores\');document.getElementById(\'stores-quick-dropdown\').style.display=\'none\';" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;font-size:11px"><i class="fa-solid fa-plus"></i> إدارة المتاجر</button></div>';
+  }
+  dd.innerHTML=html;
+  dd.style.display='block';
+  var close=function(e){if(!dd.contains(e.target)&&e.target!==btn){dd.style.display='none';document.removeEventListener('click',close);}};
+  setTimeout(function(){document.addEventListener('click',close);},10);
+}
+
+function renderStoresTab(){
+  var el=document.getElementById('svc-stores-tab-content'); if(!el) return;
+  var stores=_getStores();
+  // update badge
+  var badge=document.getElementById('svc-stores-tab-badge');
+  if(badge){badge.textContent=stores.length;badge.style.display=stores.length?'inline':'none';}
+  el.innerHTML='<div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">'+
+    '<div><div style="font-size:15px;font-weight:900"><i class="fa-solid fa-store" style="color:var(--accent2)"></i> المتاجر المتعددة</div>'+
+    '<div style="font-size:11px;color:var(--text3)">كل متجر برابط مستقل — لعملاء أو خدمات مختلفة</div></div>'+
+    '<button class="btn btn-primary" onclick="openNewStoreModal()"><i class="fa-solid fa-plus" style="margin-left:5px"></i> متجر جديد</button>'+
+  '</div>'+
+  // Main store card
+  '<div style="background:var(--surface2);border:2px solid var(--accent);border-radius:14px;padding:14px 16px;margin-bottom:12px">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'+
+      '<div><div style="font-size:14px;font-weight:800"><i class="fa-solid fa-house" style="color:var(--accent)"></i> المتجر الرئيسي</div>'+
+      '<div style="font-size:11px;color:var(--text3);margin-top:2px;font-family:var(--mono);word-break:break-all">'+escapeHtml(getSvcLink())+'</div></div>'+
+      '<div style="display:flex;gap:6px">'+
+        '<button onclick="svcCopyLink()" class="btn btn-ghost btn-sm"><i class="fa-solid fa-copy"></i> نسخ</button>'+
+        '<button onclick="svcPreviewPublic()" class="btn btn-primary btn-sm"><i class="fa-solid fa-eye"></i> معاينة</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>'+
+  // Extra stores
+  (stores.length?
+    stores.map(function(st,i){
+      var lnk=getSvcLink(st.id);
+      return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px">'+
+        '<div style="display:flex;align-items:start;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
+          '<div style="flex:1;min-width:0">'+
+            '<div style="font-size:14px;font-weight:800;margin-bottom:2px">'+escapeHtml(st.name)+'</div>'+
+            (st.desc?'<div style="font-size:11px;color:var(--text3);margin-bottom:4px">'+escapeHtml(st.desc)+'</div>':'')+
+            '<div style="font-size:10px;color:var(--text3);font-family:var(--mono);word-break:break-all">'+escapeHtml(lnk)+'</div>'+
+          '</div>'+
+          '<div style="display:flex;gap:4px;flex-shrink:0">'+
+            '<button data-i="'+i+'" onclick="copyStoreLink(this.dataset.i)" class="btn btn-ghost btn-sm"><i class="fa-solid fa-copy"></i></button>'+
+            '<button data-i="'+i+'" onclick="previewStore(this.dataset.i)" class="btn btn-ghost btn-sm"><i class="fa-solid fa-eye"></i></button>'+
+            '<button data-i="'+i+'" onclick="editStore(this.dataset.i)" class="btn btn-ghost btn-sm"><i class="fa-solid fa-pen"></i></button>'+
+            '<button data-i="'+i+'" onclick="deleteStore(this.dataset.i)" class="btn btn-danger btn-sm"><i class="fa-solid fa-trash"></i></button>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    }).join('')
+  :
+    '<div style="text-align:center;padding:40px 20px;color:var(--text3)">'+
+      '<div style="font-size:36px;margin-bottom:12px">🏪</div>'+
+      '<div style="font-size:14px;font-weight:700;margin-bottom:6px">لا توجد متاجر إضافية</div>'+
+      '<div style="font-size:12px;margin-bottom:16px">أنشئ متجرًا منفصلًا لكل عميل أو نوع خدمة</div>'+
+      '<button class="btn btn-primary" onclick="openNewStoreModal()"><i class="fa-solid fa-plus"></i> متجر جديد</button>'+
+    '</div>'
+  );
+}
+
 function renderMultiStoresList(){
   var el=document.getElementById('multi-stores-list'); if(!el) return;
   var stores=_getStores();
@@ -16526,7 +16690,7 @@ function _saveStore(editIdx, btn){
   if(editIdx!=null && editIdx>=0){
     S.stores[editIdx].name=name; S.stores[editIdx].desc=desc;
   } else {
-    S.stores.push({id:'store_'+Date.now(),name:name,desc:desc,createdAt:new Date().toISOString()});
+    S.stores.push({id:'store_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name:name,desc:desc,createdAt:new Date().toISOString()});
   }
   lsSave(); cloudSave(S); modal.remove(); renderMultiStoresList();
   toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ المتجر');
@@ -16554,7 +16718,7 @@ function svcShareWhatsApp(){
   window.open('https://wa.me/?text='+encodeURIComponent('<i class="fa-solid fa-bag-shopping"></i> اطلب خدماتي: '+getSvcLink()),'_blank');
 }
 function switchSvcTab(tab){
-  var tabs=['services','packages','portfolio','website','orders'];
+  var tabs=['services','packages','portfolio','website','orders','stores'];
   tabs.forEach(function(t){
     var btn=document.getElementById('svctab-'+t);
     // services tab maps to svc-services-wrap
@@ -16567,6 +16731,7 @@ function switchSvcTab(tab){
   if(tab==='packages') renderStandalonePackages();
   if(tab==='portfolio') renderPortfolioProjects();
   if(tab==='website') initWebsiteTab();
+  if(tab==='stores') renderStoresTab();
 }
 
 // ══════════════════════════════════
@@ -17964,7 +18129,8 @@ function _buildSvcOrderPage(userId){
     styleEl.textContent=
       '@import url(\'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap\');'+
       '*{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}'+
-      'html,body{height:auto !important;overflow-x:hidden;overflow-y:auto !important;scroll-behavior:smooth}'+
+      'html,body{height:auto !important;min-height:100vh;overflow-x:hidden !important;overflow-y:auto !important;scroll-behavior:smooth}'+
+      'html.pub-page,body.pub-page{overflow:auto !important;height:auto !important}'+
       'body{font-family:\'Cairo\',sans-serif;background:'+bg+';color:'+textMain+';direction:rtl;min-height:100vh;position:relative}'+
       // Ambient glow - مش position:fixed علشان ما يعطلش السكرول
       'body::before{content:\'\';position:absolute;inset:0;z-index:0;pointer-events:none;min-height:100vh;'+
@@ -18139,6 +18305,12 @@ function _buildSvcOrderPage(userId){
       '<button class="_mob-link" style="font-weight:800" onclick="_openPublicContactForm();_toggleMobMenu()"><i class="fa-solid fa-envelope-open-text"></i> تواصل معنا</button>'+
     '</div>';
 
+    // ── Use store name/desc override if specific store requested ──
+    if(_storeObj){
+      studioName = _storeObj.name || studioName;
+      siteDesc = _storeObj.desc || siteDesc;
+    }
+
     // ── HERO/BANNER ──
     var heroHtml='<div id="_sec-hero" style="scroll-margin-top:70px">'+
       '<div class="_hero">'+
@@ -18166,8 +18338,7 @@ function _buildSvcOrderPage(userId){
           '<div class="_svc-foot">'+
             '<div class="_svc-price">'+priceDisplay+'</div>'+
             '<div style="display:flex;gap:5px">'+
-              '<button class="_svc-btn" onclick="event.stopPropagation();_openSvcPage('+idx+')" style="background:transparent;border:1.5px solid '+accent+'55;color:'+accent+'">تفاصيل</button>'+
-              (svc.payment_link?'<a href="'+escapeHtml(svc.payment_link)+'" target="_blank" class="_svc-btn" style="text-decoration:none;background:#22c55e;color:#fff;display:flex;align-items:center;gap:4px" onclick="event.stopPropagation()">💳 ادفع الآن</a>':'<button class="_svc-btn" onclick="event.stopPropagation();_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+')">اطلب ←</button>')+
+              (svc.payment_link?'<a href="'+escapeHtml(svc.payment_link)+'" target="_blank" class="_svc-btn" style="text-decoration:none;background:'+accent+';color:#fff;display:flex;align-items:center;justify-content:center;gap:4px" onclick="event.stopPropagation()">اطلب ←</a>':'<button class="_svc-btn" onclick="event.stopPropagation();_openOrderFormNew(\''+encodeURIComponent(svc.name)+'\',\'\','+(svc.price||0)+')">اطلب ←</button>')+
             '</div>'+
           '</div>'+
         '</div>'+
@@ -21481,13 +21652,28 @@ function renderProjOverview(proj,tasks,client,clr){
       </div>
       <div class="card">
         <div class="section-title"><i class="fa-solid fa-chart-pie"></i> إحصائيات</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center;margin-bottom:12px">
           ${[['إجمالي',tasks.length,'var(--text)'],['To Do',tasks.filter(t=>t.status==='todo').length,'#888'],['جاري',tasks.filter(t=>t.status==='progress').length,'#f7c948'],['مكتمل',tasks.filter(t=>t.status==='done').length,'#4fd1a5']].map(([l,v,c])=>`
           <div style="padding:10px;background:var(--surface2);border-radius:10px">
             <div style="font-size:22px;font-weight:900;color:${c}">${v}</div>
             <div style="font-size:10px;color:var(--text3)">${l}</div>
           </div>`).join('')}
         </div>
+        ${(()=>{
+          var totalVal=tasks.reduce(function(s,t){return s+(t.value||0);},0);
+          var collectedVal=tasks.filter(function(t){return t.paymentCollected;}).reduce(function(s,t){return s+(t.value||0);},0);
+          var pendingVal=totalVal-collectedVal;
+          if(!totalVal) return '';
+          var cur=(tasks.find(function(t){return t.value>0&&t.currency;})||{currency:'ج.م'}).currency||'ج.م';
+          return '<div style="border-top:1px solid var(--border);padding-top:10px">'+
+            '<div style="font-size:11px;font-weight:800;color:var(--text2);margin-bottom:8px"><i class="fa-solid fa-coins" style="color:var(--accent3)"></i> المالية</div>'+
+            '<div style="display:flex;flex-direction:column;gap:6px;font-size:11px">'+
+              '<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">إجمالي</span><strong style="color:var(--accent3)">'+totalVal.toLocaleString()+' '+cur+'</strong></div>'+
+              '<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">محصّل</span><strong style="color:#4fd1a5">'+collectedVal.toLocaleString()+' '+cur+'</strong></div>'+
+              '<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">متبقي</span><strong style="color:#f7c948">'+pendingVal.toLocaleString()+' '+cur+'</strong></div>'+
+            '</div>'+
+          '</div>';
+        })()}
       </div>
     </div>
     <!-- Recent Tasks -->
@@ -21527,23 +21713,25 @@ function renderProjTasksList(proj,tasks,clr){
 function renderProjTaskRow(t,clr){
   var pri=_getPriorityInfo(t.priority||'normal');
   var steps=t.steps||[];
-  var doneSteps=steps.filter(s=>s.done).length;
-  return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
-    <input type="checkbox" ${t.status==='done'?'checked':''} onchange="toggleProjTaskDone('${t.id}','${t.project_id}',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:${clr}">
-    <div style="flex:1;min-width:0">
-      <div style="font-size:13px;font-weight:700;${t.status==='done'?'text-decoration:line-through;color:var(--text3)':''}">${escapeHtml(t.title)}</div>
-      <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap">
-        <span class="${pri.cls}">${pri.label}</span>
-        ${t.deadline?`<span style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-calendar"></i> ${t.deadline}</span>`:''}
-        ${t.assignee_name?`<span style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-user"></i> ${escapeHtml(t.assignee_name)}</span>`:''}
-        ${steps.length?`<span style="font-size:10px;color:var(--text3)">${doneSteps}/${steps.length} خطوة</span>`:''}
-      </div>
-    </div>
-    <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
-      <button data-tid="${t.id}" data-pid="${t.project_id}" onclick="openProjTaskModal(this.dataset.pid,this.dataset.tid)" class="btn btn-ghost btn-sm" style="padding:3px 7px"><i class="fa-solid fa-pen"></i></button>
-      <button data-tid="${t.id}" data-pid="${t.project_id}" onclick="deleteProjTask(this.dataset.tid,this.dataset.pid)" class="btn btn-danger btn-sm" style="padding:3px 7px"><i class="fa-solid fa-trash"></i></button>
-    </div>
-  </div>`;
+  var doneSteps=steps.filter(function(s){return s.done;}).length;
+  return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px">'+
+    '<input type="checkbox" '+(t.status==='done'?'checked':'')+' onchange="toggleProjTaskDone('+JSON.stringify(String(t.id))+','+JSON.stringify(String(t.project_id))+',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:'+clr+'">'+
+    '<div style="flex:1;min-width:0">'+
+      '<div style="font-size:13px;font-weight:700;'+(t.status==='done'?'text-decoration:line-through;color:var(--text3)':'')+'">'+escapeHtml(t.title)+'</div>'+
+      '<div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap">'+
+        '<span class="'+pri.cls+'">'+pri.label+'</span>'+
+        (t.deadline?'<span style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-calendar"></i> '+t.deadline+'</span>':'')+
+        (t.assignee_name?'<span style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-user"></i> '+escapeHtml(t.assignee_name)+'</span>':'')+
+        (steps.length?'<span style="font-size:10px;color:var(--text3)">'+doneSteps+'/'+steps.length+' خطوة</span>':'')+
+        (t.value?'<span style="font-size:10px;color:var(--accent3);font-weight:700"><i class="fa-solid fa-coins"></i> '+t.value.toLocaleString()+' '+(t.currency||'ج.م')+(t.paymentCollected?' ✅':'')+'</span>':'')+
+      '</div>'+
+    '</div>'
+    +'<div style="display:flex;gap:4px;align-items:center;flex-shrink:0" onclick="event.stopPropagation()">'+
+      (t.value>0&&t.status==='done'&&!t.paymentCollected?'<button data-tid="'+t.id+'" onclick="markTaskPaymentCollected(this.dataset.tid)" class="btn btn-success btn-sm" style="padding:2px 7px;font-size:10px">تحصيل</button>':'')+
+      '<button data-tid="'+t.id+'" data-pid="'+t.project_id+'" onclick="openProjTaskModal(this.dataset.pid,this.dataset.tid)" class="btn btn-ghost btn-sm" style="padding:3px 7px"><i class="fa-solid fa-pen"></i></button>'+
+      '<button data-tid="'+t.id+'" data-pid="'+t.project_id+'" onclick="deleteProjTask(this.dataset.tid,this.dataset.pid)" class="btn btn-danger btn-sm" style="padding:3px 7px"><i class="fa-solid fa-trash"></i></button>'+
+    '</div>'+
+  '</div>';
 }
 
 // ── Kanban Tab ──
@@ -21576,19 +21764,23 @@ function renderProjKanban(proj,tasks,clr){
 function renderProjKbCard(t,clr,proj){
   var pri=_getPriorityInfo(t.priority||'normal');
   var steps=t.steps||[];
-  var doneSteps=steps.filter(s=>s.done).length;
-  return `<div class="proj-kb-card" draggable="true" data-task-id="${t.id}" ondragstart="onProjKbDragStart(event,'${t.id}')">
-    <div style="font-size:12px;font-weight:700;margin-bottom:5px;line-height:1.4">${escapeHtml(t.title)}</div>
-    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
-      <span class="${pri.cls}">${pri.label}</span>
-      ${t.deadline?`<span style="font-size:9px;color:var(--text3);background:var(--surface3);padding:1px 5px;border-radius:4px">${t.deadline}</span>`:''}
-    </div>
-    ${steps.length?`<div style="font-size:10px;color:var(--text3);margin-bottom:5px">${doneSteps}/${steps.length} خطوات</div>`:''}
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      ${t.assignee_name?`<span style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-user"></i> ${escapeHtml(t.assignee_name)}</span>`:'<span></span>'}
-      <button data-tid="${t.id}" data-pid="${proj.id}" onclick="event.stopPropagation();openProjTaskModal(this.dataset.pid,this.dataset.tid)" class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:10px"><i class="fa-solid fa-pen"></i></button>
-    </div>
-  </div>`;
+  var doneSteps=steps.filter(function(s){return s.done;}).length;
+  return '<div class="proj-kb-card" draggable="true" data-task-id="'+t.id+'" ondragstart="onProjKbDragStart(event,this.dataset.taskId)">' +
+    '<div style="font-size:12px;font-weight:700;margin-bottom:5px;line-height:1.4">'+escapeHtml(t.title)+'</div>'+
+    '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">'+
+      '<span class="'+pri.cls+'">'+pri.label+'</span>'+
+      (t.deadline?'<span style="font-size:9px;color:var(--text3);background:var(--surface3);padding:1px 5px;border-radius:4px">'+t.deadline+'</span>':'')+
+    '</div>'+
+    (steps.length?'<div style="font-size:10px;color:var(--text3);margin-bottom:5px">'+doneSteps+'/'+steps.length+' خطوات</div>':'')+
+    (t.value?'<div style="font-size:10px;color:var(--accent3);margin-bottom:4px"><i class="fa-solid fa-coins"></i> '+t.value.toLocaleString()+' '+(t.currency||'ج.م')+(t.paymentCollected?' ✅':'')+'</div>':'')+
+    '<div style="display:flex;justify-content:space-between;align-items:center">'+
+      '<div style="display:flex;align-items:center;gap:4px;flex:1;flex-wrap:wrap">'+
+        (t.assignee_name?'<span style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-user"></i> '+escapeHtml(t.assignee_name)+'</span>':'')+
+        (t.value>0?'<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:5px;background:rgba(255,255,255,.07);color:'+(t.paymentCollected?'#4fd1a5':'#f7c948')+'">'+(+t.value).toLocaleString()+' '+(t.currency||'ج.م')+'</span>':'')+
+      '</div>'+
+      '<button data-tid="'+t.id+'" data-pid="'+proj.id+'" onclick="event.stopPropagation();openProjTaskModal(this.dataset.pid,this.dataset.tid)" class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:10px"><i class="fa-solid fa-pen"></i></button>'+
+    '</div>'+
+  '</div>';
 }
 
 // Kanban DnD
@@ -21679,11 +21871,18 @@ function openProjTaskModal(projId, taskId, defaultStatus){
   document.getElementById('ptask-priority').value=t?t.priority||'normal':'normal';
   document.getElementById('ptask-status').value=t?t.status||'todo':(defaultStatus||'todo');
   document.getElementById('ptask-deadline').value=t?t.deadline||'':'';
+  document.getElementById('ptask-value').value=t?t.value||'':'';
+  document.getElementById('ptask-currency').value=t?t.currency||'ج.م':'ج.م';
+  document.getElementById('ptask-payment-status').value=t?(t.paymentCollected?'collected':'pending'):'pending';
   // Assignee from project members
   var proj=_getProjById(projId);
   var members=proj?proj.members||[]:[{id:'me',name:S.settings?.name||'أنا'}];
   var asel=document.getElementById('ptask-assignee');
-  asel.innerHTML='<option value="">— اختر —</option>'+members.map(m=>`<option value="${m.id}" data-name="${escapeHtml(m.name||'')}"${t&&t.assignee_id===m.id?' selected':''}>${escapeHtml(m.name||'?')}</option>`).join('');
+  asel.innerHTML='<option value="">— اختر —</option>'+members.map(function(m){
+    var n=escapeHtml(m.name||m.email||'?');
+    var sel=(t&&(t.assignee_id===m.id||t.assignee_id===String(m.id)))?'selected':'';
+    return '<option value="'+m.id+'" data-name="'+n+'" '+sel+'>'+n+'</option>';
+  }).join('');
   renderPtaskSteps();
   openM('modal-proj-task');
   setTimeout(()=>document.getElementById('ptask-title').focus(),100);
@@ -21691,17 +21890,27 @@ function openProjTaskModal(projId, taskId, defaultStatus){
 
 function renderPtaskSteps(){
   var el=document.getElementById('ptask-steps-list'); if(!el) return;
-  el.innerHTML=_ptaskSteps.map((s,i)=>`<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--surface2);border-radius:8px">
-    <input type="checkbox" ${s.done?'checked':''} onchange="_ptaskSteps[${i}].done=this.checked" style="cursor:pointer;accent-color:var(--accent)">
-    <span style="flex:1;font-size:12px;${s.done?'text-decoration:line-through;color:var(--text3)':''}">${escapeHtml(s.text)}</span>
-    <button onclick="_ptaskSteps.splice(${i},1);renderPtaskSteps()" class="btn btn-danger btn-sm" style="padding:2px 6px"><i class="fa-solid fa-xmark"></i></button>
-  </div>`).join('');
+  if(!_ptaskSteps.length){
+    el.innerHTML='<div style="text-align:center;padding:8px;font-size:11px;color:var(--text3)">لا توجد خطوات — أضف خطوة أدناه</div>';
+    return;
+  }
+  el.innerHTML=_ptaskSteps.map(function(s,i){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:4px">'+
+      '<input type="checkbox" '+(s.done?'checked':'')+' data-si="'+i+'" onchange="_ptaskSteps[+this.dataset.si].done=this.checked;renderPtaskSteps()" style="cursor:pointer;accent-color:var(--accent);width:15px;height:15px;flex-shrink:0">'+
+      '<span style="flex:1;font-size:12px;line-height:1.5;'+(s.done?'text-decoration:line-through;color:var(--text3)':'color:var(--text)')+'">'+escapeHtml(s.text)+'</span>'+
+      '<button data-si="'+i+'" onclick="_ptaskSteps.splice(+this.dataset.si,1);renderPtaskSteps()" class="btn btn-danger btn-sm" style="padding:2px 7px;flex-shrink:0"><i class="fa-solid fa-xmark"></i></button>'+
+    '</div>';
+  }).join('');
 }
 function addPTaskStep(){
   var inp=document.getElementById('ptask-new-step');
-  var v=(inp?.value||'').trim(); if(!v) return;
+  var v=(inp?inp.value||'':'').trim(); if(!v) return;
   _ptaskSteps.push({text:v,done:false});
-  inp.value=''; renderPtaskSteps();
+  inp.value='';
+  renderPtaskSteps();
+  // Scroll to show the steps list
+  var el=document.getElementById('ptask-steps-list');
+  if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 function saveProjTask(){
@@ -21719,6 +21928,9 @@ function saveProjTask(){
     priority:document.getElementById('ptask-priority').value||'normal',
     status:document.getElementById('ptask-status').value||'todo',
     deadline:document.getElementById('ptask-deadline').value||'',
+    value:+(document.getElementById('ptask-value')||{value:0}).value||0,
+    currency:(document.getElementById('ptask-currency')||{value:'ج.م'}).value||'ج.م',
+    paymentCollected:(document.getElementById('ptask-payment-status')||{value:'pending'}).value==='collected',
     assignee_id, assignee_name,
     steps:[..._ptaskSteps],
     createdAt:new Date().toISOString()
@@ -21735,8 +21947,28 @@ function saveProjTask(){
 
 function toggleProjTaskDone(taskId,projId,done){
   if(!S.project_tasks) return;
-  var t=S.project_tasks.find(t=>String(t.id)===String(taskId));
-  if(t){ t.status=done?'done':'todo'; lsSave(); cloudSave(S); renderProjectDetail(); }
+  var t=S.project_tasks.find(function(x){return String(x.id)===String(taskId);});
+  if(!t) return;
+  t.status=done?'done':'todo';
+  // Auto-record income when task marked done and has value
+  if(done && t.value>0 && !t.paymentCollected){
+    var proj=_getProjById(projId);
+    if(!S.transactions) S.transactions=[];
+    S.transactions.push({
+      id:Date.now()+Math.random(),
+      type:'income',
+      amount:t.value,
+      currency:t.currency||'ج.م',
+      desc:'إتمام مهمة: '+(t.title||'')+(proj?' — مشروع: '+proj.name:''),
+      date:new Date().toISOString().slice(0,10),
+      linkedProjTaskId:t.id,
+      source:'project_task',
+      createdAt:new Date().toISOString()
+    });
+    t.paymentCollected=true;
+    if(typeof renderFinance==='function') setTimeout(renderFinance,200);
+  }
+  lsSave(); cloudSave(S); renderProjectDetail();
 }
 function deleteProjTask(taskId,projId){
   confirmDel('حذف هذه المهمة؟',function(){
