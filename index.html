@@ -2818,17 +2818,19 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       <div class="form-group">
         <label class="form-label">الحالة</label>
         <select class="form-input" id="ptask-status">
-          <option value="todo">📋 To Do</option>
-          <option value="progress">⚡ In Progress</option>
-          <option value="review">🔍 Review</option>
-          <option value="done">✅ Done</option>
+          <option value="todo">🆕 جديد</option>
+          <option value="progress">⚡ قيد التنفيذ</option>
+          <option value="review">🔍 مراجعة</option>
+          <option value="revision">✏️ تعديلات</option>
+          <option value="done">✅ مكتمل</option>
+          <option value="hold">⏸ موقوف مؤقتاً</option>
         </select>
       </div>
     </div>
     <div class="form-group"><label class="form-label">الموعد النهائي</label><input class="form-input" type="date" id="ptask-deadline"></div>
     <div class="form-row" style="grid-template-columns:1fr 1fr">
       <div class="form-group">
-        <label class="form-label"><i class="fa-solid fa-coins" style="color:var(--accent3)"></i> قيمة المهمة (المقابل المادي)</label>
+        <label class="form-label"><i class="fa-solid fa-coins" style="color:var(--accent3)"></i> تكلفة المهمة</label>
         <input class="form-input" type="number" id="ptask-value" placeholder="0" min="0">
       </div>
       <div class="form-group">
@@ -2849,11 +2851,19 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label">الخطوات / Subtasks</label>
-      <div id="ptask-steps-list" style="margin-bottom:8px;display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;padding-right:2px"></div>
-      <div style="display:flex;gap:6px">
-        <input class="form-input" id="ptask-new-step" placeholder="أضف خطوة..." style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addPTaskStep()}">
-        <button class="btn btn-ghost btn-sm" onclick="addPTaskStep()">+ إضافة</button>
+      <label class="form-label"><i class="fa-solid fa-list-check" style="color:var(--accent)"></i> الخطوات / Subtasks</label>
+      <div id="ptask-steps-list" style="margin-bottom:8px;display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;padding-right:2px"></div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input class="form-input" id="ptask-new-step" placeholder="عنوان الخطوة..." style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addPTaskStep()}">
+        <button class="btn btn-ghost btn-sm" onclick="addPTaskStep()"><i class="fa-solid fa-plus"></i> إضافة</button>
+      </div>
+      <div id="ptask-step-note-area" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:4px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px"><i class="fa-solid fa-note-sticky" style="color:var(--accent)"></i> ملاحظة الخطوة: <span id="ptask-step-note-label"></span></div>
+        <textarea class="form-textarea" id="ptask-step-note-input" rows="2" placeholder="أضف ملاحظة لهذه الخطوة..." style="font-size:12px"></textarea>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn btn-primary btn-sm" onclick="savePtaskStepNote()"><i class="fa-solid fa-floppy-disk"></i> حفظ الملاحظة</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ptask-step-note-area').style.display='none'">إلغاء</button>
+        </div>
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:4px">
@@ -22221,13 +22231,13 @@ window.addEventListener('load', function(){
     .proj-progress-label{font-size:10px;color:var(--text3);display:flex;justify-content:space-between}
     .proj-status-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700}
     .proj-card-footer{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);padding:8px 16px;margin-top:8px}
-    .proj-kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;min-height:400px;align-items:start}
-    @media(max-width:768px){.proj-kanban{grid-template-columns:repeat(2,1fr)}}
-    @media(max-width:480px){.proj-kanban{grid-template-columns:1fr}}
-    .proj-kb-col{background:var(--surface2);border-radius:14px;padding:12px;min-height:300px}
-    .proj-kb-col-header{font-size:12px;font-weight:800;padding:8px 4px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-    .proj-kb-card{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;cursor:grab;transition:.15s;position:relative}
-    .proj-kb-card:hover{border-color:var(--accent);box-shadow:0 4px 12px rgba(0,0,0,.15)}
+    .proj-kanban{display:grid;grid-template-columns:repeat(6,minmax(200px,1fr));gap:10px;min-height:400px;align-items:start;overflow-x:auto;padding-bottom:8px}
+    @media(max-width:900px){.proj-kanban{grid-template-columns:repeat(3,minmax(180px,1fr))}}
+    @media(max-width:540px){.proj-kanban{grid-template-columns:repeat(2,minmax(160px,1fr))}}
+    .proj-kb-col{background:var(--surface2);border-radius:14px;padding:10px;min-height:280px}
+    .proj-kb-col-header{font-size:11px;font-weight:800;padding:6px 4px 10px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .proj-kb-card{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;transition:.15s;position:relative}
+    .proj-kb-card:hover{border-color:var(--accent);box-shadow:0 4px 12px rgba(0,0,0,.15);transform:translateY(-1px)}
     .proj-kb-card.dragging{opacity:.5;cursor:grabbing}
     .proj-kb-col.drag-over{background:var(--surface3);border:2px dashed var(--accent)}
     .proj-tab{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--text3);transition:.15s;white-space:nowrap}
@@ -22259,8 +22269,109 @@ function _getProjStatusInfo(st){
     review:{label:'مراجعة',color:'#64b5f6',bg:'rgba(100,181,246,.15)'},
     done:{label:'مكتمل',color:'#7c6ff7',bg:'rgba(124,111,247,.15)'}}[st]||{label:st,color:'#888',bg:'rgba(128,128,128,.1)'};
 }
+function _getTaskStatusInfo(st){
+  return {
+    todo:     {label:'جديد',         color:'#64b5f6', bg:'rgba(100,181,246,.15)'},
+    progress: {label:'قيد التنفيذ', color:'#f7c948', bg:'rgba(247,201,72,.15)'},
+    review:   {label:'مراجعة',       color:'#a78bfa', bg:'rgba(167,139,250,.15)'},
+    revision: {label:'تعديلات',      color:'#f97316', bg:'rgba(249,115,22,.15)'},
+    done:     {label:'مكتمل',        color:'#4fd1a5', bg:'rgba(79,209,165,.15)'},
+    hold:     {label:'موقوف مؤقتاً', color:'#888888', bg:'rgba(128,128,128,.15)'}
+  }[st]||{label:st,color:'#888',bg:'rgba(128,128,128,.1)'};
+}
 function _getPriorityInfo(p){
   return {high:{label:'عالية',cls:'priority-high'},normal:{label:'عادية',cls:'priority-normal'},low:{label:'منخفضة',cls:'priority-low'}}[p]||{label:p,cls:'priority-normal'};
+}
+
+// ── Task Detail View (popup overlay) ──
+function openProjTaskDetail(taskId, projId){
+  var t=(S.project_tasks||[]).find(function(x){return String(x.id)===String(taskId);});
+  var proj=_getProjById(projId);
+  if(!t) return;
+  var steps=t.steps||[];
+  var doneSteps=steps.filter(function(s){return s.done;}).length;
+  var pri=_getPriorityInfo(t.priority||'normal');
+  var priColors={high:'#f76f7c',normal:'#f7c948',low:'#4fd1a5'};
+  var priC=priColors[t.priority||'normal']||'#888';
+  var st=_getTaskStatusInfo(t.status||'todo');
+  var clr=proj?proj.color||'var(--accent)':'var(--accent)';
+
+  var over=document.createElement('div');
+  over.className='modal-overlay'; over.style.cssText='display:flex;align-items:center;justify-content:center;z-index:9999';
+  over.innerHTML=
+    '<div class="modal" style="width:min(560px,96vw);max-height:90vh;overflow-y:auto;border-radius:16px">'+
+    '<!-- Header -->'+
+    '<div style="background:'+clr+'18;border-bottom:1px solid var(--border);padding:18px 20px;border-radius:16px 16px 0 0">'+
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">'+
+        '<div style="flex:1">'+
+          '<div style="font-size:16px;font-weight:900;margin-bottom:6px;line-height:1.3">'+escapeHtml(t.title)+'</div>'+
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
+            '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:'+st.bg+';color:'+st.color+'">'+st.label+'</span>'+
+            '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:'+priC+'22;color:'+priC+'">'+pri.label+'</span>'+
+            (t.deadline?'<span style="font-size:11px;color:var(--text3)"><i class="fa-solid fa-calendar"></i> '+t.deadline+'</span>':'')+
+          '</div>'+
+        '</div>'+
+        '<button onclick="this.closest(\'.modal-overlay\').remove()" style="background:var(--surface2);border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--text);display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>'+
+      '</div>'+
+    '</div>'+
+    '<!-- Body -->'+
+    '<div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">'+
+
+    // Description
+    (t.desc?'<div><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">الوصف</div><div style="font-size:13px;color:var(--text2);line-height:1.7;background:var(--surface2);padding:12px;border-radius:10px">'+escapeHtml(t.desc)+'</div></div>':'')+
+
+    // Info row
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'+
+      (t.assignee_name?'<div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:4px">المسؤول</div><div style="width:32px;height:32px;border-radius:50%;background:'+clr+';display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#fff;margin:0 auto 4px"><span>'+(t.assignee_name.charAt(0).toUpperCase())+'</span></div><div style="font-size:11px;font-weight:700">'+escapeHtml(t.assignee_name)+'</div></div>':'')+
+      (t.value?'<div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:4px">التكلفة</div><div style="font-size:16px;font-weight:900;color:var(--accent3)">'+t.value.toLocaleString()+'</div><div style="font-size:10px;color:var(--text3)">'+( t.currency||'ج.م')+(t.paymentCollected?' · <span style=color:#4fd1a5>محصّل</span>':' · <span style=color:#f7c948>لم يُحصّل</span>')+'</div></div>':'')+
+      '<div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:4px">الخطوات</div><div style="font-size:16px;font-weight:900;color:var(--accent)">'+doneSteps+'/'+steps.length+'</div><div style="font-size:10px;color:var(--text3)">مكتمل</div></div>'+
+    '</div>'+
+
+    // Steps
+    (steps.length?
+    '<div>'+
+      '<div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">'+
+        '<span>الخطوات</span>'+
+        '<span style="font-size:10px;background:var(--accent)22;color:var(--accent);padding:2px 8px;border-radius:10px">'+Math.round(doneSteps/(steps.length||1)*100)+'%</span>'+
+      '</div>'+
+      '<div style="height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;margin-bottom:10px">'+
+        '<div style="height:100%;width:'+Math.round(doneSteps/(steps.length||1)*100)+'%;background:var(--accent3);border-radius:2px;transition:.3s"></div>'+
+      '</div>'+
+      steps.map(function(s,i){
+        return '<div id="td-step-'+taskId+'-'+i+'" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid '+(s.done?'var(--accent3)33':'var(--border)')+';border-radius:10px;margin-bottom:6px;cursor:pointer;transition:.2s" onclick="_tdToggleStep(\''+taskId+'\',\''+projId+'\','+i+')">'+
+          '<div style="width:18px;height:18px;border-radius:50%;border:2px solid '+(s.done?'var(--accent3)':'var(--border)')+';background:'+(s.done?'var(--accent3)':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;transition:.2s">'+
+            (s.done?'<i class="fa-solid fa-check" style="font-size:9px;color:#fff"></i>':'')+
+          '</div>'+
+          '<div style="flex:1;min-width:0">'+
+            '<div style="font-size:12px;font-weight:600;'+(s.done?'text-decoration:line-through;color:var(--text3)':'color:var(--text)')+'">'+escapeHtml(s.text)+'</div>'+
+            (s.note?'<div style="font-size:11px;color:var(--text3);margin-top:4px;background:var(--surface3);padding:5px 8px;border-radius:6px;border-right:2px solid var(--accent)"><i class="fa-solid fa-note-sticky" style="color:var(--accent);margin-left:4px"></i>'+escapeHtml(s.note)+'</div>':'')+
+          '</div>'+
+        '</div>';
+      }).join('')+
+    '</div>':'')+
+
+    // Footer actions
+    '<div style="display:flex;gap:8px;padding-top:4px;border-top:1px solid var(--border)">'+
+      '<button onclick="this.closest(\'.modal-overlay\').remove();openProjTaskModal(\''+projId+'\',\''+taskId+'\')" class="btn btn-primary" style="flex:1;justify-content:center"><i class="fa-solid fa-pen" style="margin-left:5px"></i> تعديل المهمة</button>'+
+      '<button onclick="this.closest(\'.modal-overlay\').remove()" class="btn btn-ghost">إغلاق</button>'+
+    '</div>'+
+
+    '</div></div>'; // end body + modal
+
+  document.body.appendChild(over);
+  over.addEventListener('click',function(e){ if(e.target===over) over.remove(); });
+}
+
+// Toggle step done from task detail overlay and re-render
+function _tdToggleStep(taskId, projId, stepIdx){
+  var t=(S.project_tasks||[]).find(function(x){return String(x.id)===String(taskId);});
+  if(!t||!t.steps||!t.steps[stepIdx]) return;
+  t.steps[stepIdx].done = !t.steps[stepIdx].done;
+  lsSave(); cloudSave(S);
+  // Re-open detail
+  var ov=document.querySelector('.modal-overlay[style*="9999"]');
+  if(ov) ov.remove();
+  openProjTaskDetail(taskId, projId);
 }
 
 var _projView='grid';
@@ -22582,8 +22693,9 @@ function renderProjOverview(proj,tasks,client,clr){
 
 // ── Tasks List Tab ──
 function renderProjTasksList(proj,tasks,clr){
-  var cols=['todo','progress','review','done'];
-  var colLabels={todo:'📋 To Do',progress:'⚡ In Progress',review:'🔍 Review',done:'✅ Done'};
+  var cols=['todo','progress','review','revision','done','hold'];
+  var colLabels={todo:'🆕 جديد',progress:'⚡ قيد التنفيذ',review:'🔍 مراجعة',revision:'✏️ تعديلات',done:'✅ مكتمل',hold:'⏸ موقوف مؤقتاً'};
+  var colColors={todo:'#64b5f6',progress:'#f7c948',review:'#a78bfa',revision:'#f97316',done:'#4fd1a5',hold:'#888'};
   return `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div style="font-size:14px;font-weight:800">${tasks.length} مهمة</div>
@@ -22593,7 +22705,7 @@ function renderProjTasksList(proj,tasks,clr){
       var colTasks=tasks.filter(t=>t.status===col);
       if(!colTasks.length) return '';
       return `<div style="margin-bottom:16px">
-        <div style="font-size:12px;font-weight:800;color:var(--text2);margin-bottom:8px;padding:4px 0">${colLabels[col]} <span style="color:var(--text3);font-weight:400">(${colTasks.length})</span></div>
+        <div style="font-size:12px;font-weight:800;margin-bottom:8px;padding:6px 10px;background:${colColors[col]}18;border-radius:8px;color:${colColors[col]};border-right:3px solid ${colColors[col]}">${colLabels[col]} <span style="opacity:.6;font-weight:400">(${colTasks.length})</span></div>
         ${colTasks.map(t=>renderProjTaskRow(t,clr)).join('')}
       </div>`;
     }).join('')}
@@ -22606,21 +22718,23 @@ function renderProjTasksList(proj,tasks,clr){
 
 function renderProjTaskRow(t,clr){
   var pri=_getPriorityInfo(t.priority||'normal');
+  var st=_getTaskStatusInfo(t.status||'todo');
   var steps=t.steps||[];
   var doneSteps=steps.filter(function(s){return s.done;}).length;
-  return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px">'+
-    '<input type="checkbox" '+(t.status==='done'?'checked':'')+' onchange="toggleProjTaskDone('+JSON.stringify(String(t.id))+','+JSON.stringify(String(t.project_id))+',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:'+clr+'">'+
+  return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="openProjTaskDetail(\''+t.id+'\',\''+t.project_id+'\')">'+
+    '<input type="checkbox" '+(t.status==='done'?'checked':'')+' onclick="event.stopPropagation()" onchange="event.stopPropagation();toggleProjTaskDone('+JSON.stringify(String(t.id))+','+JSON.stringify(String(t.project_id))+',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:'+clr+';flex-shrink:0">'+
     '<div style="flex:1;min-width:0">'+
       '<div style="font-size:13px;font-weight:700;'+(t.status==='done'?'text-decoration:line-through;color:var(--text3)':'')+'">'+escapeHtml(t.title)+'</div>'+
-      '<div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap">'+
+      '<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">'+
+        '<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:'+st.bg+';color:'+st.color+'">'+st.label+'</span>'+
         '<span class="'+pri.cls+'">'+pri.label+'</span>'+
         (t.deadline?'<span style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-calendar"></i> '+t.deadline+'</span>':'')+
         (t.assignee_name?'<span style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-user"></i> '+escapeHtml(t.assignee_name)+'</span>':'')+
         (steps.length?'<span style="font-size:10px;color:var(--text3)">'+doneSteps+'/'+steps.length+' خطوة</span>':'')+
         (t.value?'<span style="font-size:10px;color:var(--accent3);font-weight:700"><i class="fa-solid fa-coins"></i> '+t.value.toLocaleString()+' '+(t.currency||'ج.م')+(t.paymentCollected?' ✅':'')+'</span>':'')+
       '</div>'+
-    '</div>'
-    +'<div style="display:flex;gap:4px;align-items:center;flex-shrink:0" onclick="event.stopPropagation()">'+
+    '</div>'+
+    '<div style="display:flex;gap:4px;align-items:center;flex-shrink:0" onclick="event.stopPropagation()">'+
       (t.value>0&&t.status==='done'&&!t.paymentCollected?'<button data-tid="'+t.id+'" onclick="markTaskPaymentCollected(this.dataset.tid)" class="btn btn-success btn-sm" style="padding:2px 7px;font-size:10px">تحصيل</button>':'')+
       '<button data-tid="'+t.id+'" data-pid="'+t.project_id+'" onclick="openProjTaskModal(this.dataset.pid,this.dataset.tid)" class="btn btn-ghost btn-sm" style="padding:3px 7px"><i class="fa-solid fa-pen"></i></button>'+
       '<button data-tid="'+t.id+'" data-pid="'+t.project_id+'" onclick="deleteProjTask(this.dataset.tid,this.dataset.pid)" class="btn btn-danger btn-sm" style="padding:3px 7px"><i class="fa-solid fa-trash"></i></button>'+
@@ -22631,25 +22745,27 @@ function renderProjTaskRow(t,clr){
 // ── Kanban Tab ──
 function renderProjKanban(proj,tasks,clr){
   var cols=[
-    {id:'todo',label:'📋 To Do',color:'#888888'},
-    {id:'progress',label:'⚡ In Progress',color:'#f7c948'},
-    {id:'review',label:'🔍 Review',color:'#64b5f6'},
-    {id:'done',label:'✅ Done',color:'#4fd1a5'}
+    {id:'todo',     label:'🆕 جديد',          color:'#64b5f6'},
+    {id:'progress', label:'⚡ قيد التنفيذ',    color:'#f7c948'},
+    {id:'review',   label:'🔍 مراجعة',         color:'#a78bfa'},
+    {id:'revision', label:'✏️ تعديلات',         color:'#f97316'},
+    {id:'done',     label:'✅ مكتمل',           color:'#4fd1a5'},
+    {id:'hold',     label:'⏸ موقوف مؤقتاً',   color:'#888888'}
   ];
   return `
     <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
       <button class="btn btn-primary btn-sm" onclick="openProjTaskModal('${proj.id}')"><i class="fa-solid fa-plus"></i> مهمة جديدة</button>
     </div>
-    <div class="proj-kanban">
+    <div class="proj-kanban" style="grid-template-columns:repeat(6,minmax(200px,1fr))">
       ${cols.map(col=>{
         var colTasks=tasks.filter(t=>t.status===col.id);
         return `<div class="proj-kb-col" data-status="${col.id}" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="onProjKbDrop(event,'${proj.id}')">
-          <div class="proj-kb-col-header">
-            <span style="color:${col.color}">${col.label}</span>
-            <span style="background:${col.color}22;color:${col.color};padding:2px 8px;border-radius:10px;font-size:11px">${colTasks.length}</span>
+          <div class="proj-kb-col-header" style="border-bottom:2px solid ${col.color}33">
+            <span style="color:${col.color};font-size:12px;font-weight:800">${col.label}</span>
+            <span style="background:${col.color}22;color:${col.color};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${colTasks.length}</span>
           </div>
           ${colTasks.map(t=>renderProjKbCard(t,clr,proj)).join('')}
-          <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-top:4px;font-size:11px" onclick="openProjTaskModal('${proj.id}',null,'${col.id}')"><i class="fa-solid fa-plus"></i> إضافة</button>
+          <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-top:4px;font-size:11px;opacity:.6" onclick="openProjTaskModal('${proj.id}',null,'${col.id}')"><i class="fa-solid fa-plus"></i> إضافة</button>
         </div>`;
       }).join('')}
     </div>`;
@@ -22659,20 +22775,30 @@ function renderProjKbCard(t,clr,proj){
   var pri=_getPriorityInfo(t.priority||'normal');
   var steps=t.steps||[];
   var doneSteps=steps.filter(function(s){return s.done;}).length;
-  return '<div class="proj-kb-card" draggable="true" data-task-id="'+t.id+'" ondragstart="onProjKbDragStart(event,this.dataset.taskId)">' +
-    '<div style="font-size:12px;font-weight:700;margin-bottom:5px;line-height:1.4">'+escapeHtml(t.title)+'</div>'+
-    '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">'+
-      '<span class="'+pri.cls+'">'+pri.label+'</span>'+
-      (t.deadline?'<span style="font-size:9px;color:var(--text3);background:var(--surface3);padding:1px 5px;border-radius:4px">'+t.deadline+'</span>':'')+
+  var priColors={high:'#f76f7c',normal:'#f7c948',low:'#4fd1a5'};
+  var priC=priColors[t.priority||'normal']||'#888';
+  var assigneeInitial=t.assignee_name?(t.assignee_name).charAt(0).toUpperCase():'';
+  return '<div class="proj-kb-card" draggable="true" data-task-id="'+t.id+'" ondragstart="onProjKbDragStart(event,this.dataset.taskId)" onclick="openProjTaskDetail(\''+t.id+'\',\''+proj.id+'\')" style="cursor:pointer">'+
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:6px">'+
+      '<div style="font-size:12px;font-weight:700;line-height:1.4;flex:1">'+escapeHtml(t.title)+'</div>'+
+      '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;background:'+priC+'22;color:'+priC+';white-space:nowrap;flex-shrink:0">'+pri.label+'</span>'+
     '</div>'+
-    (steps.length?'<div style="font-size:10px;color:var(--text3);margin-bottom:5px">'+doneSteps+'/'+steps.length+' خطوات</div>':'')+
-    (t.value?'<div style="font-size:10px;color:var(--accent3);margin-bottom:4px"><i class="fa-solid fa-coins"></i> '+t.value.toLocaleString()+' '+(t.currency||'ج.م')+(t.paymentCollected?' ✅':'')+'</div>':'')+
-    '<div style="display:flex;justify-content:space-between;align-items:center">'+
-      '<div style="display:flex;align-items:center;gap:4px;flex:1;flex-wrap:wrap">'+
-        (t.assignee_name?'<span style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-user"></i> '+escapeHtml(t.assignee_name)+'</span>':'')+
-        (t.value>0?'<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:5px;background:rgba(255,255,255,.07);color:'+(t.paymentCollected?'#4fd1a5':'#f7c948')+'">'+(+t.value).toLocaleString()+' '+(t.currency||'ج.م')+'</span>':'')+
+    (t.desc?'<div style="font-size:10px;color:var(--text3);margin-bottom:5px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+escapeHtml(t.desc)+'</div>':'')+
+    (steps.length?'<div style="margin-bottom:6px">'+
+      '<div style="height:3px;background:var(--surface3);border-radius:2px;overflow:hidden;margin-bottom:3px">'+
+        '<div style="height:100%;width:'+(steps.length?Math.round(doneSteps/steps.length*100):0)+'%;background:var(--accent3);border-radius:2px"></div>'+
       '</div>'+
-      '<button data-tid="'+t.id+'" data-pid="'+proj.id+'" onclick="event.stopPropagation();openProjTaskModal(this.dataset.pid,this.dataset.tid)" class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:10px"><i class="fa-solid fa-pen"></i></button>'+
+      '<div style="font-size:9px;color:var(--text3)">'+doneSteps+'/'+steps.length+' خطوات</div>'+
+    '</div>':'')+
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap">'+
+      '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">'+
+        (t.deadline?'<span style="font-size:9px;color:var(--text3);background:var(--surface3);padding:1px 5px;border-radius:4px"><i class="fa-solid fa-calendar"></i> '+t.deadline+'</span>':'')+
+        (t.value?'<span style="font-size:9px;color:var(--accent3);font-weight:700;background:rgba(79,209,165,.1);padding:1px 5px;border-radius:4px">'+t.value.toLocaleString()+' '+(t.currency||'ج.م')+(t.paymentCollected?' ✅':'')+'</span>':'')+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:4px">'+
+        (assigneeInitial?'<div style="width:22px;height:22px;border-radius:50%;background:'+clr+';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;flex-shrink:0" title="'+escapeHtml(t.assignee_name||'')+'">'+assigneeInitial+'</div>':'')+
+        '<button data-tid="'+t.id+'" data-pid="'+proj.id+'" onclick="event.stopPropagation();openProjTaskModal(this.dataset.pid,this.dataset.tid)" class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:10px"><i class="fa-solid fa-pen"></i></button>'+
+      '</div>'+
     '</div>'+
   '</div>';
 }
@@ -22782,24 +22908,55 @@ function openProjTaskModal(projId, taskId, defaultStatus){
   setTimeout(()=>document.getElementById('ptask-title').focus(),100);
 }
 
+var _ptaskEditingStepIdx = null;
 function renderPtaskSteps(){
   var el=document.getElementById('ptask-steps-list'); if(!el) return;
   if(!_ptaskSteps.length){
-    el.innerHTML='<div style="text-align:center;padding:8px;font-size:11px;color:var(--text3)">لا توجد خطوات — أضف خطوة أدناه</div>';
+    el.innerHTML='<div style="text-align:center;padding:10px;font-size:11px;color:var(--text3)">لا توجد خطوات — أضف خطوة أدناه</div>';
     return;
   }
   el.innerHTML=_ptaskSteps.map(function(s,i){
-    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:4px">'+
-      '<input type="checkbox" '+(s.done?'checked':'')+' data-si="'+i+'" onchange="_ptaskSteps[+this.dataset.si].done=this.checked;renderPtaskSteps()" style="cursor:pointer;accent-color:var(--accent);width:15px;height:15px;flex-shrink:0">'+
-      '<span style="flex:1;font-size:12px;line-height:1.5;'+(s.done?'text-decoration:line-through;color:var(--text3)':'color:var(--text)')+'">'+escapeHtml(s.text)+'</span>'+
-      '<button data-si="'+i+'" onclick="_ptaskSteps.splice(+this.dataset.si,1);renderPtaskSteps()" class="btn btn-danger btn-sm" style="padding:2px 7px;flex-shrink:0"><i class="fa-solid fa-xmark"></i></button>'+
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid '+(s.note?'var(--accent)33':'var(--border)')+';border-radius:8px;margin-bottom:4px;cursor:pointer" onclick="_openStepNote('+i+')">'+
+      '<input type="checkbox" '+(s.done?'checked':'')+' data-si="'+i+'" onchange="event.stopPropagation();_ptaskSteps[+this.dataset.si].done=this.checked;renderPtaskSteps()" style="cursor:pointer;accent-color:var(--accent);width:15px;height:15px;flex-shrink:0">'+
+      '<div style="flex:1;min-width:0">'+
+        '<span style="font-size:12px;line-height:1.5;'+(s.done?'text-decoration:line-through;color:var(--text3)':'color:var(--text)')+'">'+escapeHtml(s.text)+'</span>'+
+        (s.note?'<div style="font-size:10px;color:var(--accent);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><i class="fa-solid fa-note-sticky"></i> '+escapeHtml(s.note)+'</div>':'')+
+      '</div>'+
+      '<div style="display:flex;gap:4px;flex-shrink:0">'+
+        (s.note?'<span style="font-size:9px;background:var(--accent)22;color:var(--accent);padding:1px 5px;border-radius:4px;font-weight:700">ملاحظة</span>':
+                '<span style="font-size:9px;color:var(--text3);padding:1px 5px">+ ملاحظة</span>')+
+        '<button data-si="'+i+'" onclick="event.stopPropagation();_ptaskSteps.splice(+this.dataset.si,1);renderPtaskSteps()" class="btn btn-danger btn-sm" style="padding:2px 7px;flex-shrink:0"><i class="fa-solid fa-xmark"></i></button>'+
+      '</div>'+
     '</div>';
   }).join('');
+}
+
+function _openStepNote(idx){
+  _ptaskEditingStepIdx = idx;
+  var s = _ptaskSteps[idx];
+  var area = document.getElementById('ptask-step-note-area');
+  var label = document.getElementById('ptask-step-note-label');
+  var inp = document.getElementById('ptask-step-note-input');
+  if(!area||!label||!inp) return;
+  label.textContent = s.text;
+  inp.value = s.note||'';
+  area.style.display='block';
+  inp.focus();
+}
+
+function savePtaskStepNote(){
+  if(_ptaskEditingStepIdx===null) return;
+  var inp=document.getElementById('ptask-step-note-input');
+  if(!inp) return;
+  _ptaskSteps[_ptaskEditingStepIdx].note = inp.value.trim();
+  _ptaskEditingStepIdx = null;
+  document.getElementById('ptask-step-note-area').style.display='none';
+  renderPtaskSteps();
 }
 function addPTaskStep(){
   var inp=document.getElementById('ptask-new-step');
   var v=(inp?inp.value||'':'').trim(); if(!v) return;
-  _ptaskSteps.push({text:v,done:false});
+  _ptaskSteps.push({text:v,done:false,note:''});
   inp.value='';
   renderPtaskSteps();
   // Scroll to show the steps list
