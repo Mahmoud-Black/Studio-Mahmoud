@@ -251,36 +251,27 @@ async function buildPage(userId){
     }
     console.log('[Store] pfFromProjects=',pfFromProjects.length,'pfFromServices=',pfFromServices.length,'pfAll=',pfAll.length);
 
-    var pfProjects = pfAll;
+    var pfProjects = pfAll; // سيتم تحديثه بعد الفلتر
 
-    var services, standalonePkgs, storePortfolio;
+    var services, standalonePkgs;
 
     if(_storeId){
-      // متجر محدد: بس اللي ليه نفس الـ store_id (مقارنة string لتجنب مشاكل النوع)
-      services     =allSvcs.filter(function(s){return s.active!==false && String(s.store_id)===String(_storeId);});
-      standalonePkgs=allPkgs.filter(function(p){return p.active!==false && String(p.store_id)===String(_storeId);});
-      // البورتفوليو: لو عنده store_id مطابق أو لو مفيش store_id على البورتفوليو → يظهر للكل
-      storePortfolio=pfProjects.filter(function(p){return !p.store_id || String(p.store_id)===String(_storeId);});
+      services      = allSvcs.filter(function(s){return s.active!==false && String(s.store_id)===String(_storeId);});
+      standalonePkgs= allPkgs.filter(function(p){return p.active!==false && String(p.store_id)===String(_storeId);});
+      // البورتفوليو: لو مفيش store_id عليه يظهر للكل، لو عنده store_id لازم يطابق
+      pfProjects = pfAll.filter(function(p){return !p.store_id || String(p.store_id)===String(_storeId);});
 
-      // ★ Smart Fallback: لو المتجر مفيهوش خدمات محددة،
-      //   نعرض الخدمات اللي مش متعيّنة لأي متجر (store_id=null/undefined)
-      if(services.length===0){
-        services=allSvcs.filter(function(s){return s.active!==false && !s.store_id;});
-      }
-      if(standalonePkgs.length===0){
-        standalonePkgs=allPkgs.filter(function(p){return p.active!==false && !p.store_id;});
-      }
+      // Fallback لو مفيش نتايج
+      if(services.length===0)      services      = allSvcs.filter(function(s){return s.active!==false && !s.store_id;});
+      if(standalonePkgs.length===0) standalonePkgs= allPkgs.filter(function(p){return p.active!==false && !p.store_id;});
+      if(pfProjects.length===0)     pfProjects    = pfAll; // عرض كل البورتفوليو كـ fallback
     } else {
-      // ★ بدون store محدد: عرض كل الخدمات والباقات النشطة
-      services     =allSvcs.filter(function(s){return s.active!==false;});
-      standalonePkgs=allPkgs.filter(function(p){return p.active!==false;});
-      storePortfolio=pfProjects;
+      services      = allSvcs.filter(function(s){return s.active!==false;});
+      standalonePkgs= allPkgs.filter(function(p){return p.active!==false;});
+      // pfProjects = pfAll بالفعل
     }
-    // override pfProjects بالمفلترة
-    pfProjects=storePortfolio;
-    // DEBUG
-    console.log('[Store] portfolio_projects raw:', (ud.portfolio_projects||[]).length, 'filtered:', pfProjects.length, 'sample:', JSON.stringify((pfProjects[0]||{})));
-    console.log('[Store] services:', services.length, 'packages:', standalonePkgs.length);
+
+    console.log('[Store] FINAL services=',services.length,'packages=',standalonePkgs.length,'portfolio=',pfProjects.length);
 
     // ── store globally ──
     window._pubUd=ud; window._pubUserId=userId; window._pubAccent=accent;
