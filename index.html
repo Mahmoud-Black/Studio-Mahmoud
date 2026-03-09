@@ -5043,7 +5043,13 @@ function showPage(id,el){
   }
   // Also check team_invites table on team page open
   if(id === 'team' && typeof window._checkPendingTeamInvitesNow === 'function'){
-    window._checkPendingTeamInvitesNow();
+    window._checkPendingTeamInvitesNow().then && window._checkPendingTeamInvitesNow();
+    // Re-render member teams after check
+    setTimeout(function(){
+      if(typeof renderMyMemberTeams==='function') renderMyMemberTeams();
+      // Update inbox badge
+      if(typeof window._updateInboxBadge==='function') window._updateInboxBadge();
+    }, 1500);
   }
   // Always reset ALL stab-panels on every navigation
   const settingsPage = document.getElementById('page-settings');
@@ -15722,8 +15728,15 @@ window.openMyMemberTeamProfile = function(ownerId){
     if(!myEmail) return;
     myEmail = myEmail.toLowerCase().trim();
     try {
-      var { data: allRows, error } = await supa.from('studio_data').select('user_id, data');
-      if(error || !allRows) return;
+      // Strategy: query studio_data rows where data contains this email in teams members
+      // Use limit to avoid overloading, and filter by email stored in _user_email field
+      var allRows = [];
+      try {
+        // First try: get rows where _user_email might match (not reliable, just reduces load)
+        var r1 = await supa.from('studio_data').select('user_id, data').limit(300);
+        if(r1.data) allRows = r1.data;
+      } catch(e){ return; }
+      if(!allRows || !allRows.length) return;
       var memberships = [];
       allRows.forEach(function(row){
         if(!row.data) return;
@@ -15732,10 +15745,12 @@ window.openMyMemberTeamProfile = function(ownerId){
           if(!ud || !ud.teams) return;
           ud.teams.forEach(function(team){
             (team.members||[]).forEach(function(m){
-              var emailMatch = m.email && m.email.toLowerCase().trim()===myEmail;
+              var memberEmail = (m.email||'').toLowerCase().trim();
+              var emailMatch = memberEmail && memberEmail===myEmail;
+              // Also match by name vs email username (fallback)
               var emailUser  = myEmail.split('@')[0].toLowerCase();
-              var nameMatch  = m.name && (m.name.toLowerCase()===emailUser || m.name.toLowerCase().replace(/\s+/g,'')===emailUser);
-              if(emailMatch||(nameMatch&&!m.email)){
+              var nameMatch  = !m.email && m.name && (m.name.toLowerCase()===emailUser || m.name.toLowerCase().replace(/\s+/g,'')===emailUser);
+              if(emailMatch || nameMatch){
                 var myTasks = (ud.tasks||[]).filter(function(t){ return t.workerMember && t.workerMember.toLowerCase()===m.name.toLowerCase() && !t.done; });
                 var myDone  = (ud.tasks||[]).filter(function(t){ return t.workerMember && t.workerMember.toLowerCase()===m.name.toLowerCase() && t.done; });
                 var already = memberships.find(function(x){ return x.ownerId===row.user_id && x.teamName===team.name; });
@@ -16176,7 +16191,7 @@ function renderCorpEmployees(){
 
 // ── Helpers ──
 function getSvcLink(){
-  var uid = typeof _supaUserId!=='undefined' ? _supaUserId : '';
+  var uid = (typeof _supaUserId!=='undefined' && _supaUserId) ? _supaUserId : '';
   // Uses index.html with ?svcorder=UID — the built-in public store (no store.html needed)
   var base = window.location.origin + window.location.pathname;
   return base + '?svcorder=' + uid;
@@ -16906,6 +16921,17 @@ function renderServices(){
     if(!S.services) S.services=[];
     if(!S.svc_orders) S.svc_orders=[];
 
+    // Ensure services tab is visible (reset to services tab if needed)
+    var svcWrap = document.getElementById('svc-services-wrap');
+    if(svcWrap && svcWrap.style.display === 'none'){
+      // Only auto-show if no other tab was explicitly selected
+      var anyTabActive = ['packages','portfolio','website','orders'].some(function(t){
+        var w = document.getElementById('svc-'+t+'-wrap');
+        return w && w.style.display !== 'none';
+      });
+      if(!anyTabActive) svcWrap.style.display = '';
+    }
+
     // Link
     var linkEl=document.getElementById('svc-link-text');
     if(linkEl){ try{ linkEl.textContent=getSvcLink(); }catch(e){ linkEl.textContent='—'; } }
@@ -17444,6 +17470,8 @@ function openClientPortal(portalId){
   window.showPage = function(id, el){
     _origShowPage && _origShowPage.call(this, id, el);
     if(id==='services'){
+      // Always reset to services tab so grid is visible
+      if(typeof switchSvcTab==='function') switchSvcTab('services');
       if(typeof renderServices==='function'){ renderServices(); [200,600,1500].forEach(function(d){ setTimeout(renderServices,d); }); }
     }
   };
