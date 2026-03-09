@@ -202,77 +202,214 @@ let _currentMode = 'user';
   }catch(e){}
 })();
 
-function cloudSave(data){
-  if(!_supaUserId) return;
-  clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(async ()=>{
-    try{
-      // Deep-sanitize: remove any non-plain values (Headers, Response, DOM nodes, etc.)
-      let _safeData;
+// ─── حماية من الحفظ المتزامن ───
+let _cloudSaving = false;
+let _cloudSavePending = false;
+
+async function _doCloudSave(data) {
+  if(!_supaUserId || !data) return;
+  if(_cloudSaving) { _cloudSavePending = true; return; }
+  _cloudSaving = true;
+  try {
+    // ─── حماية من رفع بيانات فارغة ───
+    // لو S فارغة تقريباً (مش معقول) لا ترفعها
+    const _dataScore = (data.tasks?.length||0) + (data.clients?.length||0) +
+                       (data.invoices?.length||0) + (data.transactions?.length||0);
+    // جلب آخر نسخة من السحابة للمقارنة (كل 5 دقائق بس)
+    const _lastCloudCheck = window._lastCloudScoreCheck || 0;
+    if(Date.now() - _lastCloudCheck > 300000) { // كل 5 دقائق
       try {
-        const _replacer = (key, val) => {
-          if(val === null || val === undefined) return val;
-          const t = typeof val;
-          if(t === 'string' || t === 'number' || t === 'boolean') return val;
-          if(Array.isArray(val)) return val;
-          if(t === 'object') {
-            // Reject known non-serializable types
-            if(val instanceof Headers || val instanceof Response || val instanceof Request ||
-               val instanceof Blob || val instanceof File || val instanceof ArrayBuffer ||
-               val instanceof ImageData || (typeof Node !== 'undefined' && val instanceof Node)) {
-              return undefined;
-            }
-            return val;
+        const {data: _cv} = await supa.from('studio_data').select('data').eq('user_id',_supaUserId).maybeSingle();
+        if(_cv?.data) {
+          const _cd = typeof _cv.data==='string' ? JSON.parse(_cv.data) : _cv.data;
+          const _cloudScore = (_cd?.tasks?.length||0) + (_cd?.clients?.length||0) +
+                              (_cd?.invoices?.length||0) + (_cd?.transactions?.length||0);
+          window._lastCloudScore = _cloudScore;
+          window._lastCloudScoreCheck = Date.now();
+          // إذا البيانات المحلية أقل بكثير من السحابة - خطر!
+          if(_dataScore < _cloudScore - 5 && _cloudScore > 3) {
+            console.error('⛔ ABORT cloudSave: local data smaller than cloud! local:', _dataScore, 'cloud:', _cloudScore);
+            // استرد من السحابة بدل ما نكتب عليها
+            S = _cd;
+            migrateSFields && migrateSFields();
+            try { localStorage.setItem(userKey(), JSON.stringify(S)); } catch(e) {}
+            showSyncIndicator('<i class="fa-solid fa-rotate"></i> تم استرداد البيانات من السحابة', '#7c6ff7');
+            _cloudSaving = false;
+            return;
           }
-          return undefined; // functions, symbols, etc.
-        };
-        _safeData = JSON.parse(JSON.stringify(data, _replacer));
-      } catch(e) {
-        try { _safeData = JSON.parse(JSON.stringify(data)); } catch(e2) { _safeData = {}; }
-      }
-      const payload = { user_id: _supaUserId, data: JSON.stringify(_safeData), updated_at: new Date().toISOString() };
-      const { error } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
-      if(error){
-        const _em=(error&&typeof error.message==='string')?error.message:String(error);
-        console.error('cloudSave error:',_em);
-        showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل الحفظ - محفوظ محلياً', '#f7c948');
-        try{ if(_supaUserId) localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(_safeData)); }catch(e){}
-      } else {
-        showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ على السحابة', '#4fd1a5');
-        try{ if(_supaUserId) localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(_safeData)); }catch(e){}
-      }
-    }catch(e){
-      const _em2=(e&&typeof e.message==='string')?e.message:'err'; console.error('cloudSave error:',_em2);
-      showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل المزامنة', '#f76f7c');
+        }
+      } catch(e) { /* ignore check errors */ }
     }
-  }, 1000);
+    const _replacer = (key, val) => {
+      if(val === null || val === undefined) return val;
+      const t = typeof val;
+      if(t === 'string' || t === 'number' || t === 'boolean') return val;
+      if(Array.isArray(val)) return val;
+      if(t === 'object') {
+        if(val instanceof Headers || val instanceof Response || val instanceof Request ||
+           val instanceof Blob || val instanceof File || val instanceof ArrayBuffer ||
+           val instanceof ImageData || (typeof Node !== 'undefined' && val instanceof Node)) {
+          return undefined;
+        }
+        return val;
+      }
+      return undefined;
+    };
+    let _safeData;
+    try { _safeData = JSON.parse(JSON.stringify(data, _replacer)); }
+    catch(e) { try { _safeData = JSON.parse(JSON.stringify(data)); } catch(e2) { _safeData = {}; } }
+
+    // احفظ نسخة احتياطية محلية دايماً قبل الإرسال
+    try { localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(_safeData)); } catch(e) {}
+    try { localStorage.setItem(userKey(), JSON.stringify(_safeData)); } catch(e) {}
+
+    const payload = { user_id: _supaUserId, data: JSON.stringify(_safeData), updated_at: new Date().toISOString() };
+    const { error } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
+    if(error) {
+      console.error('cloudSave error:', error.message);
+      showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل الحفظ - محفوظ محلياً', '#f7c948');
+    } else {
+      showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
+    }
+  } catch(e) {
+    console.error('cloudSave exception:', e.message);
+    showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل المزامنة', '#f76f7c');
+  } finally {
+    _cloudSaving = false;
+    if(_cloudSavePending) {
+      _cloudSavePending = false;
+      setTimeout(() => _doCloudSave(S), 300);
+    }
+  }
 }
 
-async function cloudLoad(){
+function cloudSave(data){
+  if(!_supaUserId) return;
+  // حفظ محلي فوري دائماً بالبيانات الحالية
+  try { localStorage.setItem(userKey(), JSON.stringify(data)); } catch(e) {}
+  clearTimeout(_syncTimer);
+  // نستخدم S مباشرة وقت التنفيذ مش data وقت الاستدعاء
+  // ده بيضمن إننا بنحفظ أحدث نسخة وليس نسخة قديمة
+  _syncTimer = setTimeout(() => _doCloudSave(S), 1200);
+}
+
+// حفظ فوري عند إغلاق الصفحة
+window.addEventListener('beforeunload', function() {
+  if(_supaUserId && S) {
+    try {
+      localStorage.setItem(userKey(), JSON.stringify(S));
+      localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(S));
+    } catch(e) {}
+    // حفظ sync (بدون await) عشان beforeunload
+    try {
+      const payload = { user_id: _supaUserId, data: JSON.stringify(S), updated_at: new Date().toISOString() };
+      navigator.sendBeacon && navigator.sendBeacon(
+        'https://mpfmcjgigpvdxbhgzufo.supabase.co/rest/v1/studio_data',
+        JSON.stringify(payload)
+      );
+    } catch(e) {}
+  }
+});
+
+async function cloudLoad(retryCount = 0){
   if(!_supaUserId) { console.warn('cloudLoad: no _supaUserId'); return null; }
   try{
-    // Use maybeSingle — avoids PGRST116 error for new users
     const { data, error } = await supa.from('studio_data').select('data').eq('user_id', _supaUserId).maybeSingle();
     if(error){
       console.error('cloudLoad error:', error.code, error.message);
-      // RLS or other error — try alternative query
-      try {
-        const { data: fullRow, error: e2 } = await supa.from('studio_data').select('*').eq('user_id', _supaUserId).maybeSingle();
-        if(e2 || !fullRow){ console.error('cloudLoad fallback error:', e2?.message); return null; }
-        const raw = fullRow.data;
-        return typeof raw === 'string' ? JSON.parse(raw) : (raw || null);
-      } catch(e2){ return null; }
+      // لو شبكة أو RLS - retry مرة واحدة بعد 2 ثانية
+      if(retryCount < 2) {
+        await new Promise(r => setTimeout(r, 2000));
+        return cloudLoad(retryCount + 1);
+      }
+      return null;
     }
-    if(!data){ console.warn('cloudLoad: no data row'); return null; }
+    if(!data){
+      console.warn('cloudLoad: no data row - new user');
+      return null;
+    }
     try {
       const parsed = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
-      console.log('cloudLoad: ✅ loaded', Object.keys(parsed||{}).join(','));
+      if(!parsed || typeof parsed !== 'object') return null;
+      console.log('cloudLoad: ✅ loaded keys:', Object.keys(parsed).join(','));
       return parsed;
     } catch(parseErr){
       console.error('cloudLoad parse error:', parseErr);
       return null;
     }
-  }catch(e){ console.error('cloudLoad exception:', e); return null; }
+  } catch(e) {
+    console.error('cloudLoad exception:', e.message);
+    // Retry on network errors
+    if(retryCount < 2) {
+      await new Promise(r => setTimeout(r, 2000));
+      return cloudLoad(retryCount + 1);
+    }
+    return null;
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// DATA WATCHDOG - مراقب حماية البيانات
+// يشتغل كل 30 ثانية ويتأكد إن S مش فارغة بشكل مفاجئ
+// ═══════════════════════════════════════════════════════════
+let _watchdogBaseScore = 0;
+let _watchdogStarted = false;
+
+function _startDataWatchdog() {
+  if(_watchdogStarted || !_supaUserId) return;
+  _watchdogStarted = true;
+
+  setInterval(() => {
+    if(!_supaUserId || !S) return;
+    const _score = (S.tasks?.length||0) + (S.clients?.length||0) +
+                   (S.invoices?.length||0) + (S.transactions?.length||0);
+
+    // سجّل أعلى score شفناه - ده الـ baseline
+    if(_score > _watchdogBaseScore) {
+      _watchdogBaseScore = _score;
+      // حدّث الـ backup في كل مرة نشوف بيانات أكثر
+      try {
+        localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(S));
+      } catch(e) {}
+    }
+
+    // لو الـ score انخفض فجأة عن الـ baseline بأكثر من 5 عناصر - خطر!
+    if(_watchdogBaseScore > 5 && _score < _watchdogBaseScore - 5) {
+      console.error('⚠️ WATCHDOG: Data loss detected! base:', _watchdogBaseScore, 'current:', _score);
+      // حاول استرداد من الـ backup
+      const _bkRaw = localStorage.getItem('studioOS_backup_'+_supaUserId);
+      if(_bkRaw) {
+        try {
+          const _bk = JSON.parse(_bkRaw);
+          const _bkScore = (_bk.tasks?.length||0) + (_bk.clients?.length||0) +
+                           (_bk.invoices?.length||0) + (_bk.transactions?.length||0);
+          if(_bkScore >= _watchdogBaseScore - 2) {
+            S = _bk;
+            migrateSFields();
+            renderAll && renderAll();
+            showSyncIndicator('⚠️ تم استرداد البيانات تلقائياً', '#f7c948');
+            console.log('✅ WATCHDOG: Data recovered from backup, score:', _bkScore);
+            _watchdogBaseScore = _bkScore;
+          }
+        } catch(e) {}
+      }
+    }
+  }, 30000); // كل 30 ثانية
+}
+
+
+// ═══ Data Status Bar ═══
+function _updateDataStatusBar() {
+  if(!_supaUserId) return;
+  const t = S?.tasks?.length||0, c = S?.clients?.length||0,
+        i = S?.invoices?.length||0, tr = S?.transactions?.length||0;
+  const now = new Date().toLocaleTimeString('ar-EG', {hour:'2-digit',minute:'2-digit'});
+  const el = id => document.getElementById(id);
+  if(el('dsb-tasks')) el('dsb-tasks').textContent = '📋 ' + t + ' مهمة';
+  if(el('dsb-clients')) el('dsb-clients').textContent = '👤 ' + c + ' عميل';
+  if(el('dsb-saved')) el('dsb-saved').textContent = '💾 آخر حفظ: ' + now;
+  if(el('dsb-cloud')) el('dsb-cloud').textContent = _cloudSaving ? '☁️ جاري...' : '✅ محفوظ';
 }
 
 function showSyncIndicator(msg, color){
@@ -3508,6 +3645,7 @@ setTimeout(window._showApp, 4000);
     <div class="section-title" style="color:var(--accent4)"><i class="fa-solid fa-triangle-exclamation"></i> منطقة الخطر</div>
     <p style="font-size:13px;color:var(--text2);margin-bottom:16px">هذه الإجراءات لا يمكن التراجع عنها — تأكد قبل المتابعة</p>
     <button class="btn btn-danger" onclick="clearAll()"><i class="fa-solid fa-trash"></i> مسح جميع البيانات المحلية</button>
+    <button class="btn btn-ghost" onclick="recoverDataFromBackup()" style="border-color:var(--accent3);color:var(--accent3);margin-top:8px"><i class="fa-solid fa-rotate-left"></i> استعادة من نسخة احتياطية</button>
   </div>
   </div><!-- end stabp-danger -->
 
@@ -4744,11 +4882,28 @@ function tryParseDate(dateStr){
   return '';
 }
 function lsSave(){
-  try{ localStorage.setItem(userKey(), JSON.stringify(S)); }catch(e){}
+  if(!S) return;
+  try {
+    // حفظ محلي فوري
+    const _key = userKey();
+    const _json = JSON.stringify(S);
+    localStorage.setItem(_key, _json);
+    // نسخة احتياطية إضافية بـ user ID المباشر
+    if(_supaUserId) {
+      localStorage.setItem('studioOS_v3_'+_supaUserId, _json);
+      localStorage.setItem('studioOS_backup_'+_supaUserId, _json);
+    }
+  } catch(e) {
+    console.error('lsSave localStorage error:', e.message);
+  }
   cloudSave(S);
   updateDash();
+  // تحديث مؤشر حالة البيانات
+  try { _updateDataStatusBar(); } catch(e) {}
 }
-lsLoad();
+// lsLoad يتنادى من loginWithSupaSession فقط - مش هنا
+// (علشان userKey() ما ترجعش 'guest' قبل الـ session)
+try { migrateSFields(); } catch(e) {}
 
 // ============================================================
 // NAVIGATION
@@ -5538,6 +5693,65 @@ function v(id){const e=document.getElementById(id);return e?e.value:'';}
 function uploadLogo(input){const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{S.settings.logo=e.target.result;lsSave();loadSettings();};r.readAsDataURL(f);}
 function removeLogo(){S.settings.logo='';lsSave();loadSettings();}
 function clearAll(){if(confirm('سيتم مسح جميع البيانات! هل أنت متأكد؟')){const s=S.settings;S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],settings:s};lsSave();renderAll();}}
+
+// ═══ استعادة البيانات من النسخة الاحتياطية ═══
+async function recoverDataFromBackup() {
+  const uid = _supaUserId;
+  if(!uid) { showMiniNotif('<i class="fa-solid fa-triangle-exclamation"></i> يجب تسجيل الدخول أولاً'); return; }
+
+  // جرب كل مصادر الاستعادة
+  const sources = [
+    { label: 'نسخة سحابية', fn: async () => {
+        const { data } = await supa.from('studio_data').select('data').eq('user_id', uid).maybeSingle();
+        if(data?.data) return typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+        return null;
+    }},
+    { label: 'نسخة احتياطية محلية', fn: () => {
+        const raw = localStorage.getItem('studioOS_backup_'+uid);
+        return raw ? JSON.parse(raw) : null;
+    }},
+    { label: 'نسخة localStorage الرئيسية', fn: () => {
+        const raw = localStorage.getItem('studioOS_v3_'+uid);
+        return raw ? JSON.parse(raw) : null;
+    }},
+  ];
+
+  let bestData = null, bestScore = 0, bestLabel = '';
+  for(const src of sources) {
+    try {
+      const d = await src.fn();
+      if(!d) continue;
+      const score = (d.tasks?.length||0)*3 + (d.clients?.length||0)*2 + (d.invoices?.length||0)*2 + (d.transactions?.length||0);
+      if(score > bestScore) { bestScore = score; bestData = d; bestLabel = src.label; }
+    } catch(e) {}
+  }
+
+  if(!bestData || bestScore === 0) {
+    showMiniNotif('<i class="fa-solid fa-triangle-exclamation"></i> لا توجد نسخة احتياطية متاحة');
+    return;
+  }
+
+  const confirm_msg = `تم إيجاد بيانات في "${bestLabel}":
+` +
+    `• ${bestData.tasks?.length||0} مهمة
+` +
+    `• ${bestData.clients?.length||0} عميل
+` +
+    `• ${bestData.invoices?.length||0} فاتورة
+` +
+    `• ${bestData.transactions?.length||0} معاملة مالية
+
+` +
+    `هل تريد استعادة هذه البيانات؟`;
+
+  if(!confirm(confirm_msg)) return;
+  S = bestData;
+  migrateSFields();
+  lsSave();
+  await _doCloudSave(S);
+  renderAll();
+  showMiniNotif('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم استعادة البيانات من ' + bestLabel);
+}
 
 // ============================================================
 // TASKS
@@ -7132,7 +7346,16 @@ function _genStatement(id){
   <div style="margin-top:30px;padding-top:16px;border-top:2px solid #e8eaf0;display:flex;justify-content:space-between;font-size:11px;color:#aaa">
     <span>${studio}</span><span>كشف حساب صادر تلقائياً من نظام إدارة الأعمال</span>
   </div>
-  </div><${'script'}>window.onload=()=>setTimeout(()=>window.print(),400)</${'script'}></body></html>`;
+  </div><${'script'}>window.onload=()=>setTimeout(()=>window.print(),400)</${'script'}>
+  <!-- مؤشر حالة البيانات -->
+  <div id="data-status-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:7999;background:rgba(18,18,30,.92);border-top:1px solid rgba(79,209,165,.2);padding:4px 16px;font-size:10px;color:var(--text3);display:flex;align-items:center;gap:12px;backdrop-filter:blur(8px)">
+    <span id="dsb-tasks" style="color:var(--accent3)"></span>
+    <span id="dsb-clients"></span>
+    <span id="dsb-saved"></span>
+    <span id="dsb-cloud" style="margin-right:auto"></span>
+  </div>
+
+</body></html>`;
   const w=window.open('','_blank');w.document.write(html);w.document.close();
 }
 
@@ -8844,13 +9067,23 @@ function renderAll(){
 // SIDEBAR TOGGLE
 // ============================================================
 const PAGE_TITLES = {
-  services:'<i class="fa-solid fa-bag-shopping"></i> خدماتي والباقات', support:'<i class="fa-solid fa-comments"></i> الدعم والرسائل',
-  dashboard:'لوحة التحكم', tasks:'المهام والمشاريع',
-  schedule:'تنظيم اليوم',  clients:'قاعدة العملاء',
-  finance:'المالية',       invoices:'الفواتير والعقود',
-  learning:'الأهداف والإنجازات', 'freelancer-goals':'الأهداف والإنجازات',
-  meetings:'الميتنج والاجتماعات', settings:'إعدادات النظام',
-  timetracker:'تتبع الوقت', contracts:'العقود الرقمية'
+  services    : '<i class="fa-solid fa-bag-shopping"></i> خدماتي والباقات',
+  support     : '<i class="fa-solid fa-comments"></i> الدعم والرسائل',
+  dashboard   : 'لوحة التحكم',
+  tasks       : '<i class="fa-solid fa-list-check"></i> المهام والمشاريع',
+  schedule    : '<i class="fa-solid fa-calendar-days"></i> تنظيم اليوم',
+  clients     : '<i class="fa-solid fa-users"></i> قاعدة العملاء',
+  finance     : '<i class="fa-solid fa-coins"></i> المالية والحسابات',
+  invoices    : '<i class="fa-solid fa-file-invoice"></i> الفواتير والعقود',
+  learning    : '<i class="fa-solid fa-bullseye"></i> الأهداف والإنجازات',
+  'freelancer-goals': '<i class="fa-solid fa-bullseye"></i> الأهداف والإنجازات',
+  meetings    : '<i class="fa-solid fa-handshake"></i> الميتنج والاجتماعات',
+  settings    : '<i class="fa-solid fa-gear"></i> إعدادات النظام',
+  timetracker : '<i class="fa-solid fa-stopwatch"></i> تتبع الوقت',
+  contracts   : '<i class="fa-solid fa-file-contract"></i> العقود الرقمية',
+  team        : '<i class="fa-solid fa-users-gear"></i> فريق العمل',
+  goals       : '<i class="fa-solid fa-bullseye"></i> الأهداف',
+  backup      : '<i class="fa-solid fa-floppy-disk"></i> النسخ الاحتياطي',
 };
 const PAGE_CTA = {
   dashboard: {label:'+ مهمة جديدة', fn:'openTaskModal()'},
@@ -8919,11 +9152,11 @@ function toggleSidebar(){
 // Update header title + CTA on page change
 function updateHeader(pageId){
   const el=document.getElementById('header-page-title');
-  if(el) el.textContent=PAGE_TITLES[pageId]||'';
+  if(el) el.innerHTML=PAGE_TITLES[pageId]||'';
   const cta=PAGE_CTA[pageId];
   const btn=document.getElementById('header-cta');
   if(btn){
-    btn.textContent=cta?.label||'';
+    btn.innerHTML=cta?.label||'';
     btn.style.display=cta?.label?'inline-flex':'none';
     btn.setAttribute('onclick',cta?.fn||'');
   }
@@ -8940,26 +9173,33 @@ const USERS_KEY = 'studioOS_users_v1';
 function getUsers(){ try{ return JSON.parse(localStorage.getItem(USERS_KEY)||'[]'); }catch(e){return [];} }
 function saveUsers(u){ localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
 async function _trackLoginEvent(uid) {
-  // Run after a delay to avoid race condition with cloudLoad
-  // We update only the _login_log field, not the entire data
+  // نسجل حدث الدخول بأمان بدون أي خطر على البيانات
   setTimeout(async () => {
     try {
-      const device = navigator.userAgent.includes('Mobile') ? 'موبايل' :
-                     navigator.userAgent.includes('Tablet') ? 'تابلت' : 'كمبيوتر';
-      const logEntry = { time: new Date().toISOString(), device };
-
-      // Use current S data (already loaded) instead of fetching from DB
-      // This avoids overwriting newly loaded data with stale data
-      if(typeof S !== 'undefined' && S) {
-        const log = S._login_log || [];
-        log.unshift(logEntry);
-        if(log.length > 100) log.splice(100);
-        S._login_log = log;
-        // cloudSave will debounce and use latest S
-        if(typeof cloudSave === 'function') cloudSave(S);
+      // تأكد إن البيانات محملة كاملة قبل أي حفظ
+      const _score = (S?.tasks?.length||0)+(S?.clients?.length||0)+(S?.invoices?.length||0);
+      // لو S فارغة - ممكن لسه بيتحمل - انتظر أكثر
+      if(_score === 0) {
+        setTimeout(async () => {
+          if(!S || !_supaUserId) return;
+          const device = navigator.userAgent.includes('Mobile') ? 'موبايل' : 'كمبيوتر';
+          S._login_log = S._login_log || [];
+          S._login_log.unshift({ time: new Date().toISOString(), device });
+          if(S._login_log.length > 50) S._login_log.splice(50);
+          // لا نستخدم cloudSave هنا علشان ما نسببش save ناقص
+          // بس نحدث الـ localStorage
+          try { localStorage.setItem(userKey(), JSON.stringify(S)); } catch(e) {}
+        }, 8000);
+        return;
       }
+      const device = navigator.userAgent.includes('Mobile') ? 'موبايل' : 'كمبيوتر';
+      S._login_log = S._login_log || [];
+      S._login_log.unshift({ time: new Date().toISOString(), device });
+      if(S._login_log.length > 50) S._login_log.splice(50);
+      // cloudSave آمنة لأن S فيها بيانات
+      if(typeof cloudSave === 'function') cloudSave(S);
     } catch(e) { console.warn('Login tracking failed:', e.message); }
-  }, 3000); // Wait 3s for cloudLoad to complete
+  }, 6000); // 6 ثواني - كافية لـ cloudLoad يكمل
 }
 
 // ─── Check if account is banned ───
@@ -9131,7 +9371,23 @@ async function loginWithSupaSession(supaUser, session, userMeta){
   showSyncIndicator('<i class="fa-solid fa-cloud"></i>️ جاري تحميل بياناتك...', 'var(--accent)');
   const cloudData = await cloudLoad();
   if(cloudData){
-    S = cloudData;
+    // تحقق من صحة البيانات - لو السحابة بترجع object فارغ تقريباً، قارن بالـ local backup
+    const _localBackupRaw = localStorage.getItem('studioOS_backup_'+supaUser.id);
+    let _localBackup = null;
+    try { if(_localBackupRaw) _localBackup = JSON.parse(_localBackupRaw); } catch(e) {}
+
+    const _cloudHasData = (cloudData.tasks?.length || 0) + (cloudData.clients?.length || 0) +
+                          (cloudData.invoices?.length || 0) + (cloudData.transactions?.length || 0);
+    const _localHasData = (_localBackup?.tasks?.length || 0) + (_localBackup?.clients?.length || 0) +
+                          (_localBackup?.invoices?.length || 0) + (_localBackup?.transactions?.length || 0);
+
+    // لو الـ local backup أكبر بشكل واضح - ده مؤشر إن السحابة اتكتب عليها بيانات فارغة
+    if(_localHasData > _cloudHasData + 10 && _localBackup) {
+      console.warn('⚠️ Cloud data seems incomplete vs local backup — using local');
+      S = _localBackup;
+    } else {
+      S = cloudData;
+    }
     migrateSFields();
     if(S._admin_updated && S._admin_name) {
       S.settings = S.settings || {};
@@ -9149,34 +9405,84 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     try{ localStorage.setItem('studioOS_backup_'+supaUser.id, JSON.stringify(S)); }catch(e){}
     applyPlatformConfig();
   } else {
-    // Cloud returned null - try localStorage first, then backup
-    lsLoad();
-    // If S is still empty (no local data either), try backup
-    if(!S.tasks?.length && !S.clients?.length && !S.invoices?.length){
-      try{
-        const backup = localStorage.getItem('studioOS_backup_'+supaUser.id);
-        if(backup){ const bd=JSON.parse(backup); if(bd.tasks?.length||bd.clients?.length){ S=bd; migrateSFields(); toast('<i class="fa-solid fa-triangle-exclamation"></i> تم استعادة البيانات من النسخة الاحتياطية'); } }
-      }catch(e){}
+    // Cloud returned null — retry once before falling back to localStorage
+    let _retryData = null;
+    try {
+      await new Promise(r => setTimeout(r, 1500));
+      const _retry = await supa.from('studio_data').select('data').eq('user_id', supaUser.id).maybeSingle();
+      if(_retry.data?.data) {
+        _retryData = typeof _retry.data.data === 'string' ? JSON.parse(_retry.data.data) : _retry.data.data;
+      }
+    } catch(e) {}
+
+    if(_retryData && (typeof _retryData === 'object') && Object.keys(_retryData).length > 2) {
+      // نجح الـ retry
+      S = _retryData;
+      migrateSFields();
+      localStorage.setItem('studioOS_v3_'+supaUser.id, JSON.stringify(S));
+      try { localStorage.setItem('studioOS_backup_'+supaUser.id, JSON.stringify(S)); } catch(e) {}
+      showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تحميل البيانات', '#4fd1a5');
+    } else {
+      // السحابة فارغة أو مش متاحة - حمّل من الـ localStorage
+      // لكن لا تحفظ على السحابة إلا لو البيانات المحلية فيها محتوى فعلي
+      const _localRaw = localStorage.getItem('studioOS_v3_'+supaUser.id) ||
+                        localStorage.getItem('studioOS_backup_'+supaUser.id);
+      if(_localRaw) {
+        try {
+          const _localData = JSON.parse(_localRaw);
+          if(_localData && (typeof _localData === 'object')) {
+            S = _localData;
+            migrateSFields();
+            // لو في بيانات حقيقية - ارفعها للسحابة
+            if(S.tasks?.length || S.clients?.length || S.invoices?.length || S.transactions?.length) {
+              toast('<i class="fa-solid fa-triangle-exclamation"></i> تم استعادة بياناتك من النسخة المحلية');
+              setTimeout(() => _doCloudSave(S), 2000);
+            }
+          }
+        } catch(e) { lsLoad(); }
+      } else {
+        lsLoad(); // مستخدم جديد تماماً
+      }
     }
   }
 
+  // ─── تحديث إعدادات المستخدم بحذر ───
+  // نحدث الاسم فقط لو مش موجود، مع ضمان عدم الكتابة على بيانات موجودة
+  let _needsSave = false;
   if(!S.settings.name && userObj.name){
-    // Import Google name for new users
     const googleName = meta?.full_name || meta?.name || '';
     S.settings.name  = userObj.studio || googleName || userObj.name;
-    S.settings.phone = userObj.phone;
-    if(userObj.email) S.settings.email = userObj.email;
-    if(userObj.avatarUrl && !S.settings.logo) S.settings.logo = userObj.avatarUrl;
-    // New user: force immediate save (not debounced) to create the row
-    try{
-      const _p={user_id:supaUser.id,data:JSON.stringify(S),updated_at:new Date().toISOString()};
-      await supa.from('studio_data').upsert(_p,{onConflict:'user_id'});
-    }catch(e){ cloudSave(S); }
-  } else if(S.settings.name) {
-    if(!S.settings.email && userObj.email) {
-      S.settings.email = userObj.email;
-      cloudSave(S);
-    }
+    S.settings.phone = userObj.phone || S.settings.phone || '';
+    _needsSave = true;
+  }
+  if(!S.settings.email && userObj.email) {
+    S.settings.email = userObj.email;
+    _needsSave = true;
+  }
+  if(userObj.avatarUrl && !S.settings.logo) {
+    S.settings.logo = userObj.avatarUrl;
+    _needsSave = true;
+  }
+
+  if(_needsSave) {
+    // تحقق: هل المستخدم جديد فعلاً (مفيش row في studio_data)؟
+    const _hasData = (S.tasks?.length||0) + (S.clients?.length||0) + (S.invoices?.length||0);
+    try {
+      if(_hasData === 0) {
+        // مستخدم جديد تماماً - أنشئ row جديدة بأمان
+        const { data: _exists } = await supa.from('studio_data')
+          .select('user_id').eq('user_id', supaUser.id).maybeSingle();
+        if(!_exists) {
+          // فعلاً جديد - احفظ
+          const _p = {user_id:supaUser.id, data:JSON.stringify(S), updated_at:new Date().toISOString()};
+          await supa.from('studio_data').insert(_p);
+        }
+        // لو الـ row موجودة - ما نكتبش عليها (ممكن تحتوي بيانات)
+      } else {
+        // مستخدم قديم - استخدم cloudSave العادية (debounced + safe)
+        cloudSave(S);
+      }
+    } catch(e) { console.warn('Initial save error:', e.message); }
   }
 
   updateUserBadge(userObj);
@@ -9221,6 +9527,8 @@ async function loginWithSupaSession(supaUser, session, userMeta){
   // ── الآن render بعد ما الاشتراك اتحمل ──
   renderAll();
   updateHeader('dashboard');
+  // شغّل مراقب حماية البيانات بعد تحميل كامل
+  setTimeout(_startDataWatchdog, 5000);
   // Force dashboard update with cloud data
   setTimeout(()=>{ updateDash(); _renderDashGrid && _renderDashGrid(); }, 100);
 
@@ -11155,28 +11463,46 @@ async function addMemberToForm(){
   if(!name) return alert('أدخل اسم العضو');
 
   const addBtn = document.querySelector('[onclick="addMemberToForm()"]');
-  if(addBtn){ addBtn.textContent='⏳ جاري التحقق...'; addBtn.disabled=true; }
+  if(addBtn){ addBtn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق...'; addBtn.disabled=true; }
+
+  // timeout حماية: لو البحث اخد أكثر من 4 ثواني - أكمل بدونه
+  const _addTimeout = setTimeout(() => {
+    if(addBtn && addBtn.disabled) {
+      addBtn.innerHTML='+ إضافة'; addBtn.disabled=false;
+      showMiniNotif('<i class="fa-solid fa-triangle-exclamation"></i> تعذر التحقق من الحساب - تم الإضافة كدعوة معلقة');
+    }
+  }, 4000);
 
   let linked = false;
   let linkedUserId = null;
 
   if(email){
     try {
-      const { data: rows } = await supa.from('studio_data').select('user_id, data');
-      if(rows){
-        for(const row of rows){
-          try{
-            const ud = typeof row.data==='string' ? JSON.parse(row.data) : row.data;
-            const se = (ud?.settings?.email||ud?._user_email||'').toLowerCase().trim();
-            if(se && se===email){ linked=true; linkedUserId=row.user_id; break; }
-          }catch(e){}
-        }
+      // بحث سريع: نشوف لو في row في studio_data settings.email == email
+      // نستخدم limit صغير وبدون جلب data كاملة
+      const { data: emailRows } = await supa.from('studio_data')
+        .select('user_id')
+        .ilike('data', '%"email":"'+email+'"%')
+        .limit(5)
+        .maybeSingle()
+        .catch(() => ({data: null}));
+
+      if(emailRows?.user_id){
+        linked = true;
+        linkedUserId = emailRows.user_id;
       }
+
+      // Fallback: profiles table
       if(!linked){
-        const { data: prof } = await supa.from('profiles').select('id').eq('email',email).maybeSingle().catch(()=>({data:null}));
-        if(prof && prof.id){ linked=true; linkedUserId=prof.id; }
+        const { data: prof } = await supa.from('profiles')
+          .select('id').eq('email', email).maybeSingle()
+          .catch(() => ({data: null}));
+        if(prof?.id){ linked=true; linkedUserId=prof.id; }
       }
-    } catch(e){ console.warn('Member lookup:', e); }
+    } catch(e){
+      console.warn('Member lookup:', e.message);
+      // مش مشكلة لو فشل البحث - العضو بيتضاف عادي كدعوة معلقة
+    }
   }
 
   teamMembersForm.push({
@@ -11194,7 +11520,8 @@ async function addMemberToForm(){
   ['member-name','member-phone','member-email','member-rate','member-extra-specs'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
-  if(addBtn){ addBtn.textContent='+ إضافة'; addBtn.disabled=false; }
+  clearTimeout(_addTimeout);
+  if(addBtn){ addBtn.innerHTML='+ إضافة'; addBtn.disabled=false; }
   renderTeamMembersForm();
 
   if(linked)        showMiniNotif('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> '+name+' — حساب موجود، سيتم ربطه تلقائياً');
@@ -15402,8 +15729,19 @@ window.openMyMemberTeamProfile = function(ownerId){
             }
           });
           if(newCount>0){ if(typeof _saveNotifications==='function') _saveNotifications(); if(typeof _updateNotifBell==='function') _updateNotifBell(); showMiniNotif('<i class="fa-solid fa-bell"></i> لديك '+newCount+' إشعار جديد'); }
-          ud._pending_notifications = [];
-          await supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',_supaUserId);
+          // ❗ لا نكتب ud القديمة كلها - بس نمسح الـ notifications من S الحالي
+          // ده يمنع الـ poll من overwrite البيانات الجديدة في S
+          if(!S._pending_notifications) S._pending_notifications = [];
+          S._pending_notifications = [];
+          // حفظ S الحالي (مش ud القديم) مع مسح الـ notifications
+          try {
+            const _safeS = JSON.parse(JSON.stringify(S));
+            await supa.from('studio_data').update({data:JSON.stringify(_safeS),updated_at:new Date().toISOString()}).eq('user_id',_supaUserId);
+          } catch(e) {
+            // fallback: احفظ ud مع مسح الـ notifications بس
+            ud._pending_notifications = [];
+            await supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',_supaUserId);
+          }
           if(teamInvites.length) _showTeamInviteDialog(teamInvites);
         }
         var em = null;
