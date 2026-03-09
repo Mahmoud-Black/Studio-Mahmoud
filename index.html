@@ -18781,7 +18781,7 @@ function _checkSvcOrderUrl(){
   // Handle username-based URL: ?u=username
   var _uname=params.get('u');
   // Inject scroll-unlock CSS immediately at start — before any DOM changes
-  if(uid || _uname || params.get('portal')){
+  if(uid || _uname || params.get('portal') || params.get('clientportal')){
     var _earlyStyle = document.getElementById('_pub-early-style') || document.createElement('style');
     _earlyStyle.id = '_pub-early-style';
     _earlyStyle.textContent = 'html,body{overflow:auto!important;overflow-y:scroll!important;height:auto!important;min-height:100vh!important;position:static!important;}';
@@ -18853,7 +18853,7 @@ function _checkSvcOrderUrl(){
   if(portalId && params.get('uid')) { _buildClientPortalPage(params.get('uid'), portalId); return; }
   // ── Full Client Portal (by client ID) ──
   var cpUid=params.get('clientportal'); var cpCid=params.get('cid');
-  if(cpUid && cpCid) { _buildFullClientPortal(cpUid, cpCid); return; }
+  if(cpUid && cpCid) { window._fullCPBuilt=true; _buildFullClientPortal(cpUid, cpCid); return; }
   if(!uid) return;
   // Show body (was hidden) then replace content
   if(window._showApp) window._showApp();
@@ -20240,7 +20240,8 @@ window.addEventListener('load', function(){
     _buildProjectPortalPage(p.get('uid'),p.get('pid'));
   }
   // Full client portal
-  if(p.get('clientportal')&&p.get('cid')){
+  if(p.get('clientportal')&&p.get('cid')&&!window._fullCPBuilt){
+    window._fullCPBuilt=true;
     document.documentElement.classList.add('pub-page');
     document.body.classList.add('pub-page');
     _buildFullClientPortal(p.get('clientportal'),p.get('cid'));
@@ -23225,6 +23226,34 @@ function _buildFullClientPortal(userId, clientId){
     if(!ud){ _showCPError('خطأ في قراءة البيانات'); return; }
 
     var client=(ud.clients||[]).find(function(c){ return String(c.id)===String(clientId); });
+
+    // Fallback: لو مش لاقيه بالـ ID، ممكن يكون clientId هو phone number أو email
+    if(!client){
+      client=(ud.clients||[]).find(function(c){
+        return c.phone===clientId||c.email===clientId;
+      });
+    }
+
+    // Fallback 2: ابحث في الطلبات عن نفس الـ ID وجيب بيانات العميل منها
+    if(!client){
+      var matchOrder=(ud.svc_orders||[]).find(function(o){
+        return String(o.id)===String(clientId)||String(o.client_id)===String(clientId);
+      });
+      if(matchOrder){
+        // أنشئ عميل مؤقت من بيانات الطلب
+        client={
+          id:clientId,
+          name:matchOrder.client_name||matchOrder.name||'العميل',
+          phone:matchOrder.client_phone||matchOrder.phone||'',
+          email:matchOrder.client_email||matchOrder.email||''
+        };
+        // احفظه في قاعدة البيانات للمرات القادمة
+        ud.clients=ud.clients||[];
+        ud.clients.push(client);
+        supa.from('studio_data').update({data:JSON.stringify(ud),updated_at:new Date().toISOString()}).eq('user_id',userId).then(function(){});
+      }
+    }
+
     if(!client){ _showCPError('لم يتم التعرف على العميل. تأكد من الرابط.'); return; }
 
     var settings=ud.settings||{};
@@ -23260,9 +23289,12 @@ function _buildFullClientPortal(userId, clientId){
     var invoices=(ud.invoices||[]).filter(function(inv){
       return inv.client===cName||(cPhone&&(inv.client_phone===cPhone||inv.clientPhone===cPhone));
     });
-    // Orders
+    // Orders — بحث شامل بكل الحقول الممكنة
     var orders=(ud.svc_orders||[]).filter(function(o){
-      return o.name===cName||(cPhone&&o.phone===cPhone)||(cEmail&&o.email===cEmail);
+      return String(o.client_id)===String(clientId)||
+             o.client_name===cName||o.name===cName||
+             (cPhone&&(o.client_phone===cPhone||o.phone===cPhone))||
+             (cEmail&&(o.client_email===cEmail||o.email===cEmail));
     });
     // Contracts
     var contracts=(ud.contracts||[]).filter(function(c){
