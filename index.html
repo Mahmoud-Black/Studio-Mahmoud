@@ -1828,6 +1828,27 @@ body.sidebar-collapsed .sidebar-overlay {
 .portal-card:hover{border-color:var(--accent)}
 @media(max-width:900px){#contracts-layout{grid-template-columns:1fr !important;}}
 
+/* ── Services page mobile responsive ── */
+@media(max-width:768px){
+  .svc-settings-grid { grid-template-columns: 1fr !important; }
+  #page-services .page-header { flex-direction:column; align-items:flex-start; }
+  #page-services .page-header > div:last-child { display:flex; flex-wrap:wrap; gap:6px; width:100%; }
+  #page-services .page-header > div:last-child button { flex:1; min-width:120px; justify-content:center; }
+  #svc-store-inner .page-header > div:last-child { flex-wrap:wrap; }
+  #svc-store-inner .page-header > div:last-child button { font-size:11px; padding:6px 10px; }
+  .svc-card { font-size:13px; }
+  #svc-grid.grid-3, #svc-standalone-pkgs-grid.grid-3, #portfolio-projects-grid.grid-3 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  #svc-logo-card > div:nth-child(2) { flex-direction:column; align-items:flex-start; }
+}
+@media(max-width:480px){
+  #svc-grid.grid-3, #svc-standalone-pkgs-grid.grid-3, #portfolio-projects-grid.grid-3 {
+    grid-template-columns: 1fr !important;
+  }
+  .svc-settings-grid { gap:10px !important; }
+}
+
 </style>
 <style>
 /* ═══════════════════════════════════════════════════
@@ -4298,7 +4319,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     </div>
 
     <div id="svc-website-wrap" style="display:none">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+    <div class="svc-settings-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
 
       <!-- RIGHT COL -->
       <div style="display:flex;flex-direction:column;gap:14px">
@@ -21527,12 +21548,17 @@ async function _loadServerNotifications(){
       res.data.forEach(function(n){
         var exists = _notifications.find(function(x){ return x.id === 'srv_'+n.id; });
         if(!exists){
+          // استخرج صفحة الوجهة من الـ body لو موجودة
+          var _rawBody = n.body || '';
+          var _pageFromBody = '';
+          var _pageMatch = _rawBody.match(/\n__page__:(.+)$/);
+          if(_pageMatch) { _pageFromBody = _pageMatch[1].trim(); _rawBody = _rawBody.replace(/\n__page__:.+$/, ''); }
           _notifications.unshift({
             id: 'srv_'+n.id, supaId: n.id,
-            msg: (n.title ? '**'+n.title+'**\n' : '')+n.body,
+            msg: (n.title ? '**'+n.title+'**\n' : '')+_rawBody,
             type: n.type==='broadcast'?'message':n.type||'message',
             time: n.created_at, read: false,
-            page: n.action_page || n.page || ''
+            page: n.action_page || n.page || _pageFromBody || ''
           });
           if(!n.read) newCount2++;
         }
