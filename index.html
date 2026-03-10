@@ -709,6 +709,20 @@ async function cloudSaveWithConfirm(label, onSuccess) {
   }
 }
 
+// ── تحقق إن الـ URL صالح للاستخدام كـ src ──
+function _validImgSrc(url) {
+  if(!url || typeof url !== 'string') return false;
+  var u = url.trim();
+  if(!u) return false;
+  // يقبل: data:image, http://, https://, /uploads/, blob:
+  if(u.startsWith('data:image') || u.startsWith('http://') || u.startsWith('https://') || u.startsWith('blob:')) return true;
+  // يرفض: JS expressions أو relative paths قصيرة
+  if(u.includes("'+") || u.includes("escapeHtml") || u.includes("${")) return false;
+  // relative paths ممكن تكون صح لو بدأت بـ /
+  if(u.startsWith('/')) return true;
+  return false;
+}
+
 function showSyncIndicator(msg, color){
   let el = document.getElementById('sync-indicator');
   if(!el){
@@ -6140,7 +6154,7 @@ function loadSettings(){
   const s=S.settings||{};
   // تحديث معاينة لوجو الفاتورة في الإعدادات
   const lp=document.getElementById('logo-preview');
-  if(lp) lp.innerHTML=s.logo?`<img src="${s.logo}" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px">`:'<span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span>';
+  if(lp) lp.innerHTML=s.logo?`<img src="${s.logo}" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px" onerror="this.style.display=\'none\'">`:'<span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span>';
   renderExpenseCats();
   ['name','phone','email','address','terms'].forEach(k=>{const e=document.getElementById('set-'+k);if(e)e.value=s[k]||'';});
   const curSel=document.getElementById('set-currency'); if(curSel) curSel.value=s.currency||'ج.م';
@@ -9226,7 +9240,7 @@ function exportReceipt(transId){
   const t = S.transactions.find(x=>x.id===transId);
   if(!t) return;
   const s = S.settings||{};
-  const logo = s.logo ? `<img src="${s.logo}" style="max-height:56px;max-width:130px;object-fit:contain">` : `<div style="font-size:20px;font-weight:900;color:#7c6ff7">${s.name||'Ordo'}</div>`;
+  const logo = s.logo ? `<img src="${s.logo}" style="max-height:56px;max-width:130px;object-fit:contain" onerror="this.style.display=\'none\'">` : `<div style="font-size:20px;font-weight:900;color:#7c6ff7">${s.name||'Ordo'}</div>`;
   const linkedTask = t.linkedTaskId ? S.tasks.find(x=>x.id===t.linkedTaskId) : null;
   const payTypeAr = {full:'دفعة كاملة',deposit:'عربون',partial:'دفعة جزئية'}[t.paymentType||'full'] || 'دفعة';
   const receiptNum = 'RCP-' + String(transId).slice(-5);
@@ -9313,7 +9327,7 @@ function previewInv(id){
   const inv=S.invoices.find(i=>i.id===id);if(!inv)return;
   const card=document.getElementById('inv-preview-card');if(!card)return;
   const s=S.settings||{};
-  const logo=s.logo?`<img src="${s.logo}" style="max-height:56px;max-width:120px;object-fit:contain;margin-bottom:6px;display:block">`:'';
+  const logo=s.logo?`<img src="${s.logo}" style="max-height:56px;max-width:120px;object-fit:contain;margin-bottom:6px;display:block" onerror="this.style.display=\'none\'">`:'';
   const rows=inv.items.map(it=>`<tr><td>${it.desc}</td><td style="text-align:center">${it.qty}</td><td style="text-align:left">${it.price.toLocaleString()} ج</td><td style="text-align:left;font-weight:700">${(it.qty*it.price).toLocaleString()} ج</td></tr>`).join('');
   card.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -9361,7 +9375,7 @@ function previewInv(id){
 function exportPDF(id){
   const inv=S.invoices.find(i=>i.id===id);if(!inv)return;
   const s=S.settings||{};
-  const logo=s.logo?`<img src="${s.logo}" style="max-height:64px;max-width:150px;object-fit:contain">` : `<div style="font-size:22px;font-weight:900;color:#7c6ff7">${s.name||'Ordo'}</div>`;
+  const logo=s.logo?`<img src="${s.logo}" style="max-height:64px;max-width:150px;object-fit:contain" onerror="this.style.display=\'none\'">` : `<div style="font-size:22px;font-weight:900;color:#7c6ff7">${s.name||'Ordo'}</div>`;
   const rows=inv.items.map(it=>`
     <tr>
       <td style="padding:10px 14px;border-bottom:1px solid #eee;font-size:13px;color:#333">${it.desc}</td>
@@ -16631,7 +16645,7 @@ function renderMyMemberTeams(){
     var lateTasks = tasks.filter(function(t){ return t.deadline && new Date(t.deadline) < new Date(); });
     return '<div class="card" style="cursor:pointer;transition:border-color .15s,transform .15s" data-oid="'+m.ownerId+'" onclick="openMyMemberTeamProfile(this.dataset.oid)" onmouseenter="this.style.borderColor=\'var(--accent3)\';this.style.transform=\'translateY(-2px)\'" onmouseleave="this.style.borderColor=\'\';this.style.transform=\'\'">'
       +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
-        +(m.ownerLogo ? '<img src="'+escapeHtml(m.ownerLogo)+'" style="width:44px;height:44px;border-radius:12px;object-fit:cover;flex-shrink:0">'
+        +(m.ownerLogo ? '<img src="'+escapeHtml(m.ownerLogo)+'" style="width:44px;height:44px;border-radius:12px;object-fit:cover;flex-shrink:0" onerror=\'this.style.display=\"none\"\'">'
           : '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent3));display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0"><i class="fa-solid fa-building"></i></div>')
         +'<div style="flex:1;min-width:0">'
           +'<div style="font-size:15px;font-weight:800;color:var(--accent3)">'+escapeHtml(m.ownerName)+'</div>'
@@ -16722,7 +16736,7 @@ window.openMyMemberTeamProfile = function(ownerId){
     // Header
     +'<div style="background:linear-gradient(135deg,rgba(124,111,247,.12),rgba(79,209,165,.08));padding:20px 24px;border-radius:var(--radius) var(--radius) 0 0;position:sticky;top:0;backdrop-filter:blur(8px);z-index:2">'
       +'<div style="display:flex;align-items:center;gap:14px">'
-        +(membership.ownerLogo ? '<img src="'+escapeHtml(membership.ownerLogo)+'" style="width:52px;height:52px;border-radius:14px;object-fit:cover">'
+        +(_validImgSrc(membership.ownerLogo) ? '<img src="'+escapeHtml(membership.ownerLogo)+'" style="width:52px;height:52px;border-radius:14px;object-fit:cover" onerror=\'this.style.display=\"none\"\'">'
           : '<div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent3));display:flex;align-items:center;justify-content:center;font-size:24px"><i class="fa-solid fa-building"></i></div>')
         +'<div style="flex:1">'
           +'<div style="font-size:17px;font-weight:900">'+escapeHtml(membership.ownerName)+'</div>'
@@ -17087,7 +17101,7 @@ window.openMyMemberTeamProfile = function(ownerId){
     var html = [
       '<div style="margin-bottom:20px">',
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:16px;background:linear-gradient(135deg,rgba(124,111,247,.1),rgba(79,209,165,.06));border-radius:14px">',
-          (membership.ownerLogo ? '<img src="'+escapeHtml(membership.ownerLogo)+'" style="width:48px;height:48px;border-radius:12px;object-fit:cover">'
+          (_validImgSrc(membership.ownerLogo) ? '<img src="'+escapeHtml(membership.ownerLogo)+'" style="width:48px;height:48px;border-radius:12px;object-fit:cover" onerror=\'this.style.display=\"none\"\'">'
             : '<div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent3));display:flex;align-items:center;justify-content:center;font-size:22px"><i class="fa-solid fa-building"></i></div>'),
           '<div>',
             '<div style="font-size:16px;font-weight:900">'+escapeHtml(membership.ownerName)+'</div>',
@@ -17539,7 +17553,7 @@ function openNewStoreModal(editIdx){
   var over=document.createElement('div');
   over.className='modal-overlay';over.style.display='flex';
   var logoPrevHtml=(st&&st.logo)
-    ?'<img src="'+escapeHtml(st.logo)+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px">'
+    ?(_validImgSrc(st.logo)?'<img src="'+escapeHtml(st.logo)+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror=\'this.style.display=\"none\"\'">':'')+''
     :'<i class="fa-solid fa-image" style="color:var(--text3);font-size:20px"></i>';
   over.innerHTML='<div class="modal" style="max-width:460px">'+
     '<div class="modal-header"><div class="modal-title"><i class="fa-solid fa-store"></i> '+(st?'تعديل المتجر':'متجر جديد')+'</div>'+
@@ -17687,7 +17701,7 @@ function initWebsiteTab(){
   var logoCl=document.getElementById('svc-logo-clear-btn');
   if(logoPv){
     if(logo){
-      logoPv.innerHTML='<img src="'+escapeHtml(logo)+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px">';
+      if(_validImgSrc(logo)) logoPv.innerHTML='<img src="'+escapeHtml(logo)+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror=\'this.style.display=\"none\"\'">';
       if(logoCl) logoCl.style.display='';
     } else {
       logoPv.innerHTML='<i class="fa-solid fa-image" style="color:var(--text3);font-size:22px"></i>';
@@ -18600,7 +18614,7 @@ function renderServices(){
       var ordCount=(S.svc_orders||[]).filter(function(o){return String(o.service_id)===String(svc.id);}).length;
       var isActive=svc.active!==false;
       return '<div class="svc-card" onclick="openSvcDetail('+svc.id+')" onmouseenter="this.style.borderColor=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'\'" style="border:1.5px solid '+(isActive?'var(--border)':'rgba(255,107,107,.3)')+';border-radius:16px;overflow:hidden;cursor:pointer;transition:all .18s;opacity:'+(isActive?'1':'.7')+'">'+
-        '<div class="svc-card-cover">'+(svc.image?'<img src="'+escapeHtml(svc.image)+'" style="width:100%;height:100%;object-fit:cover">':'<i class="fa-solid fa-bag-shopping"></i>')+'</div>'+
+        '<div class="svc-card-cover">'+(svc.image?'<img src="'+escapeHtml(svc.image)+'" style="width:100%;height:100%;object-fit:cover" onerror=\'this.style.display=\"none\"\'">':'<i class="fa-solid fa-bag-shopping"></i>')+'</div>'+
         '<div class="svc-card-body">'+
           '<div style="font-size:14px;font-weight:800;margin-bottom:4px">'+escapeHtml(svc.name)+'</div>'+
           (svc.cat?'<div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:6px">'+escapeHtml(svc.cat)+'</div>':'<div style="margin-bottom:6px"></div>')+
@@ -18665,7 +18679,7 @@ function openSvcDetail(id){
       (svc.cat?'<div style="font-size:11px;color:var(--accent);font-weight:700;margin-top:2px">'+escapeHtml(svc.cat)+'</div>':'')+
       '</div><button onclick="document.getElementById(\'_svc-detail-overlay\').remove()" class="close-btn"><i class="fa-solid fa-xmark"></i></button>'+
     '</div>'+
-    (svc.image?'<img src="'+escapeHtml(svc.image)+'" style="width:100%;max-height:200px;object-fit:cover;border-radius:14px;margin-bottom:14px">':'')+
+    (svc.image?'<img src="'+escapeHtml(svc.image)+'" style="width:100%;max-height:200px;object-fit:cover;border-radius:14px;margin-bottom:14px" onerror=\'this.style.display=\"none\"\'">':'')+
     '<p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:8px">'+escapeHtml(svc.desc)+'</p>'+
     (svc.delivery?'<div style="font-size:12px;color:var(--text3)"><i class="fa-solid fa-stopwatch"></i> وقت التسليم: '+escapeHtml(svc.delivery)+'</div>':'')+
     pkgHtml + portHtml +
@@ -19509,7 +19523,7 @@ function _buildSvcOrderPage(userId){
     var navHtml='<nav class="_nav" id="_pub-nav">'+
       '<div class="_nav-inner">'+
         '<a class="_nav-logo" href="#">'+
-          (logo?'<img class="_nav-logo-img" src="'+escapeHtml(logo)+'" alt="">':'<div class="_nav-logo-ph">'+(studioName||'S').charAt(0)+'</div>')+
+          (_validImgSrc(logo)?'<img class="_nav-logo-img" src="'+escapeHtml(logo)+'" alt="">':'<div class="_nav-logo-ph">'+(studioName||'S').charAt(0)+'</div>')+
           '<span class="_nav-name">'+escapeHtml(studioName)+'</span>'+
         '</a>'+
         '<div class="_nav-links">'+
@@ -19538,7 +19552,7 @@ function _buildSvcOrderPage(userId){
     var heroHtml='<div id="_sec-hero" style="scroll-margin-top:70px">'+
       '<div class="_hero">'+
         (banner
-          ?'<img src="'+escapeHtml(banner)+'" alt="" onload="this.style.opacity=1" style="opacity:0;transition:opacity .5s ease">'
+          ?'<img src="'+escapeHtml(banner)+'" alt="" onload="this.style.opacity=1" style="opacity:0;transition:opacity .5s ease" onerror=\'this.style.display=\"none\"\'">'
           :'<div class="_hero-ph">'+
               '<div class="_hero-ph-title">'+escapeHtml(studioName)+'</div>'+
               (siteDesc?'<div class="_hero-ph-sub">'+escapeHtml(siteDesc)+'</div>':'')+
@@ -19621,7 +19635,7 @@ function _buildSvcOrderPage(userId){
         var img=p.image||p.thumb||'';
         var link=p.link||p.url||'#';
         return '<a class="_pf-card" href="'+escapeHtml(link)+'" target="_blank">'+
-          (img?'<img src="'+escapeHtml(img)+'" alt="" loading="lazy">':
+          (img?'<img src="'+escapeHtml(img)+'" alt="" loading="lazy" onerror=\'this.style.display=\"none\"\'">':
           '<div class="_pf-card-ph">'+
             '<div style="font-size:26px;margin-bottom:5px">'+(p.type==='behance'?'<i class="fa-solid fa-palette"></i>':'<i class="fa-solid fa-folder"></i>')+'</div>'+
             '<div style="font-size:10px;font-weight:700;color:'+textSub+'">'+escapeHtml((p.title||p.label||'مشروع').slice(0,20))+'</div>'+
@@ -19833,7 +19847,7 @@ window._openSvcPage=function(idx){
         var img=p.image||p.thumb||'';
         var link=p.link||p.url||'#';
         return '<a class="_pf-card" href="'+escapeHtml(link)+'" target="_blank">'+
-          (img?'<img src="'+escapeHtml(img)+'" alt="" loading="lazy">':
+          (img?'<img src="'+escapeHtml(img)+'" alt="" loading="lazy" onerror=\'this.style.display=\"none\"\'">':
           '<div class="_pf-card-ph"><div style="font-size:22px">'+(p.type==='behance'?'<i class="fa-solid fa-palette"></i>':'<i class="fa-solid fa-folder"></i>')+'</div></div>')+
         '</a>';
       }).join('')+'</div></div>';
@@ -20503,7 +20517,7 @@ function _buildClientPortalPage(userId, portalId){
     footerEl.className='_cp-footer';
     footerEl.innerHTML='<div class="_cp-footer-inner">'+
       '<div style="display:flex;align-items:center;gap:10px">'+
-        (logo?'<img src="'+escapeHtml(logo)+'" style="width:32px;height:32px;border-radius:8px;object-fit:cover">':'<div style="width:32px;height:32px;border-radius:8px;background:'+accent+';display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;font-weight:900">'+(studioName||'S').charAt(0)+'</div>')+
+        (logo?'<img src="'+escapeHtml(logo)+'" style="width:32px;height:32px;border-radius:8px;object-fit:cover" onerror=\'this.style.display=\"none\"\'">':'<div style="width:32px;height:32px;border-radius:8px;background:'+accent+';display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;font-weight:900">'+(studioName||'S').charAt(0)+'</div>')+
         '<span style="font-size:13px;font-weight:700;color:'+textMain+'">'+escapeHtml(studioName)+'</span>'+
       '</div>'+
       '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
@@ -22174,7 +22188,8 @@ function clearAllTimeLogs(taskId){
 // ═══════════════════════════════════════════════════
 function _updateHeaderAvatar(){
   var session = typeof getSession === 'function' ? getSession() : null;
-  var avatarUrl = (session && session.avatarUrl) ? session.avatarUrl : ((typeof S !== 'undefined' && S.settings && (S.settings._avatarUrl || S.settings.logo)) ? (S.settings._avatarUrl || S.settings.logo) : '');
+  var _rawAvatar = (session && session.avatarUrl) ? session.avatarUrl : ((typeof S !== 'undefined' && S.settings && (S.settings._avatarUrl || S.settings.logo)) ? (S.settings._avatarUrl || S.settings.logo) : '');
+  var avatarUrl = _validImgSrc(_rawAvatar) ? _rawAvatar : '';
   var name = (session && session.name) ? session.name : ((session && session.studio) ? session.studio : 'م');
   var imgEl = document.getElementById('_header-avatar-img');
   var txtEl = document.getElementById('_header-avatar-text');
@@ -24436,7 +24451,7 @@ _buildTrackingPageHTML = function(t){
   <div class="hdr">
     <div class="hdr-inner">
       ${logo
-        ? `<img src="${logo}" class="studio-logo" alt="${studio}">`
+        ? `<img src="${logo}" class="studio-logo" alt="${studio}" onerror="this.style.display=\'none\'">`
         : `<div class="studio-logo-fallback"><i class="fa-solid fa-palette"></i></div>`}
       <div class="studio-name">${studio}</div>
       <div class="proj-title">${t.title}</div>
