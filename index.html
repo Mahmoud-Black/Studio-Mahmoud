@@ -14454,11 +14454,11 @@ function switchFinTab(tab) {
     if(btn) btn.className = t===tab ? 'filter-chip active' : 'filter-chip';
     if(panel) panel.style.display = t===tab ? 'block' : 'none';
   });
-  if(tab==='wallets') renderWalletsTab();
-  if(tab==='budgets') renderBudgets();
-  if(tab==='loans') renderLoans();
-  if(tab==='transactions') renderFinLoansSummary();
-  if(tab==='stats') renderFinStats();
+  if(tab==='wallets') { if(typeof renderWalletsTab==='function') renderWalletsTab(); }
+  if(tab==='budgets') { if(typeof renderBudgets==='function') renderBudgets(); }
+  if(tab==='loans') { if(typeof renderLoans==='function') renderLoans(); }
+  if(tab==='transactions') { if(typeof renderFinLoansSummary==='function') renderFinLoansSummary(); }
+  if(tab==='stats') { if(typeof renderFinStats==='function') renderFinStats(); }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -28222,11 +28222,15 @@ window._onVaultPageShow = function() {
   if(confirmWrap) confirmWrap.style.display = isNew ? 'block' : 'none';
   if(strengthBar) strengthBar.style.display = isNew ? 'block' : 'none';
   if(btn) btn.textContent = isNew ? '🔒 إنشاء الخزنة' : '🔓 فتح الخزنة';
-  // password strength listener
+  // password strength listener (for new vault setup)
   var masterInput = document.getElementById('vault-master-input');
-  if(masterInput && isNew) {
-    masterInput.oninput = function(){ _updateVaultStrength(this.value, 'vault-strength-fill','vault-strength-label'); };
+  if(masterInput) {
+    masterInput.oninput = isNew ? function(){ _updateVaultStrength(this.value, 'vault-strength-fill','vault-strength-label'); } : null;
+    masterInput.onkeydown = function(e){ if(e.key==='Enter') submitVaultLock(); };
+    masterInput.focus();
   }
+  var confirmInput = document.getElementById('vault-master-confirm');
+  if(confirmInput) confirmInput.onkeydown = function(e){ if(e.key==='Enter') submitVaultLock(); };
 };
 
 // hook into showPage
@@ -28251,8 +28255,8 @@ function _passwordStrength(pwd) {
 
 function _updateVaultStrength(pwd, fillId, labelId) {
   var score = _passwordStrength(pwd);
-  var fill = document.getElementById(fillId);
-  var label = document.getElementById(labelId);
+  var fill = fillId ? document.getElementById(fillId) : null;
+  var label = labelId ? document.getElementById(labelId) : null;
   var colors = ['','#ef4444','#f97316','#eab308','#22c55e','#16a34a'];
   var labels = ['','ضعيفة جداً','ضعيفة','متوسطة','قوية','قوية جداً ✓'];
   if(fill) { fill.style.width = (score*20)+'%'; fill.style.background = colors[score]||colors[1]; }
@@ -28423,9 +28427,12 @@ async function openVaultEntryModal(id) {
   var pwdInput = document.getElementById('ve-password');
   if(pwdInput) {
     pwdInput.oninput = function(){ _updateVaultStrength(this.value,'ve-strength-fill', null); };
-    if(e&&e.password) _updateVaultStrength(e.password,'ve-strength-fill',null);
+    if(e && e.password) _updateVaultStrength(e.password,'ve-strength-fill', null);
+    else { var sf=document.getElementById('ve-strength-fill'); if(sf) sf.style.width='0'; }
   }
-  document.getElementById('modal-vault-entry').style.display = 'flex';
+  // focus first field
+  setTimeout(function(){ var n=document.getElementById('ve-name'); if(n) n.focus(); }, 100);
+  document.getElementById('modal-vault-entry').classList.add('open');
 }
 
 async function saveVaultEntry() {
