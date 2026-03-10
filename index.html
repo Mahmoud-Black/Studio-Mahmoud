@@ -361,7 +361,7 @@ function _queueCloudSave() {
 function cloudSave(data) {
   if(!_supaUserId) return;
   if(data && data !== S) S = data;
-  lsSave();
+  _queueCloudSave();
 }
 
 // cloudSaveNow = نفس cloudSave بس بيلغي الـ debounce ويحفظ cloud فوراً
@@ -5488,24 +5488,17 @@ function _fmtPrice(val, svcCurrency){ return Number(val||0).toLocaleString() + '
 
 function lsSave(){
   if(!S) return;
+  S._savedAt = new Date().toISOString();
   try {
-    // أضف timestamp للمقارنة
-    S._savedAt = new Date().toISOString();
-    // حفظ محلي فوري
-    const _key = userKey();
-    const _json = JSON.stringify(S);
-    localStorage.setItem(_key, _json);
-    // نسخة احتياطية إضافية بـ user ID المباشر
+    const _j = JSON.stringify(S);
     if(_supaUserId) {
-      localStorage.setItem('studioOS_v3_'+_supaUserId, _json);
-      localStorage.setItem('studioOS_backup_'+_supaUserId, _json);
+      localStorage.setItem(userKey(), _j);
+      localStorage.setItem('studioOS_v3_'+_supaUserId, _j);
+      localStorage.setItem('studioOS_backup_'+_supaUserId, _j);
     }
-  } catch(e) {
-    console.error('lsSave localStorage error:', e.message);
-  }
-  cloudSave(S);
+  } catch(e) {}
+  _queueCloudSave();
   updateDash();
-  // تحديث مؤشر حالة البيانات
   try { _updateDataStatusBar(); } catch(e) {}
 }
 // lsLoad يتنادى من loginWithSupaSession فقط - مش هنا
