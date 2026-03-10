@@ -124,9 +124,45 @@ function showErr(m){document.getElementById('ls').style.display='none';const er=
 
 const P=new URLSearchParams(location.search);
 const pUid=P.get('uid'),pCid=P.get('cid'),pOrderId=P.get('order'),pTaskId=P.get('taskid'),pName=P.get('name')||'',pPhone=P.get('phone')||'';
+const pUsername=P.get('u'), pClientSlug=P.get('p');
 let _ud,_settings,_clientName,_clientPhone,_clientId,_clientTasks,_clientProjects,_clientInvoices,_clientOrders;
 
 async function boot(){
+  // ── دعم الرابط القصير ?u=username&p=client-slug ──
+  if(!pUid && pUsername && pClientSlug){
+    try{
+      // 1) جيب userId من الـ username
+      let uidRes = await db.from('studio_data').select('user_id').ilike('data->>username_index', pUsername).maybeSingle();
+      let resolvedUid = uidRes?.data?.user_id;
+      if(!resolvedUid){
+        // fallback: بحث نصي
+        let fallback = await db.from('studio_data').select('user_id,data').like('data::text','%"username":"'+pUsername+'"%').limit(5);
+        if(fallback?.data?.length){
+          for(var fi=0;fi<fallback.data.length;fi++){
+            try{var fd=typeof fallback.data[fi].data==='string'?JSON.parse(fallback.data[fi].data):fallback.data[fi].data;
+              if(fd?.settings?.username?.toLowerCase()===pUsername.toLowerCase()){resolvedUid=fallback.data[fi].user_id;break;}}catch(e){}
+          }
+        }
+      }
+      if(!resolvedUid){showErr('لم يتم التعرف على الحساب: '+pUsername);return;}
+      // 2) جيب البيانات وابحث عن العميل بالـ slug
+      let row2 = await db.from('studio_data').select('data').eq('user_id',resolvedUid).maybeSingle();
+      if(!row2?.data){showErr('لا يمكن تحميل البيانات');return;}
+      let ud2; try{const raw=row2.data.data;ud2=typeof raw==='string'?JSON.parse(raw):raw;if(ud2?.data&&typeof ud2.services==='undefined'){ud2=typeof ud2.data==='string'?JSON.parse(ud2.data):ud2.data;}}catch(e){showErr('خطأ في البيانات');return;}
+      if(!ud2){showErr('بيانات فارغة');return;}
+      // ابحث عن العميل بالـ slug
+      var matchedClient=(ud2.clients||[]).find(function(c){
+        var cs=(c.name||'').toLowerCase().replace(/\s+/g,'-').replace(/[^\u0600-\u06FFa-z0-9-]/g,'').replace(/-+/g,'-').replace(/^-|-$/g,'').slice(0,30);
+        return cs===pClientSlug;
+      });
+      if(!matchedClient){showErr('لم يتم التعرف على العميل: '+pClientSlug);return;}
+      // حدّث URL params وكمّل التحميل العادي
+      Object.defineProperty(window,'_resolvedUid',{value:resolvedUid,writable:false});
+      Object.defineProperty(window,'_resolvedCid',{value:String(matchedClient.id),writable:false});
+      await _bootWithData(resolvedUid, String(matchedClient.id), ud2);
+      return;
+    }catch(e){showErr('خطأ في تحميل البيانات: '+e.message);return;}
+  }
   if(!pUid){showErr('رابط غير صحيح — يجب أن يحتوي على uid');return;}
   try{
     const{data:row,error}=await db.from('studio_data').select('data').eq('user_id',pUid).maybeSingle();
@@ -134,23 +170,26 @@ async function boot(){
     let ud;
     try{const raw=row.data;ud=typeof raw==='string'?JSON.parse(raw):raw;if(ud?.data&&typeof ud.services==='undefined'){ud=typeof ud.data==='string'?JSON.parse(ud.data):ud.data;}}catch(e){showErr('خطأ في قراءة البيانات');return;}
     if(!ud){showErr('بيانات فارغة');return;}
+    await _bootWithData(pUid, pCid, ud);
+  }catch(e){console.error(e);showErr('حدث خطأ غير متوقع');}
+}
+
+async function _bootWithData(userId, clientId, ud){
+  try{
     _ud=ud;_settings=ud.settings||{};
     const accent=_settings.accent||_settings.accentColor||'#7c6ff7';
     if((_settings.displayMode||_settings.display_mode||'dark')==='light')document.body.classList.add('lm');
     document.documentElement.style.setProperty('--ac',accent);
 
     // ── تحديد هوية العميل ──
-    // 1) من cid (الـ id المباشر)
-    if(pCid){
-      const cl=(ud.clients||[]).find(c=>String(c.id)===String(pCid));
+    if(clientId){
+      const cl=(ud.clients||[]).find(c=>String(c.id)===String(clientId));
       if(cl){_clientId=cl.id;_clientName=cl.name;_clientPhone=cl.phone||'';}
     }
-    // 2) من الطلب
     if(!_clientName&&pOrderId){
       const ord=(ud.svc_orders||[]).find(o=>o.id===pOrderId);
       if(ord){_clientName=pName||ord.client_name;_clientPhone=pPhone||ord.client_phone;}
     }
-    // 3) من الـ URL params مباشرة
     if(!_clientName){_clientName=pName;_clientPhone=pPhone;}
     if(!_clientName){showErr('لم يتم التعرف على العميل. تأكد من الرابط.');return;}
 
@@ -159,28 +198,23 @@ async function boot(){
 
     function matchClient(obj){
       if(_clientId&&String(obj.client_id)===String(_clientId))return true;
+      if(_clientId&&String(obj.clientId)===String(_clientId))return true;
       const mn=(obj.client||obj.client_name||obj.name||'').trim().toLowerCase()===cn;
       const mp=cp&&(obj.client_phone||obj.clientPhone||obj.phone||'').replace(/\D/g,'')===cp;
       return mn||mp;
     }
 
-    // ── تجميع البيانات ──
-    // الطلبات = tasks العادية المرتبطة بالعميل
     _clientTasks=(ud.tasks||[]).filter(t=>{
       if(!t)return false;
       return matchClient(t)||(pOrderId&&t.source_order_id===pOrderId);
     });
-
-    // المشاريع الكبيرة
     _clientProjects=(ud.projects||[]).filter(p=>p&&matchClient(p));
-
     _clientInvoices=(ud.invoices||[]).filter(i=>i&&matchClient(i));
     _clientOrders=(ud.svc_orders||[]).filter(o=>o&&matchClient(o));
 
     renderPage();
     hideLs();
 
-    // لو في taskid في الـ URL — افتح التاسك مباشرة
     if(pTaskId){
       setTimeout(()=>{
         switchTab('tasks');
@@ -203,11 +237,23 @@ function renderPage(){
   const paidInv=_clientInvoices.filter(i=>i.paid||i.status==='مدفوعة').reduce((s,i)=>s+(+i.total||0),0);
   const unpaid=Math.max(0,totalInv-paidInv);
 
+  // ── الرصيد الافتتاحي للعميل ──
+  const clientObj=(_ud.clients||[]).find(c=>String(c.id)===String(_clientId));
+  const openingBal=clientObj?.openingBalance||0;
+  const openingType=clientObj?.openingBalanceType||'receivable';
+  const openingNote=clientObj?.openingBalanceNote||'';
+  // حساب الرصيد الكلي: مدفوع + رصيد افتتاحي (مستحقات)
+  const totalReceivable = unpaid + (openingType==='receivable'?openingBal:0);
+
+  // ── بناء رابط المتجر بالـ username لو متاح ──
+  const _storeUn=_settings.username;
+  const _storeLink=_storeUn ? (STORE_URL+'?u='+encodeURIComponent(_storeUn)) : (STORE_URL+'?uid='+(window._resolvedUid||pUid||''));
+
   const lo=logo?`<div class="nav-ico"><img src="${xe(logo)}" alt=""></div>`:`<div class="nav-ico">${(nm||'S').charAt(0)}</div>`;
 
   document.getElementById('root').innerHTML=`
   <nav class="nav"><div class="nav-in">
-    <a class="nav-brand" href="${xe(STORE_URL+'?uid='+pUid)}">${lo}<div><div class="nav-nm">${xe(nm)}</div><div class="nav-sub">بوابة العميل</div></div></a>
+    <a class="nav-brand" href="${xe(_storeLink)}">${lo}<div><div class="nav-nm">${xe(nm)}</div><div class="nav-sub">بوابة العميل</div></div></a>
     ${phone?`<a href="https://wa.me/${phone.replace(/\D/g,'')}?text=${encodeURIComponent('مرحباً '+nm)}" target="_blank" class="nav-wa"><i class="fa-brands fa-whatsapp"></i>تواصل</a>`:''}
   </div></nav>
 
@@ -227,8 +273,13 @@ function renderPage(){
       <div class="stat"><div class="stat-val" style="color:var(--ac)">${activeTasks}</div><div class="stat-lbl">طلبات نشطة</div></div>
       <div class="stat"><div class="stat-val" style="color:var(--g)">${doneTasks}</div><div class="stat-lbl">مكتملة</div></div>
       <div class="stat"><div class="stat-val" style="color:var(--y)">${totalInv?totalInv.toLocaleString()+' ج':'—'}</div><div class="stat-lbl">إجمالي الفواتير</div></div>
-      <div class="stat"><div class="stat-val" style="color:${unpaid>0?'var(--r)':'var(--g)'}">${unpaid?unpaid.toLocaleString()+' ج':'✓'}</div><div class="stat-lbl">غير مدفوع</div></div>
+      <div class="stat"><div class="stat-val" style="color:${totalReceivable>0?'var(--r)':'var(--g)'}">${totalReceivable?totalReceivable.toLocaleString()+' ج':'✓'}</div><div class="stat-lbl">مستحق</div></div>
     </div>
+
+    ${openingBal>0?`<div style="margin:0 0 14px;padding:10px 14px;background:${openingType==='receivable'?'rgba(247,107,92,.1)':'rgba(79,209,165,.1)'};border-radius:10px;border-right:3px solid ${openingType==='receivable'?'var(--r)':'var(--g)'};font-size:12px">
+      <div style="font-weight:800;margin-bottom:3px">${openingType==='receivable'?'💰 رصيد مستحق ليك من قبل':'✅ رصيد مدفوع مسبقاً'}: ${openingBal.toLocaleString()} ج.م</div>
+      ${openingNote?`<div style="color:var(--t3)">${xe(openingNote)}</div>`:''}
+    </div>`:''}
 
     <!-- TABS -->
     <div class="tabs" id="tabs">
