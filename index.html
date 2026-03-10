@@ -3191,7 +3191,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     <div style="width:1px;height:20px;background:var(--border);margin:0 2px"></div>
     <button class="filter-chip cf-ch-btn active" data-val="" onclick="setCFChannel('',this)"><i class="fa-solid fa-satellite-dish"></i> كل القنوات</button>
     <button class="filter-chip cf-ch-btn" data-val="واتساب" onclick="setCFChannel('واتساب',this)"><i class="fa-solid fa-comments"></i> واتساب</button>
-    <button class="filter-chip cf-ch-btn" data-val="انستقرام" onclick="setCFChannel('انستقرام',this)"><i class="fa-solid fa-camera"></i> انستقرام</button>
+    <button class="filter-chip cf-ch-btn" data-val="انستقرام" onclick="setCFChannel('انستقرام',this)"><i class="fa-brands fa-instagram" style="color:#E1306C"></i> انستقرام</button>
     <button class="filter-chip cf-ch-btn" data-val="إحالة" onclick="setCFChannel('إحالة',this)"><i class="fa-solid fa-handshake"></i> إحالة</button>
     <button class="filter-chip cf-ch-btn" data-val="موقع" onclick="setCFChannel('موقع',this)"><i class="fa-solid fa-globe"></i> موقع</button>
     <button class="filter-reset" onclick="resetClientFilters()"><i class="fa-solid fa-xmark"></i> إعادة تعيين</button>
@@ -3559,6 +3559,9 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
 
   <!-- محتوى تاب المعاملات -->
   <div id="fin-panel-transactions">
+
+  <!-- ملخص القروض والأرصدة - يتحدث تلقائياً -->
+  <div id="fin-loans-summary" style="display:none;margin-bottom:16px"></div>
 
   <!-- فلتر الفترة الزمنية -->
   <div class="filter-bar" style="margin-bottom:16px">
@@ -4545,14 +4548,6 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px" id="feat-settings-grid">
       </div>
     </div>
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <div class="section-title" style="margin:0"><i class="fa-solid fa-rocket"></i> سجل التحديثات والميزات</div>
-        <span style="font-size:11px;color:var(--text3)" id="feat-last-seen-label"></span>
-      </div>
-      <div id="admin-updates-list" style="margin-bottom:16px"></div>
-      <div id="feat-updates-list"></div>
-    </div>
   </div><!-- end stabp-features -->
 
 </div><!-- end page-settings -->
@@ -4749,23 +4744,23 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
           <div style="font-size:13px;font-weight:800;margin-bottom:12px"><i class="fa-solid fa-link"></i> روابط التواصل الاجتماعي</div>
           <div style="display:flex;flex-direction:column;gap:8px">
             <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:18px;width:24px;text-align:center"><i class="fa-solid fa-camera"></i></span>
+              <span style="font-size:18px;width:24px;text-align:center;color:#E1306C"><i class="fa-brands fa-instagram"></i></span>
               <input class="form-input" id="social-instagram" placeholder="رابط انستجرام" style="flex:1">
             </div>
             <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:18px;width:24px;text-align:center"><i class="fa-solid fa-briefcase"></i></span>
+              <span style="font-size:18px;width:24px;text-align:center;color:#1769FF"><i class="fa-brands fa-behance"></i></span>
               <input class="form-input" id="social-behance" placeholder="رابط Behance" style="flex:1">
             </div>
             <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:18px;width:24px;text-align:center"><i class="fa-solid fa-music"></i></span>
+              <span style="font-size:18px;width:24px;text-align:center;color:#000000"><i class="fa-brands fa-tiktok"></i></span>
               <input class="form-input" id="social-tiktok" placeholder="رابط تيك توك" style="flex:1">
             </div>
             <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:18px;width:24px;text-align:center"><i class="fa-solid fa-bird"></i></span>
+              <span style="font-size:18px;width:24px;text-align:center;color:#000000"><i class="fa-brands fa-x-twitter"></i></span>
               <input class="form-input" id="social-twitter" placeholder="رابط تويتر / X" style="flex:1">
             </div>
             <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:18px;width:24px;text-align:center"><i class="fa-solid fa-comments"></i></span>
+              <span style="font-size:18px;width:24px;text-align:center;color:#25D366"><i class="fa-brands fa-whatsapp"></i></span>
               <input class="form-input" id="social-whatsapp" placeholder="رقم واتساب" style="flex:1">
             </div>
           </div>
@@ -5080,6 +5075,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       <button class="profile-tab" data-tab="invoices" onclick="switchProfileTab('invoices',this)"><i class="fa-solid fa-receipt"></i> الفواتير</button>
       <button class="profile-tab" data-tab="contracts" onclick="switchProfileTab('contracts',this)"><i class="fa-solid fa-pen-to-square"></i> العقود</button>
       <button class="profile-tab" data-tab="statements" onclick="switchProfileTab('statements',this)"><i class="fa-solid fa-file-lines"></i> كشوفات الحساب</button>
+      <button class="profile-tab" data-tab="accounts" onclick="switchProfileTab('accounts',this)"><i class="fa-solid fa-coins"></i> الحسابات المالية</button>
     </div>
     <div id="profile-body" style="max-height:75vh;overflow-y:auto;padding:18px 20px"></div>
   </div>
@@ -8335,6 +8331,102 @@ function _renderProfileTab(tab, id){
     :'<div class="empty"><div class="empty-icon"><i class="fa-solid fa-folder-open"></i></div>لا مشاريع مرتبطة بهذا العميل<br><button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="closeM(\'modal-client-profile\');showPage(\'projects\')">+ إضافة مشروع</button></div>');
   }
 
+  else if(tab==='accounts'){
+    // ════ تاب الحسابات المالية للعميل ════
+    const cur = _getCurrency();
+    const openBal = c.openingBalance || 0;
+    const openType = c.openingBalanceType || 'receivable';
+    const openNote = c.openingBalanceNote || '';
+    const totalIncome = cTrans.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+    const totalExpense = cTrans.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+    const totalInvAll = cInvs.reduce((s,i)=>s+(+i.total||0),0);
+    const totalPaid = cInvs.filter(i=>i.paid||i.status==='مدفوعة'||i.status==='paid').reduce((s,i)=>s+(+i.total||0),0);
+    const unpaid = Math.max(0, totalInvAll - totalPaid);
+    const openBalReceivable = openType==='receivable' ? openBal : 0;
+    const openBalPrepaid = openType==='prepaid' ? openBal : 0;
+    const netBalance = openBalReceivable + unpaid - openBalPrepaid;
+
+    // بناء سجل شهري
+    const monthlyMap = {};
+    cTrans.forEach(function(t){
+      const mk = (t.isoDate||t.date||'').slice(0,7);
+      if(!mk) return;
+      if(!monthlyMap[mk]) monthlyMap[mk]={income:0,expense:0,count:0};
+      if(t.type==='income') monthlyMap[mk].income+=t.amount;
+      else monthlyMap[mk].expense+=t.amount;
+      monthlyMap[mk].count++;
+    });
+    const monthKeys = Object.keys(monthlyMap).sort((a,b)=>b.localeCompare(a));
+    const arabicMonths=['','يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    const fmtMK=mk=>{ const [y,m]=mk.split('-'); return (arabicMonths[+m]||m)+' '+y; };
+
+    body.innerHTML=`
+      <!-- ملخص الحساب -->
+      <div style="margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:10px"><i class="fa-solid fa-scale-balanced"></i> ملخص حساب ${escapeHtml(c.name)}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px">
+          <div class="card" style="padding:12px;text-align:center">
+            <div style="font-size:18px;font-weight:900;color:var(--accent3)">${totalIncome.toLocaleString()} ${cur}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:3px"><i class="fa-solid fa-coins"></i> إجمالي المحصّل</div>
+          </div>
+          <div class="card" style="padding:12px;text-align:center">
+            <div style="font-size:18px;font-weight:900;color:var(--accent2)">${totalInvAll.toLocaleString()} ${cur}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:3px"><i class="fa-solid fa-file-invoice"></i> إجمالي الفواتير</div>
+          </div>
+          <div class="card" style="padding:12px;text-align:center;border-right:2px solid ${unpaid>0?'var(--accent4)':'var(--accent3)'}">
+            <div style="font-size:18px;font-weight:900;color:${unpaid>0?'var(--accent4)':'var(--accent3)'}">${unpaid.toLocaleString()} ${cur}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">⏳ غير مسدّد</div>
+          </div>
+          ${openBal>0?`<div class="card" style="padding:12px;text-align:center;border-right:2px solid ${openType==='receivable'?'var(--accent4)':'var(--accent3)'}">
+            <div style="font-size:18px;font-weight:900;color:${openType==='receivable'?'var(--accent4)':'var(--accent3)'}">${openBal.toLocaleString()} ${cur}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">${openType==='receivable'?'💰 رصيد افتتاحي (مستحق)':'✅ رصيد افتتاحي (مدفوع)'}</div>
+          </div>`:''}
+        </div>
+        ${netBalance>0?`<div style="padding:12px 14px;background:rgba(255,107,107,.1);border-radius:10px;border-right:3px solid var(--accent4);margin-bottom:12px;font-size:13px">
+          <strong>📌 صافي المستحق على العميل: ${netBalance.toLocaleString()} ${cur}</strong>
+          ${openNote?`<div style="font-size:11px;color:var(--text3);margin-top:3px">${escapeHtml(openNote)}</div>`:''}
+        </div>`:''}
+      </div>
+
+      <!-- الرصيد الافتتاحي في السجل -->
+      <div style="margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:10px"><i class="fa-solid fa-list-timeline"></i> سجل المعاملات الكاملة</div>
+        ${openBal>0?`<div style="padding:10px 14px;background:${openType==='receivable'?'rgba(255,107,107,.08)':'rgba(79,209,165,.08)'};border-radius:10px;border:1px solid var(--border);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:12px;font-weight:800">${openType==='receivable'?'💰 رصيد افتتاحي — مستحق من قبل':'✅ رصيد افتتاحي — مدفوع مسبقاً'}</div>
+            ${openNote?`<div style="font-size:11px;color:var(--text3)">${escapeHtml(openNote)}</div>`:''}
+          </div>
+          <div style="font-size:14px;font-weight:900;color:${openType==='receivable'?'var(--accent4)':'var(--accent3)'}">
+            ${openType==='receivable'?'+':'-'}${openBal.toLocaleString()} ${cur}
+          </div>
+        </div>`:''}
+        ${cTrans.length?[...cTrans].sort((a,b)=>(b.isoDate||b.date||'').localeCompare(a.isoDate||a.date||'')).map(t=>`
+          <div style="padding:10px 14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:12px;font-weight:700">${escapeHtml(t.desc||'معاملة')}</div>
+              <div style="font-size:10px;color:var(--text3)">${t.isoDate||t.date||'—'}${t.payMethod?' · '+t.payMethod:''}</div>
+            </div>
+            <div style="font-size:14px;font-weight:900;color:${t.type==='income'?'var(--accent3)':'var(--accent4)'}">${t.type==='income'?'+':'-'}${t.amount.toLocaleString()} ${cur}</div>
+          </div>`).join('')
+          :'<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px"><i class="fa-solid fa-inbox"></i> لا معاملات مالية مسجلة</div>'}
+      </div>
+
+      <!-- سجل شهري -->
+      ${monthKeys.length?`<div>
+        <div class="section-title" style="margin-bottom:10px"><i class="fa-solid fa-calendar-days"></i> السجل الشهري والسنوي</div>
+        ${monthKeys.map(mk=>`
+          <div style="padding:10px 14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:12px;font-weight:700">${fmtMK(mk)}</div>
+            <div style="display:flex;gap:14px;font-size:12px">
+              ${monthlyMap[mk].income?`<span style="color:var(--accent3);font-weight:700">+${monthlyMap[mk].income.toLocaleString()} ${cur}</span>`:''}
+              ${monthlyMap[mk].expense?`<span style="color:var(--accent4);font-weight:700">-${monthlyMap[mk].expense.toLocaleString()} ${cur}</span>`:''}
+              <span style="color:var(--text3)">${monthlyMap[mk].count} معاملة</span>
+            </div>
+          </div>`).join('')}
+      </div>`:''}
+    `;
+  }
+
   else if(tab==='statements'){
     const cStmts=(_stmtsData?_stmtsData():[]).filter(s=>s.client===c.name);
     body.innerHTML=`
@@ -9152,6 +9244,7 @@ function renderFinance(){
   _syncProjTaskTransactions();
   populateFinYears();
   renderMonthlyTimeline();
+  renderFinLoansSummary();
   const filtered = filterTransactions(S.transactions);
   const f = finFilterState;
   
@@ -9210,26 +9303,93 @@ function renderFinance(){
 function renderUnpaidReminders(){
   const wrap = document.getElementById('fin-unpaid-reminders'); if(!wrap) return;
   // Find completed tasks whose payment was not collected
-  // Include project tasks in uncollected
   const _projUncollected=(S.project_tasks||[]).filter(t=>t.status==='done'&&!t.paymentCollected&&t.value>0).map(t=>{
     var proj=_getProjById&&_getProjById(t.project_id);
     return Object.assign({},t,{title:(proj?proj.name+' — ':'')+t.title,_isProjTask:true});
   });
   const uncollected = [...S.tasks.filter(t=>t.done && !t.paymentCollected && t.value>0), ..._projUncollected];
-  if(!uncollected.length){ wrap.style.display='none'; return; }
+
+  // تذكيرات القروض المتأخرة
+  const today = new Date(); today.setHours(0,0,0,0);
+  const loans = S.loans || [];
+  const overdueLoans = loans.filter(function(l){ return l.due && l.status!=='settled' && new Date(l.due)<today; });
+  const dueSoonLoans = loans.filter(function(l){
+    if(!l.due || l.status==='settled') return false;
+    const d = new Date(l.due); d.setHours(0,0,0,0);
+    const diff = Math.round((d-today)/(1000*60*60*24));
+    return diff>=0 && diff<=7;
+  });
+
+  // مستحقات العملاء (رصيد افتتاحي)
+  const clientsOwing = (S.clients||[]).filter(function(c){ return c.openingBalance>0 && c.openingBalanceType==='receivable'; });
+
+  const hasItems = uncollected.length || overdueLoans.length || dueSoonLoans.length || clientsOwing.length;
+  if(!hasItems){ wrap.style.display='none'; return; }
   wrap.style.display='block';
-  wrap.innerHTML = `<div class="card" style="border-color:rgba(247,201,72,.4)">
-    <div style="font-size:13px;font-weight:700;color:var(--accent2);margin-bottom:10px"><i class="fa-solid fa-triangle-exclamation"></i> مبالغ لم يتم تحصيلها</div>
-    ${uncollected.map(t=>`
-      <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(42,42,58,.4)">
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:600">${t.title}</div>
-          <div style="font-size:11px;color:var(--text3)">${t.client||'—'}</div>
-        </div>
-        <div style="font-weight:700;color:var(--accent2)">${t.value.toLocaleString()} ج</div>
-        <button class="btn btn-success btn-sm" onclick="markTaskPaymentCollected(${t.id})"><i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم التحصيل</button>
-      </div>`).join('')}
-  </div>`;
+  const cur = _getCurrency();
+
+  let html = '';
+
+  if(uncollected.length){
+    html += `<div class="card" style="border-color:rgba(247,201,72,.4);margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--accent2);margin-bottom:10px"><i class="fa-solid fa-triangle-exclamation"></i> مبالغ لم يتم تحصيلها</div>
+      ${uncollected.map(t=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(42,42,58,.4)">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600">${t.title}</div>
+            <div style="font-size:11px;color:var(--text3)">${t.client||'—'}</div>
+          </div>
+          <div style="font-weight:700;color:var(--accent2)">${t.value.toLocaleString()} ${cur}</div>
+          <button class="btn btn-success btn-sm" onclick="markTaskPaymentCollected(${t.id})"><i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم التحصيل</button>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  if(overdueLoans.length){
+    html += `<div class="card" style="border-color:rgba(255,107,107,.5);margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--accent4);margin-bottom:10px"><i class="fa-solid fa-bell"></i> قروض متأخرة السداد (${overdueLoans.length})</div>
+      ${overdueLoans.map(l=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(42,42,58,.4)">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600">${l.direction==='lent'?'💰 سلّفت لـ ':'↩ استلفت من '}${escapeHtml(l.person)}</div>
+            <div style="font-size:11px;color:var(--accent4)">⚠️ استحق: ${l.due}</div>
+          </div>
+          <div style="font-weight:700;color:var(--accent4)">${(l.amount-(l.settledAmount||0)).toLocaleString()} ${cur}</div>
+          <button class="btn btn-ghost btn-sm" onclick="switchFinTab('loans');showPage('finance')"><i class="fa-solid fa-handshake"></i> عرض</button>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  if(dueSoonLoans.length){
+    html += `<div class="card" style="border-color:rgba(247,201,72,.4);margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--accent2);margin-bottom:10px"><i class="fa-solid fa-calendar-days"></i> قروض موعدها خلال 7 أيام</div>
+      ${dueSoonLoans.map(l=>{
+        const daysLeft = Math.round((new Date(l.due)-today)/(1000*60*60*24));
+        return `<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(42,42,58,.4)">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600">${l.direction==='lent'?'💰 سلّفت لـ ':'↩ استلفت من '}${escapeHtml(l.person)}</div>
+            <div style="font-size:11px;color:var(--accent2)">📅 الموعد: ${l.due} (${daysLeft===0?'اليوم!':daysLeft+' أيام'})</div>
+          </div>
+          <div style="font-weight:700;color:var(--accent2)">${(l.amount-(l.settledAmount||0)).toLocaleString()} ${cur}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  if(clientsOwing.length){
+    const totalOwing = clientsOwing.reduce(function(s,c){ return s+(+c.openingBalance||0); },0);
+    html += `<div class="card" style="border-color:rgba(168,156,255,.4);margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--accent2);margin-bottom:10px"><i class="fa-solid fa-users"></i> عملاء عندهم رصيد مستحق — إجمالي: ${totalOwing.toLocaleString()} ${cur}</div>
+      ${clientsOwing.map(c=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid rgba(42,42,58,.4)">
+          <div style="flex:1;font-size:12px;font-weight:700">${escapeHtml(c.name)}</div>
+          <div style="font-size:12px;font-weight:700;color:var(--accent2)">${(+c.openingBalance).toLocaleString()} ${cur}</div>
+          <button class="btn btn-ghost btn-sm" onclick="openClientProfile(${c.id})"><i class="fa-solid fa-user"></i> عرض</button>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  wrap.innerHTML = html;
 }
 
 function markTaskPaymentCollected(taskId){
@@ -9789,6 +9949,8 @@ function saveGoalProgress(id){
 }
 const catIcon={'مهارة تقنية':'<i class="fa-solid fa-screwdriver-wrench"></i>','برنامج جديد':'<i class="fa-solid fa-laptop"></i>','مجال جديد':'<i class="fa-solid fa-rocket"></i>','كورس':'<i class="fa-solid fa-books"></i>','هدف مالي':'<i class="fa-solid fa-coins"></i>','هدف مهني':'<i class="fa-solid fa-bullseye"></i>'};
 function renderGoals(){
+  // ── إضافة الميزانيات كأهداف مالية ──
+  _renderBudgetsAsGoals();
   // stats
   const total=S.goals.length;
   const done=S.goals.filter(g=>g.done||g.progress===100).length;
@@ -9872,6 +10034,66 @@ function renderGoals(){
 // ============================================================
 // SCHEDULE
 // ============================================================
+// ══════════════════════════════════════════════════
+// الميزانيات تظهر في صفحة الأهداف
+// ══════════════════════════════════════════════════
+function _renderBudgetsAsGoals(){
+  var container = document.getElementById('goals-budgets-section');
+  if(!container){
+    var grid = document.getElementById('goals-grid');
+    if(!grid) return;
+    // أنشئ section للميزانيات بعد الـ grid
+    container = document.createElement('div');
+    container.id = 'goals-budgets-section';
+    container.style.marginTop = '24px';
+    grid.parentNode.insertBefore(container, grid.nextSibling);
+  }
+  var budgets = S.budgets || [];
+  if(!budgets.length){ container.innerHTML=''; return; }
+  var active = budgets.filter(function(b){ return (b.saved||0)<b.target; });
+  var done = budgets.filter(function(b){ return (b.saved||0)>=b.target; });
+  var cur = _getCurrency();
+  var html = '<div class="section-title" style="margin-bottom:12px"><i class="fa-solid fa-piggy-bank" style="color:var(--accent2)"></i> أهداف الميزانية والادخار</div>';
+  if(active.length){
+    html += '<div class="grid grid-2" style="margin-bottom:16px">';
+    html += active.map(function(b){
+      var pct = b.target>0 ? Math.min(100,Math.round((b.saved||0)/b.target*100)) : 0;
+      var rem = Math.max(0, b.target-(b.saved||0));
+      var barColor = pct>=75?'var(--accent3)':pct>=40?'var(--accent2)':'var(--accent)';
+      return '<div class="card" style="border-right:3px solid '+barColor+'">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
+          +'<div><div style="font-size:14px;font-weight:800">'+escapeHtml(b.name)+'</div>'
+          +'<div style="font-size:11px;color:var(--text3)">💰 هدف ادخار'+(b.deadline?' · ⏰ '+b.deadline:'')+'</div></div>'
+          +'<button class="btn btn-ghost btn-sm" onclick="switchFinTab(&apos;budgets&apos;);showPage(&apos;finance&apos;)" title="اذهب للميزانية"><i class="fa-solid fa-arrow-left"></i></button>'
+        +'</div>'
+        +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">'
+          +'<span style="color:var(--text3)">المدّخر</span>'
+          +'<span style="font-weight:800;color:'+barColor+'">'+(b.saved||0).toLocaleString()+' / '+b.target.toLocaleString()+' '+cur+'</span>'
+        +'</div>'
+        +'<div style="height:8px;background:var(--surface3);border-radius:4px;margin-bottom:8px;overflow:hidden">'
+          +'<div style="height:100%;width:'+pct+'%;background:'+barColor+';border-radius:4px;transition:.4s"></div>'
+        +'</div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center">'
+          +'<span style="font-size:12px;font-weight:900;color:'+barColor+'">'+pct+'%</span>'
+          +'<button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="addToBudget(&apos;'+b.id+'&apos;)"><i class="fa-solid fa-plus"></i> أضف مبلغ</button>'
+        +'</div>'
+        +'</div>';
+    }).join('');
+    html += '</div>';
+  }
+  if(done.length){
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px">'
+      +done.map(function(b){
+        return '<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;background:rgba(79,209,165,.1);border:1px solid var(--accent3);border-radius:20px;font-size:12px;font-weight:700;color:var(--accent3)">'
+          +'<i class="fa-solid fa-square-check"></i> '+escapeHtml(b.name)+' ('+b.target.toLocaleString()+' '+cur+')'
+          +'</div>';
+      }).join('')
+    +'</div>';
+  }
+  container.innerHTML = html;
+}
+
+
 function openSchedModal(id){
   // ملأ قائمة المهام
   const sel=document.getElementById('s-linked-task');
@@ -13779,6 +14001,68 @@ function switchFinTab(tab) {
   if(tab==='wallets') renderWalletsTab();
   if(tab==='budgets') renderBudgets();
   if(tab==='loans') renderLoans();
+  if(tab==='transactions') renderFinLoansSummary();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ملخص القروض والمستحقات في أول صفحة المالية
+// ═══════════════════════════════════════════════════════════════
+function renderFinLoansSummary(){
+  var el = document.getElementById('fin-loans-summary');
+  if(!el) return;
+  var loans = S.loans || [];
+  var lentActive = loans.filter(function(l){ return l.direction==='lent' && l.status!=='settled'; });
+  var borrowedActive = loans.filter(function(l){ return l.direction==='borrowed' && l.status!=='settled'; });
+  var lentTotal = lentActive.reduce(function(s,l){ return s+(l.amount-(l.settledAmount||0)); }, 0);
+  var borrowedTotal = borrowedActive.reduce(function(s,l){ return s+(l.amount-(l.settledAmount||0)); }, 0);
+
+  // مستحقات العملاء (رصيد افتتاحي)
+  var clientsReceivable = (S.clients||[]).filter(function(c){ return c.openingBalance>0 && c.openingBalanceType==='receivable'; })
+    .reduce(function(s,c){ return s+(+c.openingBalance||0); }, 0);
+
+  // تذكيرات القروض المتأخرة
+  var today = new Date();
+  var overdueLoans = loans.filter(function(l){ return l.due && l.status!=='settled' && new Date(l.due) < today; });
+
+  var hasData = lentTotal>0 || borrowedTotal>0 || clientsReceivable>0;
+  if(!hasData && !overdueLoans.length){ el.style.display='none'; return; }
+
+  el.style.display = 'block';
+  var cur = _getCurrency();
+  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:0">';
+
+  if(lentTotal>0){
+    html += '<div class="card" style="border-right:3px solid var(--accent3);cursor:pointer" onclick="switchFinTab(&apos;loans&apos;)" title="انتقل لصفحة القروض">'
+      +'<div style="font-size:11px;color:var(--text3);margin-bottom:5px"><i class="fa-solid fa-handshake"></i> فلوس سلّفتها (عليهم)</div>'
+      +'<div style="font-size:18px;font-weight:900;color:var(--accent3)">'+lentTotal.toLocaleString()+' '+cur+'</div>'
+      +'<div style="font-size:10px;color:var(--text3);margin-top:3px">'+lentActive.length+' قرض نشط</div>'
+      +'</div>';
+  }
+  if(borrowedTotal>0){
+    html += '<div class="card" style="border-right:3px solid var(--accent4);cursor:pointer" onclick="switchFinTab(&apos;loans&apos;)" title="انتقل لصفحة القروض">'
+      +'<div style="font-size:11px;color:var(--text3);margin-bottom:5px"><i class="fa-solid fa-hand-holding-dollar"></i> فلوس عليّ (أديها)</div>'
+      +'<div style="font-size:18px;font-weight:900;color:var(--accent4)">'+borrowedTotal.toLocaleString()+' '+cur+'</div>'
+      +'<div style="font-size:10px;color:var(--text3);margin-top:3px">'+borrowedActive.length+' قرض نشط</div>'
+      +'</div>';
+  }
+  if(clientsReceivable>0){
+    html += '<div class="card" style="border-right:3px solid var(--accent2)">'
+      +'<div style="font-size:11px;color:var(--text3);margin-bottom:5px"><i class="fa-solid fa-users"></i> مستحقات من عملاء (رصيد افتتاحي)</div>'
+      +'<div style="font-size:18px;font-weight:900;color:var(--accent2)">'+clientsReceivable.toLocaleString()+' '+cur+'</div>'
+      +'</div>';
+  }
+  html += '</div>';
+
+  if(overdueLoans.length){
+    html += '<div style="margin-top:10px;padding:10px 14px;background:rgba(255,107,107,.1);border-radius:10px;border-right:3px solid var(--accent4)">'
+      +'<div style="font-size:12px;font-weight:800;color:var(--accent4);margin-bottom:6px"><i class="fa-solid fa-bell"></i> تذكير: '+overdueLoans.length+' قرض متأخر السداد</div>'
+      +overdueLoans.map(function(l){
+        return '<div style="font-size:11px;color:var(--text2);margin-bottom:3px">• '+(l.direction==='lent'?'سلّفت لـ ':'استلفت من ')+escapeHtml(l.person)+': '+(l.amount-(l.settledAmount||0)).toLocaleString()+' '+cur+' · استحق: '+l.due+'</div>';
+      }).join('')
+      +'</div>';
+  }
+
+  el.innerHTML = html;
 }
 
 function renderWalletsTab() {
@@ -20067,7 +20351,7 @@ function _buildSvcOrderPage(userId){
     // scrollFixStyle removed — handled by pub-page class CSS
 
     // ── SOCIALS map ──
-    var SICONS={instagram:'<i class="fa-solid fa-camera"></i>',facebook:'<i class="fa-solid fa-book"></i>',tiktok:'<i class="fa-solid fa-music"></i>',youtube:'<i class="fa-solid fa-play"></i>️',twitter:'<i class="fa-solid fa-bird"></i>',whatsapp:'<i class="fa-solid fa-comments"></i>',website:'<i class="fa-solid fa-globe"></i>',behance:'<i class="fa-solid fa-palette"></i>',snapchat:'👻',linkedin:'<i class="fa-solid fa-briefcase"></i>'};
+    var SICONS={instagram:'<i class="fa-brands fa-instagram" style="color:#E1306C"></i>',facebook:'<i class="fa-brands fa-facebook" style="color:#1877F2"></i>',tiktok:'<i class="fa-brands fa-tiktok"></i>',youtube:'<i class="fa-brands fa-youtube" style="color:#FF0000"></i>',twitter:'<i class="fa-brands fa-x-twitter"></i>',whatsapp:'<i class="fa-brands fa-whatsapp" style="color:#25D366"></i>',website:'<i class="fa-solid fa-globe" style="color:#7c6ff7"></i>',behance:'<i class="fa-brands fa-behance" style="color:#1769FF"></i>',snapchat:'<i class="fa-brands fa-snapchat" style="color:#FFFC00"></i>',linkedin:'<i class="fa-brands fa-linkedin" style="color:#0077B5"></i>'};
     var SURLS={whatsapp:function(v){return 'https://wa.me/'+v.replace(/\D/g,'');},instagram:function(v){return v.startsWith('http')?v:'https://instagram.com/'+v;},facebook:function(v){return v.startsWith('http')?v:'https://facebook.com/'+v;},tiktok:function(v){return v.startsWith('http')?v:'https://tiktok.com/@'+v;}};
     function socialUrl(platform,val){ return (SURLS[platform]?SURLS[platform](val):val.startsWith('http')?val:'https://'+val); }
 
@@ -20878,7 +21162,7 @@ function _buildClientPortalPage(userId, portalId){
       return inv.client&&(inv.client===portal.client_name||(portal.client_phone&&inv.clientPhone===portal.client_phone));
     });
 
-    var SICONS={instagram:'<i class="fa-solid fa-camera"></i>',facebook:'<i class="fa-solid fa-book"></i>',tiktok:'<i class="fa-solid fa-music"></i>',youtube:'<i class="fa-solid fa-play"></i>️',twitter:'<i class="fa-solid fa-bird"></i>',whatsapp:'<i class="fa-solid fa-comments"></i>',website:'<i class="fa-solid fa-globe"></i>',behance:'<i class="fa-solid fa-palette"></i>',snapchat:'👻',linkedin:'<i class="fa-solid fa-briefcase"></i>'};
+    var SICONS={instagram:'<i class="fa-brands fa-instagram" style="color:#E1306C"></i>',facebook:'<i class="fa-brands fa-facebook" style="color:#1877F2"></i>',tiktok:'<i class="fa-brands fa-tiktok"></i>',youtube:'<i class="fa-brands fa-youtube" style="color:#FF0000"></i>',twitter:'<i class="fa-brands fa-x-twitter"></i>',whatsapp:'<i class="fa-brands fa-whatsapp" style="color:#25D366"></i>',website:'<i class="fa-solid fa-globe" style="color:#7c6ff7"></i>',behance:'<i class="fa-brands fa-behance" style="color:#1769FF"></i>',snapchat:'<i class="fa-brands fa-snapchat" style="color:#FFFC00"></i>',linkedin:'<i class="fa-brands fa-linkedin" style="color:#0077B5"></i>'};
 
     var footerSocialsHtml='';
     if(phone) footerSocialsHtml+='<a href="https://wa.me/'+phone.replace(/\D/g,'')+'" target="_blank" style="width:38px;height:38px;border-radius:10px;background:'+cardBg+';border:1px solid '+cardBorder+';display:flex;align-items:center;justify-content:center;font-size:16px;text-decoration:none"><i class="fa-solid fa-comments"></i></a>';
