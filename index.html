@@ -329,12 +329,13 @@ const SAVE_DEBOUNCE_MS = 600;
 
 async function _doCloudSave(data, force) {
   if (!_supaUserId || !data) return false;
-  if (!force && !window._appReady) return false;
+  // ── إزالة شرط _appReady — الحفظ يمر دائماً بعد تسجيل الدخول ──
 
-  // Skip if already saving — mark pending, retry after
+  // Skip if already saving — queue retry after current save finishes
   if (_isSaving && !force) { _pendingSave = true; return false; }
   if (_isSaving && force) {
-    for (let i = 0; i < 50 && _isSaving; i++)
+    // انتظر انتهاء الحفظ الحالي بحد أقصى 3 ثواني
+    for (let i = 0; i < 30 && _isSaving; i++)
       await new Promise(r => setTimeout(r, 100));
   }
 
@@ -397,12 +398,13 @@ async function _doCloudSave(data, force) {
   }
 }
 
-// ── lsSave: debounced 600ms — the ONE function everyone calls ──
+// ── lsSave: حفظ فوري بدون تأخير ──
 function lsSave() {
   if (!S) return;
   S._savedAt = new Date().toISOString();
   clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(() => _doCloudSave(S), SAVE_DEBOUNCE_MS);
+  // حفظ فوري بـ force=true — بدون debounce وبدون شرط _appReady
+  _doCloudSave(S, true);
   updateDash();
   try { _updateDataStatusBar(); } catch(e) {}
 }
@@ -11149,6 +11151,8 @@ function loginUser(user){
 // loginWithSupaSession – Supabase login (cloud sync)
 async function loginWithSupaSession(supaUser, session, userMeta){
   _supaUserId = supaUser.id;
+  // ── فعّل _appReady فوراً بعد تسجيل الدخول ──
+  window._appReady = true;
   const meta = supaUser.user_metadata || {};
   const userObj = {
     id       : supaUser.id,
