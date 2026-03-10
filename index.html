@@ -323,136 +323,442 @@ let _cloudSaving = false;
 window._appReady = false;
 let _cloudSavePending = false;
 
+// ══════════════════════════════════════════════════════════════
+// ─── SAVE SYSTEM v2 — Cloud-Only, Fast, Smooth ───────────────
+// ══════════════════════════════════════════════════════════════
+let _syncTimer   = null;
+let _isSaving    = false;
+let _pendingSave = false;
+let _lastSaveHash = 0;
+const SAVE_DEBOUNCE_MS = 600;
+
+// backward compat aliases
+var _cloudSaving = false;
+var _cloudSavePending = false;
+
 async function _doCloudSave(data, force) {
-  if(!_supaUserId || !data) return false;
-  if(!force && !window._appReady) { return false; }
-  var _dataScore = (data.tasks?.length||0)*3 + (data.clients?.length||0)*2 + (data.invoices?.length||0)*2 + (data.transactions?.length||0) + (data.services?.length||0)*2;
-  if(!force && _dataScore === 0 && !data.settings?.name) { return false; }
-  console.log('%c💾 SAVE', 'color:blue;font-weight:bold', '| services:', data.services?.length, '| clients:', data.clients?.length, '| tasks:', data.tasks?.length, '| appReady:', window._appReady);
+  if (!_supaUserId || !data) return false;
+  if (!force && !window._appReady) return false;
 
-  if(_cloudSaving && !force) { _cloudSavePending = true; return false; }
-  if(_cloudSaving && force) {
-    var _w = 0;
-    await new Promise(function(r){ var t = setInterval(function(){ _w+=100; if(!_cloudSaving||_w>=10000){clearInterval(t);r();} },100); });
+  // Skip if already saving — mark pending, retry after
+  if (_isSaving && !force) { _pendingSave = true; return false; }
+  if (_isSaving && force) {
+    for (let i = 0; i < 50 && _isSaving; i++)
+      await new Promise(r => setTimeout(r, 100));
   }
+
+  _isSaving = true;
   _cloudSaving = true;
+
   try {
-    const _replacer = (key, val) => {
-      if(val === null || val === undefined) return val;
-      const t = typeof val;
-      if(t === 'string' || t === 'number' || t === 'boolean') return val;
-      if(Array.isArray(val)) return val;
-      if(t === 'object') {
-        if(val instanceof Headers || val instanceof Response || val instanceof Request ||
-           val instanceof Blob || val instanceof File || val instanceof ArrayBuffer ||
-           val instanceof ImageData || (typeof Node !== 'undefined' && val instanceof Node))
-          return undefined;
-        return val;
+    // Safe serializable copy — strip non-cloneable objects
+    const _safe = (function serialize(d) {
+      const bad = v => v && typeof v === 'object' && (
+        v instanceof Headers || v instanceof Response || v instanceof Request ||
+        v instanceof Blob || v instanceof File || v instanceof ArrayBuffer ||
+        (typeof Node !== 'undefined' && v instanceof Node)
+      );
+      try {
+        return JSON.parse(JSON.stringify(d, (k, v) => bad(v) ? undefined : v));
+      } catch(e) {
+        try { return JSON.parse(JSON.stringify(d)); } catch(e2) { return {}; }
       }
-      return undefined;
-    };
-    let _safeData;
-    try { _safeData = JSON.parse(JSON.stringify(data, _replacer)); }
-    catch(e) { try { _safeData = JSON.parse(JSON.stringify(data)); } catch(e2) { _safeData = {}; } }
+    })(data);
 
-    _safeData._savedAt = new Date().toISOString();
-
-    var _un = (_safeData&&_safeData.settings&&_safeData.settings.username)||null;
+    _safe._savedAt = new Date().toISOString();
+    const _un = _safe?.settings?.username || null;
     const payload = {
       user_id: _supaUserId,
-      data: JSON.stringify(_safeData),
-      updated_at: _safeData._savedAt,
-      ...(_un ? {username_index: _un.toLowerCase()} : {})
+      data: JSON.stringify(_safe),
+      updated_at: _safe._savedAt,
+      ...(_un ? { username_index: _un.toLowerCase() } : {})
     };
 
-    let _upsertError;
-    try {
-      const { error } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
-      _upsertError = error;
-    } catch(fetchErr) {
-      if(fetchErr?.message?.includes('DataCloneError') ||
-         fetchErr?.message?.includes('postMessage') ||
-         fetchErr?.message?.includes('Headers')) {
-        _upsertError = null;
-      } else { throw fetchErr; }
-    }
+    const { error } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
 
-    if(_upsertError) {
-      if(_upsertError.message?.includes('DataCloneError') ||
-         _upsertError.message?.includes('postMessage') ||
-         _upsertError.message?.includes('Headers')) {
-        showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
-        return true;
-      }
-      console.error('%c❌ SAVE FAILED', 'color:red;font-weight:bold', _upsertError.message);
+    const harmless = e => (e?.message || e?.error || '').toString().match(/DataCloneError|postMessage|Headers/);
+
+    if (error && !harmless(error)) {
+      console.error('❌ SAVE FAILED', error.message);
       showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل الحفظ', '#f7c948');
       return false;
+    }
+
+    showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
+    return true;
+
+  } catch (e) {
+    const harmless = (e?.message || '').match(/DataCloneError|postMessage|Headers/);
+    if (!harmless) {
+      showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> خطأ في الحفظ', '#f76f7c');
     } else {
       showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
-      console.log('%c✅ SAVED OK', 'color:green;font-weight:bold', '| services:', data?.services?.length);
-      return true;
     }
-  } catch(e) {
-    if(e.message?.includes('DataCloneError') || e.message?.includes('postMessage') || e.message?.includes('Headers')) {
-      showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
-      return true;
-    }
-    console.error('cloudSave exception:', e.message);
-    showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل المزامنة', '#f76f7c');
     return false;
   } finally {
+    _isSaving = false;
     _cloudSaving = false;
-    if(_cloudSavePending) {
+    if (_pendingSave) {
+      _pendingSave = false;
       _cloudSavePending = false;
-      setTimeout(() => _doCloudSave(S), 300);
+      setTimeout(() => _doCloudSave(S), 500);
     }
   }
 }
 
-// ─── نظام الحفظ ───
-// المبدأ: حفظ محلي فوري + cloud في الخلفية (بدون انتظار)
-// بكده التطبيق ما بيعلقش وفي نفس الوقت البيانات بتتحفظ
-
+// ── lsSave: debounced 600ms — the ONE function everyone calls ──
 function lsSave() {
-  if(!S) return;
+  if (!S) return;
   S._savedAt = new Date().toISOString();
-  showSyncIndicator('<i class="fa-solid fa-circle-notch fa-spin"></i> جاري الحفظ...', 'var(--accent)');
   clearTimeout(_syncTimer);
-  _syncTimer = null;
-  _doCloudSave(S);
+  _syncTimer = setTimeout(() => _doCloudSave(S), SAVE_DEBOUNCE_MS);
   updateDash();
   try { _updateDataStatusBar(); } catch(e) {}
 }
 
-// queue بسيط: لو في save جاري نستنى، لو لا ابدأ
-var _cloudQueue = false;
-function _queueCloudSave() {
-  if(!_supaUserId || !S) return;
-  if(_cloudSaving) { _cloudSavePending = true; return; }
-  // debounce 1 ثانية عشان نجمّع التغييرات المتسارعة
-  clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(() => { _cloudQueue = false; _doCloudSave(S); }, 300);
-  _cloudQueue = true;
-}
-
-// cloudSave = حفظ محلي فوري + cloud في الخلفية
+// ── cloudSave: alias for lsSave (backward compat) ─────────────
 function cloudSave(data) {
-  if(!_supaUserId) return;
-  if(data && data !== S) S = data;
-  _queueCloudSave();
+  if (!_supaUserId) return;
+  if (data && data !== S) Object.assign(S, data);
+  lsSave();
 }
 
-// cloudSaveNow = حفظ cloud فوري بدون debounce
-function cloudSaveNow(data) {
-  if(!_supaUserId) return;
-  if(data && data !== S) S = data;
-  S._savedAt = new Date().toISOString();
+// ── cloudSaveNow: immediate save for critical ops ─────────────
+async function cloudSaveNow(data) {
+  if (!_supaUserId) return;
+  if (data && data !== S) Object.assign(S, data);
   clearTimeout(_syncTimer);
-  _doCloudSave(S);
-  updateDash();
-  try { _updateDataStatusBar(); } catch(e) {}
+  await _doCloudSave(S, true);
 }
 
+// backward compat
+function _queueCloudSave() { lsSave(); }
+var _cloudQueue = false;
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ordo">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#7c6ff7">
+<title>Ordo </title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+<style>
+/* PHASE 1 FIX: Ensure Font Awesome icons never render as text */
+.fa-solid, .fa-regular, .fa-brands, .fa-light, .fa-thin, .fa-duotone {
+  font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands", "Font Awesome 6 Pro" !important;
+  font-style: normal !important;
+  font-variant: normal !important;
+  text-rendering: auto !important;
+  -webkit-font-smoothing: antialiased !important;
+  display: inline-block !important;
+  line-height: 1;
+}
+.fa-solid { font-weight: 900 !important; }
+.fa-regular { font-weight: 400 !important; }
+</style>
+
+<!-- ═══ SUPABASE SDK ═══ -->
+<meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; connect-src *;">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// ══════════════════════════════════════════════════
+//  SUPABASE CONFIG
+// ══════════════════════════════════════════════════
+const SUPA_URL  = 'https://mpfmcjgigpvdxbhgzufo.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM';
+// ── Block BroadcastChannel to prevent DataCloneError with Headers object ──
+// Supabase uses BroadcastChannel internally to sync sessions across tabs,
+// but postMessage fails when Headers objects are in the payload (iframe/preview env).
+(function() {
+  try {
+    const noop = function() {};
+    const stub = function BroadcastChannelStub(name) {
+      this.name = name;
+      this.onmessage = null;
+      this.onmessageerror = null;
+      this.postMessage = noop;
+      this.close = noop;
+      this.addEventListener = noop;
+      this.removeEventListener = noop;
+      this.dispatchEvent = function(){ return true; };
+    };
+    Object.defineProperty(window, 'BroadcastChannel', {
+      value: stub,
+      writable: true,
+      configurable: true
+    });
+  } catch(e) {
+    try { window.BroadcastChannel = undefined; } catch(e2) {}
+  }
+
+  // ── Intercept window.postMessage to strip non-cloneable objects ──
+  try {
+    const _origPostMsg = window.postMessage.bind(window);
+    window.postMessage = function(msg, targetOrigin, transfer) {
+      try {
+        // Test if message is cloneable first
+        const _test = JSON.parse(JSON.stringify(msg, function(k, v) {
+          if(v && typeof v === 'object' &&
+            (v instanceof Headers || v instanceof Response || v instanceof Request ||
+             v instanceof Blob || v instanceof File)) return undefined;
+          return v;
+        }));
+        return _origPostMsg(_test, targetOrigin || '*', transfer);
+      } catch(e) {
+        // Silently drop non-cloneable messages
+        return;
+      }
+    };
+  } catch(e) {}
+
+  // ── Suppress DataCloneError globally ──
+  window.addEventListener('error', function(e) {
+    if(e && e.message && e.message.includes('DataCloneError')) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+  }, true);
+
+  window.addEventListener('unhandledrejection', function(e) {
+    if(e && e.reason && (
+      (e.reason.message && e.reason.message.includes('DataCloneError')) ||
+      (e.reason.message && e.reason.message.includes('Headers object could not be cloned')) ||
+      (e.reason.message && e.reason.message.includes('postMessage'))
+    )) {
+      e.preventDefault();
+      return false;
+    }
+  });
+})();
+
+// ── Safe custom storage ──
+const _safeStorage = {
+  getItem: (key) => { try { return window.localStorage.getItem(key); } catch(e) { return null; } },
+  setItem: (key, value) => {
+    try {
+      let safe;
+      if(typeof value === 'string') {
+        safe = value;
+      } else {
+        // Strip any non-serializable objects (Headers, Response, etc.)
+        safe = JSON.stringify(value, function(k, v) {
+          if(v && typeof v === 'object' &&
+            (v instanceof Headers || v instanceof Response || v instanceof Request ||
+             v instanceof Blob || v instanceof File || v instanceof ArrayBuffer)) return undefined;
+          return v;
+        });
+      }
+      window.localStorage.setItem(key, safe);
+    } catch(e) {}
+  },
+  removeItem: (key) => { try { window.localStorage.removeItem(key); } catch(e) {} }
+};
+
+const supa = supabase.createClient(SUPA_URL, SUPA_ANON, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storage: _safeStorage,
+    lock: async (name, acquireTimeout, fn) => fn(),
+    flowType: 'pkce',
+    debug: false,
+    multiTab: false
+  }
+});
+
+// ══════════════════════════════════════════════════
+//  HELPER: رفع أي صورة لـ Supabase Storage
+// ══════════════════════════════════════════════════
+function uploadToStorage(file, folder, onSuccess, onError) {
+  if(!file) return;
+  var ext = (file.name||"img").split(".").pop().toLowerCase() || "jpg";
+  var path = (folder||"uploads") + "/" + (_supaUserId||"anon") + "_" + Date.now() + "." + ext;
+  supa.storage.from("media").upload(path, file, { upsert: true, contentType: file.type })
+    .then(function(res) {
+      if(res.error) {
+        console.error("Storage upload error:", res.error);
+        toast('<i class="fa-solid fa-triangle-exclamation"></i> خطأ رفع: ' + (res.error.message||res.error.error||JSON.stringify(res.error)));
+        if(onError) onError(res.error); return;
+      }
+      var urlRes = supa.storage.from("media").getPublicUrl(path);
+      var url = urlRes.data && urlRes.data.publicUrl;
+      if(!url) { if(onError) onError(new Error("no public url")); return; }
+      if(onSuccess) onSuccess(url);
+    })
+    .catch(function(e) {
+      console.error("Storage exception:", e);
+      toast('<i class="fa-solid fa-triangle-exclamation"></i> خطأ: ' + e.message);
+      if(onError) onError(e);
+    });
+}
+
+// ── Client slug helper ──
+// يحوّل اسم العميل لـ slug قصير: "أحمد حسن" → "ahmed-hassan" أو "ahmed" فقط
+function _makeClientSlug(name){
+  if(!name) return 'client';
+  // حروف عربية → نحتفظ بيها كما هي، باقي الحروف → lowercase
+  var s = name.trim().toLowerCase()
+    .replace(/\s+/g, '-')          // مسافات → -
+    .replace(/[^\u0600-\u06FFa-z0-9-]/g, '') // شيل كل حاجة تانية
+    .replace(/-+/g, '-')           // - متكررة → -
+    .replace(/^-|-$/g, '')         // شيل - من الأطراف
+    .slice(0, 30);
+  return s || 'client';
+}
+
+// ── Build short portal link ──
+function _buildPortalLink(clientName, portalId){
+  var _un = S && S.settings && S.settings.username ? S.settings.username : null;
+  // ── حساب الـ base path الصح بغض النظر عن الـ URL routing ──
+  var _pathname = window.location.pathname;
+  // شيل الـ page slug اللي ممكن يكون اتضاف من الـ URL routing
+  var _knownSlugs = ['dashboard','tasks','projects','schedule','meetings','clients','finance','invoices','services','support','team','timetracker','goals','settings','reports'];
+  var _parts = _pathname.split('/').filter(function(p){return p!=='';});
+  // لو آخر جزء هو page slug، شيله
+  if(_parts.length && _knownSlugs.indexOf(_parts[_parts.length-1]) >= 0){
+    _parts.pop();
+  }
+  // لو آخر جزء هو .html file، شيله كمان (هنضيف client-portal.html بنفسنا)
+  if(_parts.length && _parts[_parts.length-1].endsWith('.html')){
+    _parts.pop();
+  }
+  var _basePath = (_parts.length ? '/' + _parts.join('/') + '/' : '/');
+  var _portalBase = window.location.origin + _basePath + 'client-portal.html';
+  var _slug = _makeClientSlug(clientName);
+  if(_un){
+    return _portalBase + '?u=' + encodeURIComponent(_un) + '&p=' + encodeURIComponent(_slug);
+  }
+  var clientObj = (S.clients||[]).find(function(c){ return _makeClientSlug(c.name)===_slug; });
+  var cid = clientObj ? clientObj.id : (portalId||'');
+  return _portalBase + '?uid=' + (_supaUserId||'') + '&cid=' + cid;
+}
+
+
+let _syncTimer = null;
+
+// ── Platform Name Sync ──
+function applyPlatformConfig() {
+  const cfg = JSON.parse(localStorage.getItem('platform_config') || '{}');
+  const _isEmail = v => v && (v.includes('@') || /^[^@]+@[^@]+\.[^@]+$/.test(v));
+
+  // PLATFORM name = ONLY admin-set (sidebar + auth) — never user studio name
+  let cfgName = cfg.name || '';
+  if(_isEmail(cfgName)) cfgName = '';
+  const name = cfgName || 'Ordo';
+
+  let _rawLogo = cfg.logo||''; let _rawFav = cfg.favicon||'';
+  if(_rawLogo==='__b64_logo__') _rawLogo=localStorage.getItem('platform_logo_b64')||'';
+  if(_rawFav==='__b64_favicon__') _rawFav=localStorage.getItem('platform_favicon_b64')||'';
+  const platformLogo=_rawLogo; const favicon=_rawFav;
+
+  // Sidebar logo: use PLATFORM logo (admin-set), NOT user's studio logo
+  const imgEl = document.getElementById('_sidebar-logo-img');
+  const hexEl = document.getElementById('_logo-mark-hex');
+  if(imgEl && platformLogo){
+    imgEl.src = platformLogo;
+    imgEl.style.cssText = 'width:auto;height:36px;max-width:130px;object-fit:contain;display:block;border-radius:0;background:transparent;border:none;box-shadow:none';
+    if(hexEl) hexEl.style.display = 'none';
+    const wrap = document.getElementById('_logo-mark-wrap');
+    if(wrap){
+      wrap.classList.add('has-logo');
+      wrap.style.width='auto'; wrap.style.height='auto'; wrap.style.maxWidth='130px';
+      wrap.style.background='transparent'; wrap.style.borderRadius='0';
+      wrap.style.border='none'; wrap.style.boxShadow='none';
+      wrap.style.padding='0'; wrap.style.overflow='visible';
+    }
+    // sidebar name stays visible
+  } else if(imgEl){
+    imgEl.style.display = 'none';
+    if(hexEl) hexEl.style.display = 'flex';
+    const wrap = document.getElementById('_logo-mark-wrap');
+    if(wrap){ wrap.style.width='36px'; wrap.style.height='36px'; wrap.style.maxWidth=''; wrap.style.background='var(--accent)'; wrap.style.borderRadius='8px'; }
+    const logoText = document.querySelector('.logo-text');
+    if(logoText) logoText.style.display = '';
+  }
+
+  const authLogoMark = document.querySelector('.auth-logo-mark');
+  const _authSrc = platformLogo || favicon;
+  if(authLogoMark && _authSrc){
+    authLogoMark.innerHTML = '<img src="'+_authSrc+'" style="width:52px;height:52px;object-fit:contain;border-radius:10px" onerror="this.parentNode.textContent=String.fromCharCode(11041)">';
+  } else if(authLogoMark){ if(!authLogoMark.querySelector('img')) authLogoMark.innerHTML='<i class="fa-solid fa-bolt"></i>'; }
+
+  // Update title
+  document.title = name;
+  // Update logo texts
+  document.querySelectorAll('.logo-title, .auth-app-name, [data-platform-name]').forEach(el => { el.textContent = name; });
+  // Update meta description
+  if(cfg.description) {
+    let meta = document.querySelector('meta[name="description"]');
+    if(!meta) { meta = document.createElement('meta'); meta.name='description'; document.head.appendChild(meta); }
+    meta.content = cfg.description;
+  }
+  if(cfg.keywords) {
+    let meta = document.querySelector('meta[name="keywords"]');
+    if(!meta) { meta = document.createElement('meta'); meta.name='keywords'; document.head.appendChild(meta); }
+    meta.content = cfg.keywords;
+  }
+  // Update favicon
+  if(favicon) {
+    let link = document.querySelector("link[rel*='icon']");
+    if(!link) { link = document.createElement('link'); link.rel='icon'; document.head.appendChild(link); }
+    link.href = favicon;
+  }
+  // Apply accent color
+  if(cfg.accent) document.documentElement.style.setProperty('--accent', cfg.accent);
+  // Apply mode
+  if(cfg.mode === 'light') document.documentElement.classList.add('light-mode');
+  else document.documentElement.classList.remove('light-mode');
+  return cfg;
+}
+
+// Run on load — after DOM ready
+document.addEventListener('DOMContentLoaded', function() {
+  applyPlatformConfig();
+});
+
+// استمع لتغييرات localStorage من الأدمن (نفس الـ origin = GitHub Pages)
+window.addEventListener('storage', function(e) {
+  if(e.key === 'platform_config') {
+    applyPlatformConfig();
+  }
+});
+
+// Also run immediately from localStorage
+(function() { if(document.readyState !== 'loading') applyPlatformConfig(); })();
+
+// Load from Supabase as soon as DOM is ready (no login needed — public table)
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function(){ if(typeof _loadPlatformNameFromCloud === 'function') _loadPlatformNameFromCloud(); }, 1000);
+});
+
+let _supaUserId = null;
+let _isAdminUser = false;
+let _currentMode = 'user';
+
+// ── Pre-warm: restore user ID from stored session to prevent flash ──
+(function(){
+  try{
+    const stored = localStorage.getItem('studioOS_auth_v1');
+    if(stored){
+      const sess = JSON.parse(stored);
+      if(sess && sess.id) _supaUserId = sess.id;
+    }
+  }catch(e){}
+})();
+
+// ─── حماية من الحفظ المتزامن ───
+let _cloudSaving = false;
+// ── _appReady: يُفعَّل فقط بعد اكتمال تحميل البيانات من السحابة ──
+// يحمي من أي save يحصل أثناء التحميل الأولي
+window._appReady = false;
+let _cloudSavePending = false;
 
 // ══════════════════════════════════════════════════════
 // ── AUTO-SAVE كل 3 ثواني للسحابة (فقط لو في تغيير) ──
@@ -477,6 +783,8 @@ function _startAutoSave(){
   if(_autoSaveTimer) clearInterval(_autoSaveTimer);
   _autoSaveTimer = setInterval(function(){
     if(!_supaUserId || !S) return;
+    if(_cloudSaving) return; // skip if save already in progress
+    if(_syncTimer) return;   // skip if debounced save pending
     _mergeUiSettingsIntoS();
     var currentHash = _getDataHash(S);
     if(currentHash !== _autoSaveHash){
@@ -484,7 +792,7 @@ function _startAutoSave(){
       _showAutoSaveDot();
       _doCloudSave(S); // في الخلفية — مش بيعلق
     }
-  }, 5000); // كل 5 ثواني
+  }, 15000); // كل 15 ثانية
 }
 
 // ── مؤشر الحفظ التلقائي (نقطة خضرا خفيفة) ──
@@ -1500,21 +1808,20 @@ body.pub-page #app-body {
 #tasks-cols{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
 #tasks-cols .kb-col{width:100%}
 #tasks-cols .kb-col-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;padding:10px}
-@media(max-width:768px){
+@media(max-width:1024px){
   #status-cols{grid-template-columns:repeat(2,1fr)}
   #tasks-cols .kb-col-body{grid-template-columns:1fr 1fr}
 }
-@media(max-width:540px){
-  #kanban-view{padding-bottom:8px}
+@media(max-width:768px){
   #status-cols{
-    display:grid;
-    grid-template-columns:1fr;
-    gap:10px;
-    min-width:unset;
+    display:flex !important;flex-direction:column !important;
+    gap:10px !important;
+    min-width:unset !important;
     padding-bottom:4px
   }
-  #status-cols .kb-col{min-width:unset;max-width:unset;width:100%}
+  #status-cols .kb-col{min-width:unset !important;max-width:unset !important;width:100% !important;flex-shrink:0}
   #tasks-cols .kb-col-body{grid-template-columns:1fr}
+  .kb-col-body{min-height:60px}
 }
 .kb-col{background:var(--surface2);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
 .kb-col-header{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;user-select:none}
@@ -6044,16 +6351,6 @@ function tryParseDate(dateStr){
 function _getCurrency(){ return (S&&S.settings&&S.settings.currency)||'ج.م'; }
 function _fmtPrice(val, svcCurrency){ return Number(val||0).toLocaleString() + ' ' + (svcCurrency||_getCurrency()); }
 
-function lsSave(){
-  if(!S) return;
-  S._savedAt = new Date().toISOString();
-  showSyncIndicator('<i class="fa-solid fa-circle-notch fa-spin"></i> جاري الحفظ...', 'var(--accent)');
-  clearTimeout(_syncTimer);
-  _syncTimer = null;
-  _doCloudSave(S);
-  updateDash();
-  try { _updateDataStatusBar(); } catch(e) {}
-}
 // lsLoad يتنادى من loginWithSupaSession فقط - مش هنا
 // (علشان userKey() ما ترجعش 'guest' قبل الـ session)
 try { migrateSFields(); } catch(e) {}
@@ -8087,8 +8384,6 @@ function confirmComplete(){
   });
 
   lsSave(); closeM('modal-complete'); renderAll();
-  // Force immediate cloud sync so status change persists without refresh
-  setTimeout(function(){ _doCloudSave(S, true); }, 200);
   if(!payCollected && t.value>0){
     showToast('<i class="fa-solid fa-champagne-glasses"></i> تم إنجاز المشروع: '+t.title+' — تذكير: المبلغ لم يتم تحصيله بعد!');
     // Schedule reminder notification
@@ -15960,8 +16255,6 @@ function kbDrop(ev){
   task.doneAt = null;
   lsSave();
   renderAll(); // use renderAll so custom cols also update
-  // Force immediate cloud sync
-  setTimeout(function(){ _doCloudSave(S, true); }, 200);
   const statusLabels = {'new':'<i class="fa-solid fa-clipboard-list"></i> جديد','progress':'<i class="fa-solid fa-bolt"></i> قيد التنفيذ','review':'<i class="fa-solid fa-magnifying-glass"></i> مراجعة','paused':'⏸ موقوف'};
   const customLabel = (S.customStatuses||[]).find(c=>c.id===newStatus)?.label||newStatus;
   showMiniNotif('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> '+(statusLabels[newStatus]||customLabel));
@@ -16003,7 +16296,6 @@ function kbMobileMoveTask(taskId, newStatus){
   task.status = newStatus;
   task.done   = false;
   lsSave(); renderTasks();
-  setTimeout(function(){ _doCloudSave(S, true); }, 200);
   showMiniNotif('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> نُقلت المهمة إلى: '+({'new':'جديد','progress':'قيد التنفيذ','review':'مراجعة','paused':'موقوف'}[newStatus]||newStatus));
 }
 
