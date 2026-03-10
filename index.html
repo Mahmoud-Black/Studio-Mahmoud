@@ -5988,6 +5988,114 @@ function _updateNavBtns(){
   if(backBtn) backBtn.style.display=show?'flex':'none';
 }
 
+
+// ══════════════════════════════════════════════════════
+// URL ROUTING — History API
+// ══════════════════════════════════════════════════════
+var _PAGE_SLUGS = {
+  'dashboard':'dashboard','tasks':'tasks','projects':'projects',
+  'schedule':'schedule','meetings':'meetings','clients':'clients',
+  'finance':'finance','invoices':'invoices','services':'services',
+  'support':'support','team':'team','timetracker':'timetracker',
+  'freelancer-goals':'goals','settings':'settings','reports':'reports'
+};
+var _SLUG_TO_PAGE = {};
+Object.keys(_PAGE_SLUGS).forEach(function(k){ _SLUG_TO_PAGE[_PAGE_SLUGS[k]] = k; });
+
+function _getPageSlug(pageId){ return _PAGE_SLUGS[pageId] || pageId; }
+function _getPageFromSlug(slug){ return _SLUG_TO_PAGE[slug] || slug; }
+
+function _pushPageUrl(pageId){
+  var slug = _getPageSlug(pageId);
+  // Build base path: strip existing page slug from URL
+  var pathname = window.location.pathname;
+  // Remove trailing slash
+  pathname = pathname.replace(/\/$/, '');
+  // If current path ends with a known slug or .html, strip it to get base
+  var parts = pathname.split('/');
+  var lastPart = parts[parts.length - 1];
+  var isSlug = _SLUG_TO_PAGE[lastPart] || Object.values(_PAGE_SLUGS).indexOf(lastPart) >= 0;
+  var isHtml = lastPart.endsWith('.html');
+  if(isSlug) {
+    // Replace the current slug
+    parts[parts.length - 1] = slug;
+  } else if(isHtml) {
+    // Keep the .html file in path, append slug
+    parts.push(slug);
+  } else if(lastPart === '') {
+    parts.push(slug);
+  } else {
+    parts.push(slug);
+  }
+  var newPath = parts.join('/');
+  var curSlug = window.location.pathname.split('/').pop();
+  if(curSlug === slug) {
+    window.history.replaceState({page: pageId}, '', newPath);
+  } else {
+    window.history.pushState({page: pageId}, '', newPath);
+  }
+}
+
+function _getPageFromUrl(){
+  var parts = window.location.pathname.split('/');
+  var last = parts[parts.length - 1];
+  if(!last || last === '' || last.endsWith('.html')) return null;
+  return _getPageFromSlug(last);
+}
+
+// Handle browser back/forward buttons
+window.addEventListener('popstate', function(e){
+  var pageId = (e.state && e.state.page) ? e.state.page : _getPageFromUrl();
+  if(pageId && document.getElementById('page-' + pageId)){
+    _showPageNoHistory(pageId);
+  } else {
+    _showPageNoHistory('dashboard');
+  }
+});
+
+// showPage without pushing to history (for popstate)
+function _showPageNoHistory(id){
+  if(!document.getElementById('page-' + id)) return;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  var pg = document.getElementById('page-' + id);
+  if(pg) pg.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(function(n){
+    if(n.getAttribute('onclick') && n.getAttribute('onclick').includes("'"+id+"'")) n.classList.add('active');
+  });
+  document.querySelectorAll('.bn-item').forEach(b=>b.classList.remove('active'));
+  var bnEl = document.getElementById('bn-' + id);
+  if(bnEl) bnEl.classList.add('active');
+  else { var bm = document.getElementById('bn-more'); if(bm) bm.classList.add('active'); }
+  updateHeader && updateHeader(id);
+  renderAll && renderAll();
+  window.scrollTo(0,0);
+  applyPlatformConfig && applyPlatformConfig();
+}
+
+// Restore page from URL on startup (called after login)
+function _restorePageFromUrl(){
+  var pageId = _getPageFromUrl();
+  if(pageId && document.getElementById('page-' + pageId)){
+    return pageId;
+  }
+  return null;
+}
+
+// On first load — set initial history state for the current URL
+// (so that popstate fires correctly even on first back/forward)
+(function(){
+  var currentSlug = window.location.pathname.split('/').pop();
+  // Only set state if path looks like a page slug (not .html or empty)
+  if(currentSlug && !currentSlug.endsWith('.html') && currentSlug !== '') {
+    var pageId = _SLUG_TO_PAGE[currentSlug] || currentSlug;
+    if(document.getElementById && !window.__routeInitialized){
+      window.__routeInitialized = true;
+      window.history.replaceState({page: pageId}, '', window.location.href);
+    }
+  }
+})();
+
 function showPage(id,el){
   if(_supaUserId && hasActiveSub() && !FREE_PAGES.includes(id) && !hasPageFeature(id)){
     _showPageLock(id,el,'feature'); return;
@@ -6002,6 +6110,8 @@ function showPage(id,el){
     _pageHistory.push(_curId);
     if(_pageHistory.length > 20) _pageHistory.shift();
   }
+  // ── URL Routing: update browser URL ──
+  if(typeof _pushPageUrl === 'function') _pushPageUrl(id);
   _updateNavBtns();
   _hideLock();
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -10919,8 +11029,10 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     return;
   }
 
-  // إظهار الداش بورد مباشرة بعد التحقق من الاشتراك
-  showPage('dashboard');
+  // ── استعادة الصفحة من الـ URL أو الداش بورد ──
+  var _savedPage = (typeof _restorePageFromUrl === 'function') ? _restorePageFromUrl() : null;
+  var _startPage = _savedPage || 'dashboard';
+  showPage(_startPage);
   showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> أهلاً ' + (userObj.name||''), '#4fd1a5');
 
   // ── بوبأب ترحيب للمستخدم الجديد ──
