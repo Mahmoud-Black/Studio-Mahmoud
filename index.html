@@ -280,11 +280,6 @@ async function _doCloudSave(data) {
 
     _safeData._savedAt = new Date().toISOString();
 
-    // حفظ محلي دايماً
-    try { localStorage.setItem(userKey(), JSON.stringify(_safeData)); } catch(e) {}
-    try { localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(_safeData)); } catch(e) {}
-    try { localStorage.setItem('studioOS_v3_'+_supaUserId, JSON.stringify(_safeData)); } catch(e) {}
-
     var _un = (_safeData&&_safeData.settings&&_safeData.settings.username)||null;
     const payload = {
       user_id: _supaUserId,
@@ -306,15 +301,29 @@ async function _doCloudSave(data) {
     }
 
     if(_upsertError) {
+      // DataCloneError من Supabase internal — مش فشل حقيقي
+      if(_upsertError.message?.includes('DataCloneError') ||
+         _upsertError.message?.includes('postMessage') ||
+         _upsertError.message?.includes('Headers')) {
+        showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
+        return true;
+      }
       console.error('cloudSave error:', _upsertError.message);
-      showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل الحفظ - محفوظ محلياً', '#f7c948');
+      showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل الحفظ', '#f7c948');
+      return false;
     } else {
       showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
+      return true;
     }
   } catch(e) {
-    if(!e.message?.includes('DataCloneError') && !e.message?.includes('postMessage') && !e.message?.includes('Headers'))
-      console.error('cloudSave exception:', e.message);
+    // DataCloneError من Supabase BroadcastChannel — مش فشل حقيقي، الـ upsert بينجح
+    if(e.message?.includes('DataCloneError') || e.message?.includes('postMessage') || e.message?.includes('Headers')) {
+      showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
+      return true;
+    }
+    console.error('cloudSave exception:', e.message);
     showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل المزامنة', '#f76f7c');
+    return false;
   } finally {
     _cloudSaving = false;
     if(_cloudSavePending) {
@@ -331,16 +340,7 @@ async function _doCloudSave(data) {
 function lsSave() {
   if(!S) return;
   S._savedAt = new Date().toISOString();
-  // 1) حفظ محلي فوري — مش بيعلق
-  try {
-    const _j = JSON.stringify(S);
-    if(_supaUserId) {
-      localStorage.setItem(userKey(), _j);
-      localStorage.setItem('studioOS_backup_'+_supaUserId, _j);
-      localStorage.setItem('studioOS_v3_'+_supaUserId, _j);
-    }
-  } catch(e) {}
-  // 2) cloud في الخلفية — بدون await
+  // cloud في الخلفية فقط — بدون localStorage
   _queueCloudSave();
   updateDash();
   try { _updateDataStatusBar(); } catch(e) {}
@@ -364,19 +364,11 @@ function cloudSave(data) {
   _queueCloudSave();
 }
 
-// cloudSaveNow = نفس cloudSave بس بيلغي الـ debounce ويحفظ cloud فوراً
+// cloudSaveNow = حفظ cloud فوري بدون debounce
 function cloudSaveNow(data) {
   if(!_supaUserId) return;
   if(data && data !== S) S = data;
   S._savedAt = new Date().toISOString();
-  try {
-    const _j = JSON.stringify(S);
-    if(_supaUserId) {
-      localStorage.setItem(userKey(), _j);
-      localStorage.setItem('studioOS_backup_'+_supaUserId, _j);
-      localStorage.setItem('studioOS_v3_'+_supaUserId, _j);
-    }
-  } catch(e) {}
   clearTimeout(_syncTimer);
   _doCloudSave(S);
   updateDash();
@@ -492,13 +484,6 @@ function _mergeUiSettingsIntoS(){
 // حفظ فوري عند إغلاق الصفحة
 window.addEventListener('beforeunload', function() {
   if(!_supaUserId || !S) return;
-  try {
-    S._savedAt = new Date().toISOString();
-    const _j = JSON.stringify(S);
-    localStorage.setItem(userKey(), _j);
-    localStorage.setItem('studioOS_backup_'+_supaUserId, _j);
-    localStorage.setItem('studioOS_v3_'+_supaUserId, _j);
-  } catch(e) {}
   // إرسال للسحابة بـ keepalive — بيكمّل حتى بعد إغلاق الصفحة
   try {
     const _ts = new Date().toISOString();
@@ -575,32 +560,25 @@ function _startDataWatchdog() {
     // سجّل أعلى score شفناه - ده الـ baseline
     if(_score > _watchdogBaseScore) {
       _watchdogBaseScore = _score;
-      // حدّث الـ backup في كل مرة نشوف بيانات أكثر
-      try {
-        localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(S));
-      } catch(e) {}
     }
 
     // لو الـ score انخفض فجأة عن الـ baseline بأكثر من 5 عناصر - خطر!
     if(_watchdogBaseScore > 5 && _score < _watchdogBaseScore - 5) {
       console.error('⚠️ WATCHDOG: Data loss detected! base:', _watchdogBaseScore, 'current:', _score);
-      // حاول استرداد من الـ backup
-      const _bkRaw = localStorage.getItem('studioOS_backup_'+_supaUserId);
-      if(_bkRaw) {
-        try {
-          const _bk = JSON.parse(_bkRaw);
-          const _bkScore = (_bk.tasks?.length||0) + (_bk.clients?.length||0) +
-                           (_bk.invoices?.length||0) + (_bk.transactions?.length||0);
-          if(_bkScore >= _watchdogBaseScore - 2) {
-            S = _bk;
-            migrateSFields();
-            renderAll && renderAll();
-            showSyncIndicator('⚠️ تم استرداد البيانات تلقائياً', '#f7c948');
-            console.log('✅ WATCHDOG: Data recovered from backup, score:', _bkScore);
-            _watchdogBaseScore = _bkScore;
-          }
-        } catch(e) {}
-      }
+      // حاول استرداد من السحابة مباشرة
+      cloudLoad().then(function(_bk) {
+        if(!_bk) return;
+        const _bkScore = (_bk.tasks?.length||0) + (_bk.clients?.length||0) +
+                         (_bk.invoices?.length||0) + (_bk.transactions?.length||0);
+        if(_bkScore >= _watchdogBaseScore - 2) {
+          S = _bk;
+          migrateSFields && migrateSFields();
+          renderAll && renderAll();
+          showSyncIndicator('⚠️ تم استرداد البيانات من السحابة', '#f7c948');
+          console.log('✅ WATCHDOG: Data recovered from cloud, score:', _bkScore);
+          _watchdogBaseScore = _bkScore;
+        }
+      }).catch(function(){});
     }
   }, 30000); // كل 30 ثانية
 }
@@ -627,32 +605,86 @@ function showUploadProgress(label) {
   if(existing) existing.remove();
   var ov = document.createElement('div');
   ov.id = '_upload-progress-modal';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)';
   ov.innerHTML =
-    '<div style="background:var(--surface,#0e0f1a);border:1px solid var(--border,#252640);border-radius:20px;padding:32px 36px;min-width:300px;max-width:380px;text-align:center;box-shadow:0 24px 72px rgba(0,0,0,.6)">' +
-      '<div style="font-size:36px;margin-bottom:14px">⏳</div>' +
-      '<div style="font-size:15px;font-weight:800;color:var(--text,#e2e4f0);margin-bottom:6px" id="_upload-prog-label">' + (label||'جاري الحفظ...') + '</div>' +
-      '<div style="font-size:12px;color:var(--text3,#50516a);margin-bottom:18px">الرجاء الانتظار حتى يتم الحفظ في قاعدة البيانات</div>' +
-      '<div style="height:6px;background:var(--surface2,#141522);border-radius:8px;overflow:hidden;position:relative">' +
-        '<div id="_upload-prog-bar" style="height:100%;width:15%;background:linear-gradient(90deg,var(--accent,#6c63ff),#a89cff);border-radius:8px;animation:_progAnim 1.6s ease-in-out infinite"></div>' +
+    '<div style="background:var(--surface,#0e0f1a);border:1px solid var(--border,#252640);border-radius:24px;padding:36px 40px;min-width:320px;max-width:400px;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.7)">' +
+      '<div style="width:60px;height:60px;margin:0 auto 18px;position:relative">' +
+        '<svg viewBox="0 0 60 60" style="width:60px;height:60px;transform:rotate(-90deg)">' +
+          '<circle cx="30" cy="30" r="26" fill="none" stroke="var(--surface2,#141522)" stroke-width="5"/>' +
+          '<circle id="_upload-prog-circle" cx="30" cy="30" r="26" fill="none" stroke="var(--accent,#6c63ff)" stroke-width="5" stroke-linecap="round" stroke-dasharray="163" stroke-dashoffset="163" style="transition:stroke-dashoffset .4s ease"/>' +
+        '</svg>' +
+        '<div id="_upload-prog-icon" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px">⏳</div>' +
+      '</div>' +
+      '<div style="font-size:16px;font-weight:800;color:var(--text,#e2e4f0);margin-bottom:6px" id="_upload-prog-label">' + (label||'جاري الحفظ...') + '</div>' +
+      '<div id="_upload-prog-sub" style="font-size:12px;color:var(--text3,#50516a);margin-bottom:20px">الرجاء الانتظار — جاري التأكيد من قاعدة البيانات</div>' +
+      '<div style="height:5px;background:var(--surface2,#141522);border-radius:8px;overflow:hidden">' +
+        '<div id="_upload-prog-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent,#6c63ff),#a89cff);border-radius:8px;transition:width .3s ease"></div>' +
       '</div>' +
     '</div>';
   if(!document.getElementById('_progAnimStyle')) {
     var s = document.createElement('style');
     s.id = '_progAnimStyle';
-    s.textContent = '@keyframes _progAnim{0%{width:15%;margin-left:0}50%{width:40%;margin-left:30%}100%{width:15%;margin-left:85%}}';
+    s.textContent = '@keyframes _progPulse{0%,100%{opacity:1}50%{opacity:.5}}';
     document.head.appendChild(s);
   }
   document.body.appendChild(ov);
+  // Animate progress bar indeterminate
+  var _pct = 0;
+  var _progInterval = setInterval(function(){
+    _pct = Math.min(_pct + (Math.random() * 8), 85);
+    var bar = document.getElementById('_upload-prog-bar');
+    var circle = document.getElementById('_upload-prog-circle');
+    if(bar) bar.style.width = _pct + '%';
+    if(circle) circle.style.strokeDashoffset = 163 - (163 * _pct / 100);
+    if(_pct >= 85) clearInterval(_progInterval);
+  }, 200);
+  ov._progInterval = _progInterval;
 }
-function hideUploadProgress(successLabel) {
+function hideUploadProgress(successLabel, isError) {
   var ov = document.getElementById('_upload-progress-modal');
   if(!ov) return;
+  if(ov._progInterval) clearInterval(ov._progInterval);
   var bar = document.getElementById('_upload-prog-bar');
+  var circle = document.getElementById('_upload-prog-circle');
   var lbl = document.getElementById('_upload-prog-label');
-  if(bar) { bar.style.animation='none'; bar.style.width='100%'; bar.style.background='linear-gradient(90deg,var(--accent3,#4fd1a5),#38b99a)'; }
-  if(lbl) { lbl.innerHTML = (successLabel || '✅ تم الحفظ بنجاح!'); }
-  setTimeout(function(){ var o=document.getElementById('_upload-progress-modal'); if(o) o.remove(); }, 1200);
+  var sub = document.getElementById('_upload-prog-sub');
+  var icon = document.getElementById('_upload-prog-icon');
+  if(isError) {
+    if(bar){ bar.style.width='100%'; bar.style.background='linear-gradient(90deg,#f76f7c,#f7a4ab)'; }
+    if(circle){ circle.style.strokeDashoffset='0'; circle.style.stroke='#f76f7c'; }
+    if(icon) icon.textContent = '❌';
+    if(sub) sub.textContent = 'يرجى المحاولة مرة أخرى أو التحقق من الاتصال';
+  } else {
+    if(bar){ bar.style.width='100%'; bar.style.background='linear-gradient(90deg,var(--accent3,#4fd1a5),#38b99a)'; }
+    if(circle){ circle.style.strokeDashoffset='0'; circle.style.stroke='var(--accent3,#4fd1a5)'; }
+    if(icon) icon.textContent = '✅';
+    if(sub) sub.textContent = 'تم التأكيد — البيانات محفوظة في قاعدة البيانات';
+  }
+  if(lbl) lbl.innerHTML = (successLabel || '✅ تم الحفظ بنجاح!');
+  setTimeout(function(){ var o=document.getElementById('_upload-progress-modal'); if(o){ o.style.transition='opacity .3s'; o.style.opacity='0'; setTimeout(function(){ if(o.parentNode) o.remove(); }, 300); } }, 1400);
+}
+
+// ── حفظ مع تأكيد حقيقي من Supabase ──
+async function cloudSaveWithConfirm(label, onSuccess) {
+  if(!_supaUserId || !S) {
+    toast('<i class="fa-solid fa-triangle-exclamation"></i> غير مسجل دخول'); return;
+  }
+  // لو في save جاري، استنى يخلص
+  if(_cloudSaving) {
+    await new Promise(function(r){ var t = setInterval(function(){ if(!_cloudSaving){ clearInterval(t); r(); } }, 100); });
+  }
+  showUploadProgress(label || 'جاري الحفظ...');
+  clearTimeout(_syncTimer); // ألغي أي debounce معلق
+  var ok = false;
+  try {
+    ok = await _doCloudSave(S);
+  } catch(e) { ok = false; }
+  if(ok) {
+    hideUploadProgress('✅ تم الحفظ في قاعدة البيانات!', false);
+    if(typeof onSuccess === 'function') setTimeout(onSuccess, 200);
+  } else {
+    hideUploadProgress('⚠️ فشل الحفظ على السحابة', true);
+  }
 }
 
 function showSyncIndicator(msg, color){
@@ -5531,14 +5563,6 @@ function _fmtPrice(val, svcCurrency){ return Number(val||0).toLocaleString() + '
 function lsSave(){
   if(!S) return;
   S._savedAt = new Date().toISOString();
-  try {
-    const _j = JSON.stringify(S);
-    if(_supaUserId) {
-      localStorage.setItem(userKey(), _j);
-      localStorage.setItem('studioOS_v3_'+_supaUserId, _j);
-      localStorage.setItem('studioOS_backup_'+_supaUserId, _j);
-    }
-  } catch(e) {}
   _queueCloudSave();
   updateDash();
   try { _updateDataStatusBar(); } catch(e) {}
@@ -6185,7 +6209,6 @@ async function forceCloudReload(){
     if(cloudData){
       S = cloudData;
       migrateSFields();
-      localStorage.setItem('studioOS_v3_'+_supaUserId, JSON.stringify(S));
       renderAll();
       applyPlatformConfig();
       showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم التحديث من السحابة', '#4fd1a5');
@@ -10012,9 +10035,7 @@ async function _trackLoginEvent(uid) {
           S._login_log = S._login_log || [];
           S._login_log.unshift({ time: new Date().toISOString(), device });
           if(S._login_log.length > 50) S._login_log.splice(50);
-          // لا نستخدم cloudSave هنا علشان ما نسببش save ناقص
-          // بس نحدث الـ localStorage
-          try { localStorage.setItem(userKey(), JSON.stringify(S)); } catch(e) {}
+          _queueCloudSave();
         }, 8000);
         return;
       }
@@ -10213,9 +10234,7 @@ migrateSFields();
       delete S._admin_studio;  delete S._admin_phone;
       cloudSave(S);
     }
-    localStorage.setItem('studioOS_v3_'+supaUser.id, JSON.stringify(S));
-    // Also keep a backup copy
-    try{ localStorage.setItem('studioOS_backup_'+supaUser.id, JSON.stringify(S)); }catch(e){}
+    applyPlatformConfig();
     applyPlatformConfig();
   } else {
     // Cloud returned null — retry once before falling back to localStorage
@@ -10232,31 +10251,11 @@ migrateSFields();
       // نجح الـ retry
       S = _retryData;
       migrateSFields();
-      localStorage.setItem('studioOS_v3_'+supaUser.id, JSON.stringify(S));
-      try { localStorage.setItem('studioOS_backup_'+supaUser.id, JSON.stringify(S)); } catch(e) {}
       _syncStudioLogoToConfig();
       showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تحميل البيانات', '#4fd1a5');
     } else {
-      // السحابة فارغة أو مش متاحة - حمّل من الـ localStorage
-      // لكن لا تحفظ على السحابة إلا لو البيانات المحلية فيها محتوى فعلي
-      const _localRaw = localStorage.getItem('studioOS_v3_'+supaUser.id) ||
-                        localStorage.getItem('studioOS_backup_'+supaUser.id);
-      if(_localRaw) {
-        try {
-          const _localData = JSON.parse(_localRaw);
-          if(_localData && (typeof _localData === 'object')) {
-            S = _localData;
-            migrateSFields();
-            // لو في بيانات حقيقية - ارفعها للسحابة
-            if(S.tasks?.length || S.clients?.length || S.invoices?.length || S.transactions?.length) {
-              toast('<i class="fa-solid fa-triangle-exclamation"></i> تم استعادة بياناتك من النسخة المحلية');
-              setTimeout(() => _doCloudSave(S), 2000);
-            }
-          }
-        } catch(e) { lsLoad(); }
-      } else {
-        lsLoad(); // مستخدم جديد تماماً
-      }
+      // السحابة فارغة أو مش متاحة — مستخدم جديد
+      lsLoad();
     }
   }
 
@@ -11597,8 +11596,8 @@ function saveBackupSettings(){
 function doBackupNow(){
   // دمج إعدادات الثيم قبل الحفظ
   _mergeUiSettingsIntoS();
-  // Save latest state first
-  try{ localStorage.setItem(userKey(), JSON.stringify(S)); }catch(e){}
+  // Ensure latest state is queued for cloud save
+  _queueCloudSave();
   const user    = getSession();
   const bs      = getBackupSettings();
 
@@ -18436,17 +18435,12 @@ function saveSvc(){
   } else {
     d.id=Date.now(); S.services.push(d);
   }
-  lsSave(); 
-  showUploadProgress('🛍 جاري رفع الخدمة...');
-  var _origCloudSave = window._cloudSaveForProgress;
-  // نستخدم setTimeout لإعطاء المودال فرصة للظهور
-  setTimeout(async function(){
-    try {
-      await _doCloudSave(S);
-      hideUploadProgress('✅ تم رفع الخدمة بنجاح!');
-    } catch(e) { hideUploadProgress('⚠️ تم الحفظ محلياً'); }
-  }, 100);
-  closeM('modal-svc'); renderServices(); toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ الخدمة');
+  // ── حفظ مع تأكيد حقيقي من Supabase — المودال لا يتقفل غير بعد النجاح ──
+  cloudSaveWithConfirm('🛍 جاري رفع الخدمة...', function(){
+    closeM('modal-svc');
+    renderServices();
+    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ الخدمة في قاعدة البيانات');
+  });
 }
 function delSvc(id){
   confirmDel('حذف هذه الخدمة؟', function(){
@@ -21642,7 +21636,7 @@ async function _loadServerNotifications(){
     });
     // Clear pending after loading
     S._pending_notifications = [];
-    try{ localStorage.setItem(userKey(), JSON.stringify(S)); }catch(e){}
+    _queueCloudSave();
     if(newCount > 0){
       _saveNotifications(); _updateNotifBell();
       if(typeof toast === 'function') toast('<i class="fa-solid fa-comments"></i> لديك '+newCount+' رسالة جديدة من الإدارة');
