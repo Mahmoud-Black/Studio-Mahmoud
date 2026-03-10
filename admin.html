@@ -5249,6 +5249,7 @@ async function doSendMessage() {
 
   try {
     const isBroadcast = _currentMsgType === 'broadcast' || !_currentMsgUserId;
+    const _navPage = document.getElementById('msg-nav-page')?.value || null;
     const notif = {
       user_id   : isBroadcast ? null : _currentMsgUserId,
       title     : title || null,
@@ -5257,7 +5258,7 @@ async function doSendMessage() {
       read      : false,
       created_at: new Date().toISOString(),
       sent_by   : 'admin',
-      action_page: document.getElementById('msg-nav-page')?.value || null
+      ..._navPage ? { page: _navPage } : {}
     };
 
     const { error } = await supa.from('user_notifications').insert([notif]);
@@ -5632,7 +5633,13 @@ function _saveUpdates() {
 
 async function _syncUpdatesToCloud() {
   try {
-    const cfg = { admin_updates: _updates };
+    // جيب الـ config الحالي عشان منمسحش admin_challenges
+    let cfg = {};
+    try {
+      const { data } = await supa.from('platform_settings').select('config').eq('id', 1).maybeSingle();
+      if(data?.config) cfg = typeof data.config === 'string' ? JSON.parse(data.config) : data.config;
+    } catch(e) {}
+    cfg.admin_updates = _updates;
     await supa.from('platform_settings').upsert({ id: 1, config: JSON.stringify(cfg), updated_at: new Date().toISOString() }, { onConflict: 'id' });
   } catch(e) { console.warn('updates sync failed:', e); }
 }
@@ -5642,14 +5649,19 @@ function renderUpdatesPage() {
   const list = document.getElementById('updates-list');
   if(!list) return;
   _renderUpdatesList();
-  // Then sync from cloud in background
+  // Sync from cloud in background - merge local + cloud
   (async () => {
     try {
       const { data } = await supa.from('platform_settings').select('config').eq('id', 1).maybeSingle();
       if(data?.config) {
         const cfg = typeof data.config === 'string' ? JSON.parse(data.config) : data.config;
-        if(cfg.admin_updates?.length) {
-          _updates = cfg.admin_updates;
+        if(Array.isArray(cfg.admin_updates)) {
+          // دمج: خد الأحدث بالـ id
+          const merged = [...(cfg.admin_updates || [])];
+          for(const local of _updates) {
+            if(!merged.find(u => u.id === local.id)) merged.push(local);
+          }
+          _updates = merged;
           localStorage.setItem('admin_updates', JSON.stringify(_updates));
           _renderUpdatesList();
         }
@@ -5834,15 +5846,20 @@ let _challenges = JSON.parse(localStorage.getItem('_admin_challenges') || '[]');
 
 function _saveChallenges() {
   localStorage.setItem('_admin_challenges', JSON.stringify(_challenges));
-  // مزامنة مع Supabase platform_settings
+  _syncChallengesToCloud();
+}
+
+async function _syncChallengesToCloud() {
   try {
-    const cfg = JSON.parse(localStorage.getItem('_platform_cfg') || '{}');
+    // جيب الـ config الحالي عشان منمسحش admin_updates
+    let cfg = {};
+    try {
+      const { data } = await supa.from('platform_settings').select('config').eq('id', 1).maybeSingle();
+      if(data?.config) cfg = typeof data.config === 'string' ? JSON.parse(data.config) : data.config;
+    } catch(e) {}
     cfg.admin_challenges = _challenges;
-    localStorage.setItem('_platform_cfg', JSON.stringify(cfg));
-    supa.from('platform_settings')
-      .upsert({ id: 1, config: JSON.stringify(cfg), updated_at: new Date().toISOString() }, { onConflict: 'id' })
-      .then(({ error }) => { if(error) console.warn('challenges sync:', error.message); });
-  } catch(e) {}
+    await supa.from('platform_settings').upsert({ id: 1, config: JSON.stringify(cfg), updated_at: new Date().toISOString() }, { onConflict: 'id' });
+  } catch(e) { console.warn('challenges sync failed:', e); }
 }
 
 function renderChallengePage() {
@@ -5856,7 +5873,11 @@ function renderChallengePage() {
       if(data?.config) {
         const cfg = typeof data.config === 'string' ? JSON.parse(data.config) : data.config;
         if(Array.isArray(cfg.admin_challenges)) {
-          _challenges = cfg.admin_challenges;
+          const merged = [...(cfg.admin_challenges || [])];
+          for(const local of _challenges) {
+            if(!merged.find(c => c.id === local.id)) merged.push(local);
+          }
+          _challenges = merged;
           localStorage.setItem('_admin_challenges', JSON.stringify(_challenges));
           _renderChallengeActive();
           _renderChallengesList();
