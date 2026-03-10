@@ -1507,11 +1507,13 @@ body.pub-page #app-body {
 @media(max-width:540px){
   #kanban-view{padding-bottom:8px}
   #status-cols{
-    display:flex;flex-direction:row;flex-wrap:nowrap;gap:10px;
-    grid-template-columns:unset;
-    min-width:max-content;padding-bottom:4px
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+    min-width:unset;
+    padding-bottom:4px
   }
-  #status-cols .kb-col{min-width:220px;max-width:220px;flex-shrink:0}
+  #status-cols .kb-col{min-width:unset;max-width:unset;width:100%}
   #tasks-cols .kb-col-body{grid-template-columns:1fr}
 }
 .kb-col{background:var(--surface2);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
@@ -8085,6 +8087,8 @@ function confirmComplete(){
   });
 
   lsSave(); closeM('modal-complete'); renderAll();
+  // Force immediate cloud sync so status change persists without refresh
+  setTimeout(function(){ _doCloudSave(S, true); }, 200);
   if(!payCollected && t.value>0){
     showToast('<i class="fa-solid fa-champagne-glasses"></i> تم إنجاز المشروع: '+t.title+' — تذكير: المبلغ لم يتم تحصيله بعد!');
     // Schedule reminder notification
@@ -15956,6 +15960,8 @@ function kbDrop(ev){
   task.doneAt = null;
   lsSave();
   renderAll(); // use renderAll so custom cols also update
+  // Force immediate cloud sync
+  setTimeout(function(){ _doCloudSave(S, true); }, 200);
   const statusLabels = {'new':'<i class="fa-solid fa-clipboard-list"></i> جديد','progress':'<i class="fa-solid fa-bolt"></i> قيد التنفيذ','review':'<i class="fa-solid fa-magnifying-glass"></i> مراجعة','paused':'⏸ موقوف'};
   const customLabel = (S.customStatuses||[]).find(c=>c.id===newStatus)?.label||newStatus;
   showMiniNotif('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> '+(statusLabels[newStatus]||customLabel));
@@ -15997,6 +16003,7 @@ function kbMobileMoveTask(taskId, newStatus){
   task.status = newStatus;
   task.done   = false;
   lsSave(); renderTasks();
+  setTimeout(function(){ _doCloudSave(S, true); }, 200);
   showMiniNotif('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> نُقلت المهمة إلى: '+({'new':'جديد','progress':'قيد التنفيذ','review':'مراجعة','paused':'موقوف'}[newStatus]||newStatus));
 }
 
