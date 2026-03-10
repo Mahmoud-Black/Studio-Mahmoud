@@ -179,13 +179,25 @@ function _makeClientSlug(name){
 // ── Build short portal link ──
 function _buildPortalLink(clientName, portalId){
   var _un = S && S.settings && S.settings.username ? S.settings.username : null;
-  var _portalBase = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + 'client-portal.html';
+  // ── حساب الـ base path الصح بغض النظر عن الـ URL routing ──
+  var _pathname = window.location.pathname;
+  // شيل الـ page slug اللي ممكن يكون اتضاف من الـ URL routing
+  var _knownSlugs = ['dashboard','tasks','projects','schedule','meetings','clients','finance','invoices','services','support','team','timetracker','goals','settings','reports'];
+  var _parts = _pathname.split('/').filter(function(p){return p!=='';});
+  // لو آخر جزء هو page slug، شيله
+  if(_parts.length && _knownSlugs.indexOf(_parts[_parts.length-1]) >= 0){
+    _parts.pop();
+  }
+  // لو آخر جزء هو .html file، شيله كمان (هنضيف client-portal.html بنفسنا)
+  if(_parts.length && _parts[_parts.length-1].endsWith('.html')){
+    _parts.pop();
+  }
+  var _basePath = (_parts.length ? '/' + _parts.join('/') + '/' : '/');
+  var _portalBase = window.location.origin + _basePath + 'client-portal.html';
   var _slug = _makeClientSlug(clientName);
   if(_un){
-    // client-portal.html?u=username&p=client-slug  — قصير ونظيف
     return _portalBase + '?u=' + encodeURIComponent(_un) + '&p=' + encodeURIComponent(_slug);
   }
-  // Fallback لو مفيش username — uid + cid
   var clientObj = (S.clients||[]).find(function(c){ return _makeClientSlug(c.name)===_slug; });
   var cid = clientObj ? clientObj.id : (portalId||'');
   return _portalBase + '?uid=' + (_supaUserId||'') + '&cid=' + cid;
@@ -18126,7 +18138,10 @@ function renderCorpEmployees(){
 // ── Helpers ──
 function getSvcLink(storeId){
   var uid = (typeof _supaUserId!=='undefined' && _supaUserId) ? _supaUserId : '';
-  var base = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + 'store.html';
+  var _spp=window.location.pathname,_sps=_spp.split('/').filter(function(x){return x!=='';});
+  if(_sps.length&&['dashboard','tasks','projects','schedule','meetings','clients','finance','invoices','services','support','team','timetracker','goals','settings','reports'].indexOf(_sps[_sps.length-1])>=0)_sps.pop();
+  if(_sps.length&&_sps[_sps.length-1].endsWith('.html'))_sps.pop();
+  var base = window.location.origin+(_sps.length?'/'+_sps.join('/')+'/' :'/')+'store.html';
   // لو المتجر عنده username خاص → استخدمه
   if(storeId){
     var storeObj=(_getStores()||[]).find(function(s){return s.id===storeId;});
@@ -19988,7 +20003,10 @@ function renderClientPortals(){
 function _showClientPortalLink(clientId){
   var c=(S.clients||[]).find(function(x){return String(x.id)===String(clientId);}); if(!c) return;
   var uid=(typeof _supaUserId!=='undefined'&&_supaUserId)?_supaUserId:'';
-  var base=window.location.origin+window.location.pathname.replace(/\/[^\/]*$/, '/')+'client-portal.html';
+  var _pp2=window.location.pathname,_ps2=_pp2.split('/').filter(function(x){return x!=='';});
+  if(_ps2.length&&['dashboard','tasks','projects','schedule','meetings','clients','finance','invoices','services','support','team','timetracker','goals','settings','reports'].indexOf(_ps2[_ps2.length-1])>=0)_ps2.pop();
+  if(_ps2.length&&_ps2[_ps2.length-1].endsWith('.html'))_ps2.pop();
+  var base=window.location.origin+(_ps2.length?'/'+_ps2.join('/')+'/' :'/') +'client-portal.html';
   var link=base+'?uid='+uid+'&cid='+clientId;
   var over=document.createElement('div');
   over.className='modal-overlay'; over.style.display='flex';
@@ -24672,7 +24690,10 @@ function changeProjStatus(projId,status){
 function openProjSharePortal(projId){
   var uid=(typeof _supaUserId!=='undefined'&&_supaUserId)?_supaUserId:'';
   var base=window.location.origin+window.location.pathname;
-  var _cpBase2=window.location.origin+window.location.pathname.replace(/\/[^\/]*$/, '/')+'client-portal.html';
+  var _cppPath=window.location.pathname.split('/').filter(function(x){return x!=='';});
+  if(_cppPath.length&&['dashboard','tasks','projects','schedule','meetings','clients','finance','invoices','services','support','team','timetracker','goals','settings','reports'].indexOf(_cppPath[_cppPath.length-1])>=0)_cppPath.pop();
+  if(_cppPath.length&&_cppPath[_cppPath.length-1].endsWith('.html'))_cppPath.pop();
+  var _cpBase2=window.location.origin+(_cppPath.length?'/'+_cppPath.join('/')+'/' :'/')+'client-portal.html';
   var projLink=base+'?portal=project&uid='+uid+'&pid='+projId;
 
   // Try to find client for this project
@@ -26634,7 +26655,10 @@ function _showTrackingShareModal(t){
   const clientPhone=cl?.phone||'';
   const clientId=cl?.id||'';
   // بناء base path لـ client-portal.html في نفس المجلد
-  const _basePath=window.location.pathname.replace(/\/[^\/]*$/, '/');
+  var _bpArr=window.location.pathname.split('/').filter(function(x){return x!=='';});
+  if(_bpArr.length&&['dashboard','tasks','projects','schedule','meetings','clients','finance','invoices','services','support','team','timetracker','goals','settings','reports'].indexOf(_bpArr[_bpArr.length-1])>=0)_bpArr.pop();
+  if(_bpArr.length&&_bpArr[_bpArr.length-1].endsWith('.html'))_bpArr.pop();
+  const _basePath=(_bpArr.length?'/'+_bpArr.join('/')+'/' :'/');
   const portalBase=window.location.origin+_basePath+'client-portal.html';
   const trackUrl=portalBase
     +'?uid='+encodeURIComponent(_supaUserId||'')
