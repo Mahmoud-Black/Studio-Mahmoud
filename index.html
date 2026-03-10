@@ -137,6 +137,24 @@ const supa = supabase.createClient(SUPA_URL, SUPA_ANON, {
 });
 
 // ══════════════════════════════════════════════════
+//  HELPER: رفع أي صورة لـ Supabase Storage
+// ══════════════════════════════════════════════════
+function uploadToStorage(file, folder, onSuccess, onError) {
+  if(!file) return;
+  var ext = (file.name||"img").split(".").pop().toLowerCase() || "jpg";
+  var path = (folder||"uploads") + "/" + (_supaUserId||"anon") + "_" + Date.now() + "." + ext;
+  supa.storage.from("media").upload(path, file, { upsert: true, contentType: file.type })
+    .then(function(res) {
+      if(res.error) { if(onError) onError(res.error); return; }
+      var urlRes = supa.storage.from("media").getPublicUrl(path);
+      var url = urlRes.data && urlRes.data.publicUrl;
+      if(!url) { if(onError) onError(new Error("no public url")); return; }
+      if(onSuccess) onSuccess(url);
+    })
+    .catch(function(e) { if(onError) onError(e); });
+}
+
+// ══════════════════════════════════════════════════
 //  SUPABASE CLOUD SYNC
 // ══════════════════════════════════════════════════
 let _syncTimer = null;
@@ -261,13 +279,11 @@ let _cloudSavePending = false;
 async function _doCloudSave(data, force) {
   if(!_supaUserId || !data) return false;
   if(!force && !window._appReady) { return false; }
-  var _dataScore = (data.tasks?.length||0)*3 + (data.clients?.length||0)*2 + (data.invoices?.length||0)*2 + (data.transactions?.length||0);
+  var _dataScore = (data.tasks?.length||0)*3 + (data.clients?.length||0)*2 + (data.invoices?.length||0)*2 + (data.transactions?.length||0) + (data.services?.length||0)*2;
   if(!force && _dataScore === 0 && !data.settings?.name) { return false; }
-  console.log('%c💾 SAVE', 'color:blue;font-weight:bold', '| clients:', data.clients?.length, '| tasks:', data.tasks?.length, '| appReady:', window._appReady, '| uid:', _supaUserId?.slice(0,8));
+  console.log('%c💾 SAVE', 'color:blue;font-weight:bold', '| services:', data.services?.length, '| clients:', data.clients?.length, '| tasks:', data.tasks?.length, '| appReady:', window._appReady);
 
-  // لو في save جاري وده مش force — queue وخلاص
   if(_cloudSaving && !force) { _cloudSavePending = true; return false; }
-  // لو force — استنى الـ save الحالي يخلص أولاً (max 10 ثواني)
   if(_cloudSaving && force) {
     var _w = 0;
     await new Promise(function(r){ var t = setInterval(function(){ _w+=100; if(!_cloudSaving||_w>=10000){clearInterval(t);r();} },100); });
@@ -315,7 +331,6 @@ async function _doCloudSave(data, force) {
     }
 
     if(_upsertError) {
-      // DataCloneError من Supabase internal — مش فشل حقيقي
       if(_upsertError.message?.includes('DataCloneError') ||
          _upsertError.message?.includes('postMessage') ||
          _upsertError.message?.includes('Headers')) {
@@ -327,11 +342,10 @@ async function _doCloudSave(data, force) {
       return false;
     } else {
       showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
-      console.log('%c✅ SAVED OK', 'color:green;font-weight:bold', '| clients:', data?.clients?.length, '| tasks:', data?.tasks?.length);
+      console.log('%c✅ SAVED OK', 'color:green;font-weight:bold', '| services:', data?.services?.length);
       return true;
     }
   } catch(e) {
-    // DataCloneError من Supabase BroadcastChannel — مش فشل حقيقي، الـ upsert بينجح
     if(e.message?.includes('DataCloneError') || e.message?.includes('postMessage') || e.message?.includes('Headers')) {
       showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
       return true;
@@ -529,7 +543,6 @@ async function cloudLoad(retryCount = 0){
     const { data, error } = await supa.from('studio_data').select('data').eq('user_id', _supaUserId).maybeSingle();
     if(error){
       console.error('cloudLoad error:', error.code, error.message);
-      // لو شبكة أو RLS - retry مرة واحدة بعد 2 ثانية
       if(retryCount < 2) {
         await new Promise(r => setTimeout(r, 2000));
         return cloudLoad(retryCount + 1);
@@ -543,7 +556,7 @@ async function cloudLoad(retryCount = 0){
     try {
       const parsed = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
       if(!parsed || typeof parsed !== 'object') return null;
-      console.log('%c📥 LOADED', 'color:purple;font-weight:bold', '| clients:', parsed.clients?.length, '| tasks:', parsed.tasks?.length, '| savedAt:', parsed._savedAt);
+      console.log('%c📥 LOADED', 'color:purple;font-weight:bold', '| services:', parsed.services?.length, '| clients:', parsed.clients?.length, '| tasks:', parsed.tasks?.length, '| savedAt:', parsed._savedAt);
       return parsed;
     } catch(parseErr){
       console.error('cloudLoad parse error:', parseErr);
@@ -551,7 +564,6 @@ async function cloudLoad(retryCount = 0){
     }
   } catch(e) {
     console.error('cloudLoad exception:', e.message);
-    // Retry on network errors
     if(retryCount < 2) {
       await new Promise(r => setTimeout(r, 2000));
       return cloudLoad(retryCount + 1);
@@ -3021,8 +3033,9 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     <div class="form-group"><label class="form-label">الوصف</label><textarea class="form-textarea" id="ptask-desc" rows="2" placeholder="تفاصيل إضافية..."></textarea></div>
     <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
       <div class="form-group">
-        <label class="form-label">المسؤول</label>
+        <label class="form-label"><i class="fa-solid fa-user" style="color:var(--accent)"></i> المسؤول <span id="ptask-assignee-src" style="font-size:9px;color:var(--text3);font-weight:400"></span></label>
         <select class="form-input" id="ptask-assignee"><option value="">— اختر —</option></select>
+        <div id="ptask-no-members-hint" style="display:none;font-size:10px;color:var(--accent4);margin-top:4px"><i class="fa-solid fa-triangle-exclamation"></i> لا يوجد أعضاء في المشروع — <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="closeM('modal-proj-task');setTimeout(function(){openProjectModal(document.getElementById('ptask-proj-id')?.value||'')},200)">عدّل المشروع لإضافة فريق</span></div>
       </div>
       <div class="form-group">
         <label class="form-label">الأولوية</label>
@@ -6481,18 +6494,14 @@ function doSendWhatsApp(){
 function v(id){const e=document.getElementById(id);return e?e.value:'';}
 function uploadLogo(input){
   const f=input.files[0];if(!f)return;
+  if(f.size>5*1024*1024){toast('<i class="fa-solid fa-triangle-exclamation"></i> الصورة أكبر من 5 ميجا');input.value='';return;}
   toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع اللوجو...');
-  const r=new FileReader();
-  r.onload=e=>{
-    // اللوجو هنا للفاتورة فقط - مش للسايدبار ولا التاب
-    S.settings.logo=e.target.result;
-    lsSave();cloudSaveNow(S);
-    // تحديث معاينة اللوجو في الإعدادات فقط
+  uploadToStorage(f,'logos',function(url){
+    S.settings.logo=url; lsSave();cloudSaveNow(S);
     const lp=document.getElementById('logo-preview');
-    if(lp) lp.innerHTML='<img src="'+e.target.result+'" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px">';
-    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ اللوجو — سيظهر في الفاتورة');
-  };
-  r.readAsDataURL(f);
+    if(lp) lp.innerHTML='<img src="'+url+'" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px">';
+    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع اللوجو');
+  },function(){ toast('<i class="fa-solid fa-triangle-exclamation"></i> فشل الرفع — تأكد من إعداد Storage bucket'); });
 }
 
 // ── مزامنة لوجو الستوديو مع platform_config ── (معطّلة - اللوجو للمتجر والفاتورة فقط)
@@ -11195,35 +11204,19 @@ async function doEmailReset(){
 async function uploadAvatarPhoto(input){
   const file = input.files[0];
   if(!file) return;
-  if(file.size > 2 * 1024 * 1024){ alert('<i class="fa-solid fa-triangle-exclamation"></i> حجم الصورة كبير — الحد الأقصى 2MB'); return; }
-
-  // Convert to base64 and store in user metadata + session
-  const reader = new FileReader();
-  reader.onload = async function(e){
-    const base64 = e.target.result;
-
-    // Update Supabase metadata
-    await supa.auth.updateUser({ data: { avatarUrl: base64 } });
-
-    // Update local session
+  if(file.size > 5 * 1024 * 1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> حجم الصورة كبير — الحد الأقصى 5MB'); return; }
+  toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع صورة البروفايل...');
+  uploadToStorage(file, 'avatars', async function(url){
+    await supa.auth.updateUser({ data: { avatarUrl: url } });
     const user = getSession();
-    if(user){
-      user.avatarUrl = base64;
-      saveSession(user);
-    }
-
-    // Update avatar display immediately
+    if(user){ user.avatarUrl = url; saveSession(user); }
     const av = document.getElementById('pm-avatar');
-    if(av) av.innerHTML = `<img src="${base64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-
-    // Update header avatar
+    if(av) av.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
     const headerAv = document.getElementById('user-avatar-icon');
-    if(headerAv) headerAv.innerHTML = `<img src="${base64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-
+    if(headerAv) headerAv.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
     showMiniNotif('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تحديث صورة البروفايل!');
     input.value = '';
-  };
-  reader.readAsDataURL(file);
+  }, function(){ toast('<i class="fa-solid fa-triangle-exclamation"></i> فشل رفع صورة البروفايل'); });
 }
 
 // ============================================================
@@ -16469,17 +16462,20 @@ window._incReceiptData = null;
 
 function invReceiptPreview(inp){
   var file=inp.files[0]; if(!file) return;
-  var r=new FileReader();
-  r.onload=function(e){
-    window._invReceiptData=e.target.result;
+  toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع الإيصال...');
+  uploadToStorage(file,'receipts',function(url){
+    window._invReceiptData=url;
     var img=document.getElementById('inv-receipt-img');
     var prev=document.getElementById('inv-receipt-prev');
     var ph=document.getElementById('inv-receipt-ph');
-    if(img) img.src=e.target.result;
+    if(img) img.src=url;
     if(prev) prev.style.display='block';
     if(ph) ph.style.display='none';
-  };
-  r.readAsDataURL(file);
+    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع الإيصال');
+  },function(){
+    // fallback base64 للإيصالات (صغيرة عادة)
+    var r=new FileReader(); r.onload=function(e){ window._invReceiptData=e.target.result; var img=document.getElementById('inv-receipt-img'); var prev=document.getElementById('inv-receipt-prev'); var ph=document.getElementById('inv-receipt-ph'); if(img) img.src=e.target.result; if(prev) prev.style.display='block'; if(ph) ph.style.display='none'; }; r.readAsDataURL(file);
+  });
 }
 function invReceiptClear(){
   window._invReceiptData=null;
@@ -16499,26 +16495,19 @@ function invReceiptDrop(e){
 }
 function incReceiptPreview(inp){
   var file=inp.files[0]; if(!file) return;
-  var r=new FileReader();
-  r.onload=function(e){
-    window._incReceiptData=e.target.result;
+  toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع الإيصال...');
+  uploadToStorage(file,'receipts',function(url){
+    window._incReceiptData=url;
     var img=document.getElementById('in-receipt-img');
     var prev=document.getElementById('in-receipt-prev');
     var ph=document.getElementById('in-receipt-ph');
-    if(img) img.src=e.target.result;
+    if(img) img.src=url;
     if(prev) prev.style.display='block';
     if(ph) ph.style.display='none';
-  };
-  r.readAsDataURL(file);
-}
-function incReceiptClear(){
-  window._incReceiptData=null;
-  var img=document.getElementById('in-receipt-img');
-  var prev=document.getElementById('in-receipt-prev');
-  var ph=document.getElementById('in-receipt-ph');
-  var fi=document.getElementById('in-receipt-file');
-  if(img) img.src=''; if(prev) prev.style.display='none';
-  if(ph) ph.style.display=''; if(fi) fi.value='';
+    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع الإيصال');
+  },function(){
+    var r=new FileReader(); r.onload=function(e){ window._incReceiptData=e.target.result; var img=document.getElementById('in-receipt-img'); var prev=document.getElementById('in-receipt-prev'); var ph=document.getElementById('in-receipt-ph'); if(img) img.src=e.target.result; if(prev) prev.style.display='block'; if(ph) ph.style.display='none'; }; r.readAsDataURL(file);
+  });
 }
 
 // ═══════════════════════════════════════════════════
@@ -17609,13 +17598,15 @@ function openNewStoreModal(editIdx){
 }
 window._onStoreLogoChange=function(input){
   var file=input.files[0]; if(!file) return;
-  if(file.size>1.5*1024*1024){toast('<i class="fa-solid fa-triangle-exclamation"></i> الصورة أكبر من 1.5 ميجا');input.value='';return;}
-  var r=new FileReader(); r.onload=function(e){
-    window._storeLogoData=e.target.result;
+  if(file.size>5*1024*1024){toast('<i class="fa-solid fa-triangle-exclamation"></i> الصورة أكبر من 5 ميجا');input.value='';return;}
+  toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع اللوجو...');
+  uploadToStorage(file,'store_logos',function(url){
+    window._storeLogoData=url;
     var pv=document.getElementById('_store-logo-preview');
-    if(pv) pv.innerHTML='<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px">';
+    if(pv) pv.innerHTML='<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px">';
     var cl=document.getElementById('_store-logo-clear'); if(cl) cl.style.display='';
-  }; r.readAsDataURL(file);
+    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع اللوجو');
+  },function(){ toast('<i class="fa-solid fa-triangle-exclamation"></i> فشل رفع اللوجو'); });
 };
 window._clearStoreLogoModal=function(){
   window._storeLogoData='';
@@ -17768,15 +17759,15 @@ function saveSiteDesc(){
 var _svcLogoData='';
 function handleSvcLogo(input){
   var file=input.files[0]; if(!file) return;
-  if(file.size>1.5*1024*1024){toast('<i class="fa-solid fa-triangle-exclamation"></i> الصورة أكبر من 1.5 ميجا');input.value='';return;}
+  if(file.size>5*1024*1024){toast('<i class="fa-solid fa-triangle-exclamation"></i> الصورة أكبر من 5 ميجا');input.value='';return;}
   toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع اللوجو...');
-  var r=new FileReader(); r.onload=function(e){
-    _svcLogoData=e.target.result;
+  uploadToStorage(file,'store_logos',function(url){
+    _svcLogoData=url;
     var pv=document.getElementById('svc-logo-preview');
-    if(pv) pv.innerHTML='<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px">';
+    if(pv) pv.innerHTML='<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px">';
     var cl=document.getElementById('svc-logo-clear-btn'); if(cl) cl.style.display='';
-    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تحديد اللوجو - اضغط "حفظ اللوجو" لتأكيد الحفظ في المتجر');
-  }; r.readAsDataURL(file);
+    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع اللوجو — اضغط "حفظ اللوجو" لتأكيد الحفظ');
+  },function(){ toast('<i class="fa-solid fa-triangle-exclamation"></i> فشل رفع اللوجو'); });
 }
 function clearSvcLogo(){
   _svcLogoData='';
@@ -17910,15 +17901,25 @@ function togglePkgStActive(){ _pkgStActive=!_pkgStActive; _updatePkgStToggle(); 
 var _pkgStThumbData='';
 function handlePkgStThumb(input){
   var file=input.files[0]; if(!file) return;
-  if(file.size>1*1024*1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> حجم الصورة أكبر من 1 ميجا'); input.value=''; return; }
-  var r=new FileReader();
-  r.onload=function(e){
-    _pkgStThumbData=e.target.result;
-    var pv=document.getElementById('pkg-st-thumb-preview'); if(pv){pv.src=e.target.result;pv.style.display='';}
-    var nm=document.getElementById('pkg-st-thumb-name'); if(nm) nm.textContent=file.name;
-    var cl=document.getElementById('pkg-st-thumb-clear'); if(cl) cl.style.display='';
-  };
-  r.readAsDataURL(file);
+  if(file.size>5*1024*1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> حجم الصورة أكبر من 5 ميجا'); input.value=''; return; }
+  toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع الصورة...');
+  var ext=file.name.split('.').pop()||'jpg';
+  var path='pkg_images/'+(_supaUserId||'anon')+'_'+Date.now()+'.'+ext;
+  supa.storage.from('media').upload(path, file, {upsert:true, contentType:file.type})
+    .then(function(res){
+      if(res.error){ _handlePkgStThumbBase64(file); return; }
+      var urlRes=supa.storage.from('media').getPublicUrl(path);
+      var publicUrl=urlRes.data?.publicUrl||'';
+      if(!publicUrl){ _handlePkgStThumbBase64(file); return; }
+      _pkgStThumbData=publicUrl;
+      var pv=document.getElementById('pkg-st-thumb-preview'); if(pv){pv.src=publicUrl;pv.style.display='';}
+      var nm=document.getElementById('pkg-st-thumb-name'); if(nm) nm.textContent=file.name;
+      var cl=document.getElementById('pkg-st-thumb-clear'); if(cl) cl.style.display='';
+      toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع الصورة');
+    }).catch(function(){ _handlePkgStThumbBase64(file); });
+}
+function _handlePkgStThumbBase64(file){
+  toast('<i class="fa-solid fa-triangle-exclamation"></i> Storage غير متاح — تأكد من إنشاء bucket اسمه "media" في Supabase');
 }
 function clearPkgStThumb(){
   _pkgStThumbData='';
@@ -18039,15 +18040,25 @@ function openPortfolioProjectModal(id){
 }
 function handlePfProjThumb(input){
   var file=input.files[0]; if(!file) return;
-  if(file.size>1*1024*1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> حجم الصورة أكبر من 1 ميجا'); input.value=''; return; }
-  var r=new FileReader();
-  r.onload=function(e){
-    _pfThumbData=e.target.result;
-    var pv=document.getElementById('pf-proj-thumb-preview'); if(pv){pv.src=e.target.result;pv.style.display='';}
-    var nm=document.getElementById('pf-proj-thumb-name'); if(nm) nm.textContent=file.name;
-    var cl=document.getElementById('pf-proj-thumb-clear'); if(cl) cl.style.display='';
-  };
-  r.readAsDataURL(file);
+  if(file.size>5*1024*1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> حجم الصورة أكبر من 5 ميجا'); input.value=''; return; }
+  toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع الصورة...');
+  var ext=file.name.split('.').pop()||'jpg';
+  var path='pf_images/'+(_supaUserId||'anon')+'_'+Date.now()+'.'+ext;
+  supa.storage.from('media').upload(path, file, {upsert:true, contentType:file.type})
+    .then(function(res){
+      if(res.error){ _handlePfProjThumbBase64(file); return; }
+      var urlRes=supa.storage.from('media').getPublicUrl(path);
+      var publicUrl=urlRes.data?.publicUrl||'';
+      if(!publicUrl){ _handlePfProjThumbBase64(file); return; }
+      _pfThumbData=publicUrl;
+      var pv=document.getElementById('pf-proj-thumb-preview'); if(pv){pv.src=publicUrl;pv.style.display='';}
+      var nm=document.getElementById('pf-proj-thumb-name'); if(nm) nm.textContent=file.name;
+      var cl=document.getElementById('pf-proj-thumb-clear'); if(cl) cl.style.display='';
+      toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع الصورة');
+    }).catch(function(){ _handlePfProjThumbBase64(file); });
+}
+function _handlePfProjThumbBase64(file){
+  toast('<i class="fa-solid fa-triangle-exclamation"></i> Storage غير متاح — تأكد من إنشاء bucket اسمه "media" في Supabase');
 }
 function clearPfProjThumb(){
   _pfThumbData='';
@@ -18146,18 +18157,17 @@ function toggleSvcActive(id,event){
 // ── Banner ──
 function handleSvcBanner(input){
   var file=input.files[0]; if(!file) return;
-  if(file.size>2*1024*1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> حجم البانر أكبر من 2 ميجا'); input.value=''; return; }
-  var r=new FileReader();
-  r.onload=function(e){
+  if(file.size>5*1024*1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> حجم البانر أكبر من 5 ميجا'); input.value=''; return; }
+  toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع البانر...');
+  uploadToStorage(file,'banners',function(url){
     var _stIdx=_currentStoreIdx;
     var _curSt=(_stIdx!=null)?(_getStores()[_stIdx]||null):null;
-    if(_curSt){ _curSt.banner=e.target.result; }
-    else { if(!S.settings) S.settings={}; S.settings.svc_banner=e.target.result; }
+    if(_curSt){ _curSt.banner=url; }
+    else { if(!S.settings) S.settings={}; S.settings.svc_banner=url; }
     var prev=document.getElementById('svc-banner-preview'); var img=document.getElementById('svc-banner-img'); var clr=document.getElementById('svc-banner-clear-btn');
-    if(prev) prev.style.display=''; if(img) img.src=e.target.result; if(clr) clr.style.display='';
+    if(prev) prev.style.display=''; if(img) img.src=url; if(clr) clr.style.display='';
     lsSave(); cloudSaveNow(S); toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع البانر');
-  };
-  r.readAsDataURL(file);
+  },function(){ toast('<i class="fa-solid fa-triangle-exclamation"></i> فشل رفع البانر'); });
 }
 function clearSvcBanner(){
   var _stIdx=_currentStoreIdx;
@@ -18298,17 +18308,43 @@ function openSvcModal(id){
 }
 function handleSvcImg(input){
   var file=input.files[0]; if(!file) return;
-  if(file.size>2*1024*1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> الصورة أكبر من 2 ميجا'); input.value=''; return; }
+  if(file.size>5*1024*1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> الصورة أكبر من 5 ميجا'); input.value=''; return; }
   toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع الصورة...');
-  var r=new FileReader();
-  r.onload=function(e){
-    _svcImgData=e.target.result;
-    var pv=document.getElementById('svc-img-preview'); pv.src=e.target.result; pv.style.display='';
-    document.getElementById('svc-img-name').textContent=input.files[0].name;
-    var cl=document.getElementById('svc-img-clear-btn'); if(cl) cl.style.display='';
-    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع الصورة');
-  };
-  r.readAsDataURL(file);
+
+  // ── رفع مباشر لـ Supabase Storage ──
+  var ext = file.name.split('.').pop() || 'jpg';
+  var path = 'svc_images/' + (_supaUserId||'anon') + '_' + Date.now() + '.' + ext;
+
+  supa.storage.from('media').upload(path, file, { upsert: true, contentType: file.type })
+    .then(function(res){
+      if(res.error){
+        // Storage مش متاح أو مش موجود — fallback لـ Base64
+        console.warn('Storage upload failed:', res.error.message, '— falling back to base64');
+        _handleSvcImgBase64(file, input);
+        return;
+      }
+      // جيب الـ public URL
+      var urlRes = supa.storage.from('media').getPublicUrl(path);
+      var publicUrl = urlRes.data?.publicUrl || '';
+      if(!publicUrl){
+        _handleSvcImgBase64(file, input);
+        return;
+      }
+      _svcImgData = publicUrl;
+      var pv=document.getElementById('svc-img-preview'); pv.src=publicUrl; pv.style.display='';
+      document.getElementById('svc-img-name').textContent=file.name;
+      var cl=document.getElementById('svc-img-clear-btn'); if(cl) cl.style.display='';
+      toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع الصورة على السحابة');
+    })
+    .catch(function(){
+      _handleSvcImgBase64(file, input);
+    });
+}
+
+// Fallback: لو Storage مش شغال
+function _handleSvcImgBase64(file, input){
+  toast('<i class="fa-solid fa-triangle-exclamation"></i> Storage غير متاح — تأكد من إنشاء bucket اسمه "media" في Supabase');
+  if(input) input.value='';
 }
 
 // ── Packages ──
@@ -18422,15 +18458,25 @@ function _pfCheckEmpty(){
 }
 function _pfThumbUpload(input, rowId){
   var file=input.files[0]; if(!file) return;
-  if(file.size>1024*1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> الصورة أكبر من 1 ميجا'); input.value=''; return; }
-  var r=new FileReader();
-  r.onload=function(e){
-    var row=document.getElementById(rowId); if(!row) return;
-    row.dataset.thumb=e.target.result;
-    var lbl=document.getElementById('pfthumb_lbl_'+rowId);
-    if(lbl) lbl.innerHTML='<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> '+file.name.slice(0,18);
-  };
-  r.readAsDataURL(file);
+  if(file.size>5*1024*1024){ toast('<i class="fa-solid fa-triangle-exclamation"></i> الصورة أكبر من 5 ميجا'); input.value=''; return; }
+  var ext=file.name.split('.').pop()||'jpg';
+  var path='pf_row_images/'+(_supaUserId||'anon')+'_'+Date.now()+'.'+ext;
+  toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع الصورة...');
+  supa.storage.from('media').upload(path, file, {upsert:true, contentType:file.type})
+    .then(function(res){
+      if(res.error){ _pfThumbUploadBase64(file, rowId); return; }
+      var urlRes=supa.storage.from('media').getPublicUrl(path);
+      var publicUrl=urlRes.data?.publicUrl||'';
+      if(!publicUrl){ _pfThumbUploadBase64(file, rowId); return; }
+      var row=document.getElementById(rowId); if(!row) return;
+      row.dataset.thumb=publicUrl;
+      var lbl=document.getElementById('pfthumb_lbl_'+rowId);
+      if(lbl) lbl.innerHTML='<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> '+file.name.slice(0,18);
+      toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع الصورة');
+    }).catch(function(){ _pfThumbUploadBase64(file, rowId); });
+}
+function _pfThumbUploadBase64(file, rowId){
+  toast('<i class="fa-solid fa-triangle-exclamation"></i> Storage غير متاح — تأكد من إنشاء bucket اسمه "media" في Supabase');
 }
 function collectPortfolio(){
   var rows = document.querySelectorAll('#svc-portfolio-list > div[data-pftype]');
@@ -23490,15 +23536,31 @@ function openProjTaskModal(projId, taskId, defaultStatus){
   var depInp=document.getElementById('ptask-deposit');
   if(depInp) depInp.value=t&&t.deposit?t.deposit:'';
   togglePtaskDepositField();
-  // Assignee from project members
+  // Assignee from project members — fallback to all team members
   var proj=_getProjById(projId);
-  var members=proj?proj.members||[]:[{id:'me',name:S.settings?.name||'أنا'}];
+  var projMembers=proj?proj.members||[]:[];
+  var allTeamMembers=(S.teams||[]).filter(function(m){return m.role!='invite_pending';});
+  var me={id:'me',name:S.settings?.name||'أنا (أنت)'};
+  var members;
+  var hasProjectMembers=projMembers.length>0;
+  if(hasProjectMembers){
+    var hasMeInProj=projMembers.some(function(m){return m.id==='me';});
+    members=hasMeInProj?projMembers:[me,...projMembers];
+  } else {
+    members=[me,...allTeamMembers];
+  }
   var asel=document.getElementById('ptask-assignee');
-  asel.innerHTML='<option value="">— اختر —</option>'+members.map(function(m){
+  var assigneeLabel=hasProjectMembers?'— اختر من فريق المشروع —':'— اختر عضو —';
+  asel.innerHTML='<option value="">'+assigneeLabel+'</option>'+members.map(function(m){
     var n=escapeHtml(m.name||m.email||'?');
     var sel=(t&&(t.assignee_id===m.id||t.assignee_id===String(m.id)))?'selected':'';
     return '<option value="'+m.id+'" data-name="'+n+'" '+sel+'>'+n+'</option>';
   }).join('');
+  // Label & hint
+  var srcLabel=document.getElementById('ptask-assignee-src');
+  var hintEl=document.getElementById('ptask-no-members-hint');
+  if(srcLabel) srcLabel.textContent=hasProjectMembers?'(من فريق المشروع)':'(كل أعضاء الفريق)';
+  if(hintEl) hintEl.style.display=(!hasProjectMembers&&allTeamMembers.length===0)?'block':'none';
   // Show assignee pay info
   _renderPtaskAssigneeInfo(t);
   renderPtaskSteps();
