@@ -355,7 +355,7 @@ async function _doCloudSave(data, force) {
 function lsSave() {
   if(!S) return;
   S._savedAt = new Date().toISOString();
-  // حفظ فوري بدون debounce لضمان عدم فقدان البيانات عند الـ refresh
+  showSyncIndicator('<i class="fa-solid fa-circle-notch fa-spin"></i> جاري الحفظ...', 'var(--accent)');
   clearTimeout(_syncTimer);
   _syncTimer = null;
   _doCloudSave(S);
@@ -721,7 +721,10 @@ function showSyncIndicator(msg, color){
   el.innerHTML = msg;
   el.style.opacity = '1';
   clearTimeout(el._t);
-  el._t = setTimeout(()=>{ el.style.opacity='0'; }, 2500);
+  // لو "جاري" — ما نخبيش لحد ما الحفظ يخلص
+  if(!msg.includes('جاري')) {
+    el._t = setTimeout(()=>{ el.style.opacity='0'; }, 2500);
+  }
 }
 </script>
 <style>
@@ -5580,6 +5583,7 @@ function _fmtPrice(val, svcCurrency){ return Number(val||0).toLocaleString() + '
 function lsSave(){
   if(!S) return;
   S._savedAt = new Date().toISOString();
+  showSyncIndicator('<i class="fa-solid fa-circle-notch fa-spin"></i> جاري الحفظ...', 'var(--accent)');
   clearTimeout(_syncTimer);
   _syncTimer = null;
   _doCloudSave(S);
