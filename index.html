@@ -257,13 +257,20 @@ let _cloudSavePending = false;
 
 async function _doCloudSave(data) {
   if(!_supaUserId || !data) return;
-  if(_cloudSaving) { _cloudSavePending = true; return; }
+  if(_cloudSaving) { 
+    _cloudSavePending = true; 
+    // حفظ محلي فوري على الأقل
+    try { localStorage.setItem(userKey(), JSON.stringify(data)); } catch(e) {}
+    try { localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(data)); } catch(e) {}
+    return; 
+  }
   _cloudSaving = true;
   try {
     // ─── حماية من رفع بيانات فارغة ───
-    // لو S فارغة تقريباً (مش معقول) لا ترفعها
     const _dataScore = (data.tasks?.length||0) + (data.clients?.length||0) +
-                       (data.invoices?.length||0) + (data.transactions?.length||0);
+                       (data.invoices?.length||0) + (data.transactions?.length||0) +
+                       (data.services?.length||0) + (data.standalone_packages?.length||0) +
+                       (data.portfolio_projects?.length||0);
     // جلب آخر نسخة من السحابة للمقارنة (كل 5 دقائق بس)
     const _lastCloudCheck = window._lastCloudScoreCheck || 0;
     if(Date.now() - _lastCloudCheck > 300000) { // كل 5 دقائق
@@ -272,11 +279,17 @@ async function _doCloudSave(data) {
         if(_cv?.data) {
           const _cd = typeof _cv.data==='string' ? JSON.parse(_cv.data) : _cv.data;
           const _cloudScore = (_cd?.tasks?.length||0) + (_cd?.clients?.length||0) +
-                              (_cd?.invoices?.length||0) + (_cd?.transactions?.length||0);
+                              (_cd?.invoices?.length||0) + (_cd?.transactions?.length||0) +
+                              (_cd?.services?.length||0) + (_cd?.standalone_packages?.length||0) +
+                              (_cd?.portfolio_projects?.length||0);
           window._lastCloudScore = _cloudScore;
           window._lastCloudScoreCheck = Date.now();
           // إذا البيانات المحلية أقل بكثير من السحابة - خطر!
-          if(_dataScore < _cloudScore - 5 && _cloudScore > 3) {
+          // استثناء: لو المستخدم عنده settings/logo/banner محلي أحدث، نحفظ بدون ما نرجع
+          const _localHasSettings = !!(data?.settings?.logo || data?.settings?.store_logo || 
+                                       data?.settings?.svc_banner || data?.settings?.username ||
+                                       data?.settings?.name);
+          if(_dataScore < _cloudScore - 5 && _cloudScore > 3 && !_localHasSettings) {
             console.error('⛔ ABORT cloudSave: local data smaller than cloud! local:', _dataScore, 'cloud:', _cloudScore);
             // استرد من السحابة بدل ما نكتب عليها
             S = _cd;
@@ -312,6 +325,8 @@ async function _doCloudSave(data) {
     try { localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(_safeData)); } catch(e) {}
     try { localStorage.setItem(userKey(), JSON.stringify(_safeData)); } catch(e) {}
 
+    // أضف timestamp للمقارنة عند التحميل
+    _safeData._savedAt = new Date().toISOString();
     var _un = (_safeData&&_safeData.settings&&_safeData.settings.username)||null;
     const payload = { user_id: _supaUserId, data: JSON.stringify(_safeData), updated_at: new Date().toISOString(), ...(_un?{username_index:_un.toLowerCase()}:{}) };
     let _upsertError;
@@ -358,10 +373,24 @@ function cloudSave(data){
   if(!_supaUserId) return;
   // حفظ محلي فوري دائماً بالبيانات الحالية
   try { localStorage.setItem(userKey(), JSON.stringify(data)); } catch(e) {}
+  if(_supaUserId) {
+    try { localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(data)); } catch(e) {}
+  }
   clearTimeout(_syncTimer);
   // نستخدم S مباشرة وقت التنفيذ مش data وقت الاستدعاء
-  // ده بيضمن إننا بنحفظ أحدث نسخة وليس نسخة قديمة
   _syncTimer = setTimeout(() => _doCloudSave(S), 1200);
+}
+
+// حفظ فوري للسحابة بدون debounce — للإعدادات والصور والتغييرات المهمة
+function cloudSaveNow(data){
+  if(!_supaUserId) return;
+  const d = data || S;
+  // حفظ محلي فوري
+  try { localStorage.setItem(userKey(), JSON.stringify(d)); } catch(e) {}
+  try { localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(d)); } catch(e) {}
+  // إلغاء أي debounce معلّق وحفظ فوري
+  clearTimeout(_syncTimer);
+  _doCloudSave(d);
 }
 
 // ══════════════════════════════════════════════════════
@@ -475,16 +504,32 @@ function _mergeUiSettingsIntoS(){
 window.addEventListener('beforeunload', function() {
   if(_supaUserId && S) {
     try {
-      localStorage.setItem(userKey(), JSON.stringify(S));
-      localStorage.setItem('studioOS_backup_'+_supaUserId, JSON.stringify(S));
+      const _json = JSON.stringify(S);
+      localStorage.setItem(userKey(), _json);
+      localStorage.setItem('studioOS_backup_'+_supaUserId, _json);
+      localStorage.setItem('studioOS_v3_'+_supaUserId, _json);
     } catch(e) {}
-    // حفظ sync (بدون await) عشان beforeunload
+    // إلغاء الـ timer وحفظ فوري
+    clearTimeout(_syncTimer);
+    // sendBeacon مع الـ headers الصح
     try {
-      const payload = { user_id: _supaUserId, data: JSON.stringify(S), updated_at: new Date().toISOString() };
-      navigator.sendBeacon && navigator.sendBeacon(
-        'https://mpfmcjgigpvdxbhgzufo.supabase.co/rest/v1/studio_data',
-        JSON.stringify(payload)
-      );
+      const _payload = JSON.stringify({
+        user_id: _supaUserId,
+        data: JSON.stringify(S),
+        updated_at: new Date().toISOString()
+      });
+      // استخدام fetch sync-like عبر keepalive
+      fetch('https://mpfmcjgigpvdxbhgzufo.supabase.co/rest/v1/studio_data?on_conflict=user_id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: _payload,
+        keepalive: true
+      }).catch(()=>{});
     } catch(e) {}
   }
 });
@@ -2318,7 +2363,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       </div>
       <div class="auth-input-group">
         <label class="auth-label">اسم العمل (اختياري)</label>
-        <input class="auth-input" id="reg-studio" type="text" placeholder="مثال: Creative Studio">
+        <input class="auth-input" id="reg-studio" type="text" placeholder="مثال: Creative Ordo">
       </div>
       <div class="auth-input-group">
         <label class="auth-label">كلمة المرور *</label>
@@ -5460,6 +5505,8 @@ function _fmtPrice(val, svcCurrency){ return Number(val||0).toLocaleString() + '
 function lsSave(){
   if(!S) return;
   try {
+    // أضف timestamp للمقارنة
+    S._savedAt = new Date().toISOString();
     // حفظ محلي فوري
     const _key = userKey();
     const _json = JSON.stringify(S);
@@ -6046,14 +6093,14 @@ function addTaskTypeFromSettings(){
   if(!S.settings.taskTypes) S.settings.taskTypes=[];
   if(!S.settings.taskTypes.includes(val)) S.settings.taskTypes.push(val);
   inp.value='';
-  lsSave(); cloudSave(S); renderSettingsTaskTypes(); fillTaskTypesDD();
+  lsSave(); cloudSaveNow(S); renderSettingsTaskTypes(); fillTaskTypesDD();
   showToast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم إضافة نوع المهمة: '+val);
 }
 function removeTaskTypeFromSettings(i){
   if(!S.settings.taskTypes)return;
   const name=S.settings.taskTypes[i];
   S.settings.taskTypes.splice(i,1);
-  lsSave(); cloudSave(S); renderSettingsTaskTypes(); fillTaskTypesDD();
+  lsSave(); cloudSaveNow(S); renderSettingsTaskTypes(); fillTaskTypesDD();
   showToast('<i class="fa-solid fa-trash"></i> تم حذف: '+name);
 }
 function saveSettings(){
@@ -6069,7 +6116,7 @@ function saveSettings(){
     paymentAccounts:S.settings?.paymentAccounts||[],
   });
   _syncStudioLogoToConfig();
-  lsSave(); cloudSave(S); toast('✅ تم حفظ الإعدادات');
+  lsSave(); cloudSaveNow(S); toast('✅ تم حفظ الإعدادات');
 }
 
 async function forceCloudReload(){
@@ -6301,7 +6348,7 @@ function uploadLogo(input){
   r.onload=e=>{
     // اللوجو هنا للفاتورة فقط - مش للسايدبار ولا التاب
     S.settings.logo=e.target.result;
-    lsSave();cloudSave(S);
+    lsSave();cloudSaveNow(S);
     // تحديث معاينة اللوجو في الإعدادات فقط
     const lp=document.getElementById('logo-preview');
     if(lp) lp.innerHTML='<img src="'+e.target.result+'" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px">';
@@ -6316,7 +6363,7 @@ function _syncStudioLogoToConfig(){
   // اللوجو في S.settings.logo للفاتورة فقط
   // اللوجو في S.settings.store_logo للمتجر فقط
 }
-function removeLogo(){S.settings.logo='';lsSave();cloudSave(S);const lp=document.getElementById('logo-preview');if(lp)lp.innerHTML='<span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span>';}
+function removeLogo(){S.settings.logo='';lsSave();cloudSaveNow(S);const lp=document.getElementById('logo-preview');if(lp)lp.innerHTML='<span style="color:var(--text3);font-size:13px">لا يوجد لوجو</span>';}
 function clearAll(){if(confirm('سيتم مسح جميع البيانات! هل أنت متأكد؟')){const s=S.settings;S={tasks:[],clients:[],transactions:[],invoices:[],goals:[],schedule:[],settings:s};lsSave();renderAll();}}
 
 // ═══ استعادة البيانات من النسخة الاحتياطية ═══
@@ -6412,7 +6459,7 @@ function setDisplayMode(mode) {
     S.settings.displayMode = mode;
     if(typeof lsSave==='function') lsSave();
     clearTimeout(window._modeCloudTimer);
-    window._modeCloudTimer = setTimeout(()=>{ if(typeof cloudSave==='function') cloudSave(S); },1500);
+    if(typeof cloudSaveNow==='function') cloudSaveNow(S);
   }
 }
 
@@ -6431,7 +6478,7 @@ function setThemeColor(color) {
     S.settings.accentColor = color;
     if(typeof lsSave === 'function') lsSave();
     if(typeof cloudSave === 'function') clearTimeout(window._themeCloudTimer);
-    window._themeCloudTimer = setTimeout(()=>{ if(typeof cloudSave==='function') cloudSave(S); },1500);
+    if(typeof cloudSaveNow==='function') cloudSaveNow(S);
   }
 }
 
@@ -6450,7 +6497,7 @@ const TRANSLATIONS = {
     'البريد الإلكتروني':'Email','كلمة المرور':'Password',
     'نسيت كلمة المرور؟':'Forgot password?','أو':'or',
     'متابعة بـ Google':'Continue with Google',
-    'اسم العمل / المشروع':'Studio name','رقم الهاتف':'Phone',
+    'اسم العمل / المشروع':'Ordo name','رقم الهاتف':'Phone',
     // Dashboard
     'نظرة عامة على استوديوك':'Overview of your studio',
     'مهمة نشطة':'Active task','مهمة منتهية':'Done',
@@ -6477,8 +6524,8 @@ const TRANSLATIONS = {
     'عميل جديد':'New Client','اسم العميل':'Client Name',
     'نوع العمل':'Work Type','فري لانس':'Freelance','دوام':'Full-time',
     // Settings
-    'إعدادات النظام':'Studio Settings','خصّص النظام كما تريد':'Customize your system',
-    'بيانات العمل':'Studio Info','شعار العمل':'Studio Logo',
+    'إعدادات النظام':'Ordo Settings','خصّص النظام كما تريد':'Customize your system',
+    'بيانات العمل':'Ordo Info','شعار العمل':'Ordo Logo',
     'منصات التواصل':'Social Media','مظهر النظام':'Appearance',
     'وضع العرض':'Display Mode','<i class="fa-solid fa-moon"></i> ليلي':'<i class="fa-solid fa-moon"></i> Dark','<i class="fa-solid fa-sun"></i>️ نهاري':'<i class="fa-solid fa-sun"></i>️ Light',
     'لون هوية النظام':'Accent Color','لون مخصص':'Custom color',
@@ -9066,7 +9113,7 @@ function exportReceipt(transId){
   const t = S.transactions.find(x=>x.id===transId);
   if(!t) return;
   const s = S.settings||{};
-  const logo = s.logo ? `<img src="${s.logo}" style="max-height:56px;max-width:130px;object-fit:contain">` : `<div style="font-size:20px;font-weight:900;color:#7c6ff7">${s.name||'Studio'}</div>`;
+  const logo = s.logo ? `<img src="${s.logo}" style="max-height:56px;max-width:130px;object-fit:contain">` : `<div style="font-size:20px;font-weight:900;color:#7c6ff7">${s.name||'Ordo'}</div>`;
   const linkedTask = t.linkedTaskId ? S.tasks.find(x=>x.id===t.linkedTaskId) : null;
   const payTypeAr = {full:'دفعة كاملة',deposit:'عربون',partial:'دفعة جزئية'}[t.paymentType||'full'] || 'دفعة';
   const receiptNum = 'RCP-' + String(transId).slice(-5);
@@ -9201,7 +9248,7 @@ function previewInv(id){
 function exportPDF(id){
   const inv=S.invoices.find(i=>i.id===id);if(!inv)return;
   const s=S.settings||{};
-  const logo=s.logo?`<img src="${s.logo}" style="max-height:64px;max-width:150px;object-fit:contain">` : `<div style="font-size:22px;font-weight:900;color:#7c6ff7">${s.name||'Studio'}</div>`;
+  const logo=s.logo?`<img src="${s.logo}" style="max-height:64px;max-width:150px;object-fit:contain">` : `<div style="font-size:22px;font-weight:900;color:#7c6ff7">${s.name||'Ordo'}</div>`;
   const rows=inv.items.map(it=>`
     <tr>
       <td style="padding:10px 14px;border-bottom:1px solid #eee;font-size:13px;color:#333">${it.desc}</td>
@@ -9991,7 +10038,7 @@ async function doRegister(){
   const { data, error } = await supa.auth.signUp({
     email,
     password: pw1,
-    options: { data: { name, phone, studio: studio||name+' Studio' } }
+    options: { data: { name, phone, studio: studio||name+' Ordo' } }
   });
 
   btns.forEach(b=>{ b.disabled=false; });
@@ -10015,7 +10062,7 @@ async function doRegister(){
   showAuthMsg('register-success','<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم إنشاء الحساب بنجاح!');
   // تفعيل التجربة المجانية 7 أيام للمستخدم الجديد
   if(data.user) await _activateTrial(data.user.id);
-  setTimeout(()=>{ loginWithSupaSession(data.user, data.session, {name, phone, studio: studio||name+' Studio'}); }, 800);
+  setTimeout(()=>{ loginWithSupaSession(data.user, data.session, {name, phone, studio: studio||name+' Ordo'}); }, 800);
 }
 
 async function doLogin(){
@@ -10046,7 +10093,7 @@ async function doLogin(){
     supaId: data.user.id,
     name  : meta.name   || data.user.email,
     phone : meta.phone  || '',
-    studio: meta.studio || (meta.name ? meta.name+' Studio' : '')
+    studio: meta.studio || (meta.name ? meta.name+' Ordo' : '')
   };
   loginWithSupaSession(data.user, data.session, userObj);
 }
@@ -10097,12 +10144,22 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     try { if(_localBackupRaw) _localBackup = JSON.parse(_localBackupRaw); } catch(e) {}
 
     const _cloudHasData = (cloudData.tasks?.length || 0) + (cloudData.clients?.length || 0) +
-                          (cloudData.invoices?.length || 0) + (cloudData.transactions?.length || 0);
+                          (cloudData.invoices?.length || 0) + (cloudData.transactions?.length || 0) +
+                          (cloudData.services?.length || 0) + (cloudData.standalone_packages?.length || 0);
     const _localHasData = (_localBackup?.tasks?.length || 0) + (_localBackup?.clients?.length || 0) +
-                          (_localBackup?.invoices?.length || 0) + (_localBackup?.transactions?.length || 0);
+                          (_localBackup?.invoices?.length || 0) + (_localBackup?.transactions?.length || 0) +
+                          (_localBackup?.services?.length || 0) + (_localBackup?.standalone_packages?.length || 0);
 
-    // لو الـ local backup أكبر بشكل واضح - ده مؤشر إن السحابة اتكتب عليها بيانات فارغة
-    if(_localHasData > _cloudHasData + 10 && _localBackup) {
+    // مقارنة الـ timestamps — الأحدث يكسب دايماً
+    const _cloudTs = cloudData?._savedAt ? new Date(cloudData._savedAt).getTime() : 0;
+    const _localTs = _localBackup?._savedAt ? new Date(_localBackup._savedAt).getTime() : 0;
+    const _localIsNewer = _localTs > _cloudTs + 5000; // 5 ثواني tolerance
+    
+    // لو الـ local backup أحدث أو أكبر بشكل واضح - استخدمه
+    if((_localIsNewer && _localHasData >= _cloudHasData - 3) && _localBackup) {
+      console.warn('⚠️ Local backup is newer — using local');
+      S = _localBackup;
+    } else if(_localHasData > _cloudHasData + 10 && _localBackup) {
       console.warn('⚠️ Cloud data seems incomplete vs local backup — using local');
       S = _localBackup;
     } else {
@@ -10765,7 +10822,7 @@ function goToUserSite(){
 }
 
 function goToAdminDash(){
-  window.open('StudioOS_Admin_v3.html','_blank');
+  window.open('admin.html','_blank');
 }
 
 function _addAdminSwitchBtn(){
@@ -11343,9 +11400,9 @@ async function saveProfileEdit(){
   if(!name){ if(msgEl){msgEl.innerHTML='<i class="fa-solid fa-triangle-exclamation"></i> الاسم مطلوب';msgEl.className='auth-error show';} return; }
 
   // Update Supabase metadata
-  await supa.auth.updateUser({ data: { name, studio: studio||name+' Studio', phone } });
+  await supa.auth.updateUser({ data: { name, studio: studio||name+' Ordo', phone } });
 
-  const updated = {...user, name, studio: studio||name+' Studio', phone};
+  const updated = {...user, name, studio: studio||name+' Ordo', phone};
   saveSession(updated);
   updateUserBadge(updated);
   if(S.settings){ S.settings.name=studio||name; S.settings.phone=phone; lsSave(); }
@@ -17464,7 +17521,7 @@ function _saveStore(editIdx, btn){
     S.stores.push({id:'store_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name:name,desc:desc,username:username,logo:logo,createdAt:new Date().toISOString()});
   }
   window._storeLogoData='';
-  lsSave(); cloudSave(S); modal.remove(); renderMultiStoresList(); renderStoresHomeList();
+  lsSave(); cloudSaveNow(S); modal.remove(); renderMultiStoresList(); renderStoresHomeList();
   toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ المتجر');
 }
 function copyStoreLink(idx){ var link=getSvcLink(_getStores()[idx]?.id); navigator.clipboard.writeText(link).then(function(){toast('<i class="fa-solid fa-copy"></i> تم نسخ الرابط');}).catch(function(){toast(link);}); }
@@ -17472,7 +17529,7 @@ function previewStore(idx){ window.open(getSvcLink(_getStores()[idx]?.id),'_blan
 function editStore(idx){ openNewStoreModal(idx); }
 function deleteStore(idx){
   confirmDel('حذف هذا المتجر؟',function(){
-    S.stores.splice(idx,1); lsSave(); cloudSave(S); renderMultiStoresList(); renderStoresHomeList();
+    S.stores.splice(idx,1); lsSave(); cloudSaveNow(S); renderMultiStoresList(); renderStoresHomeList();
     toast('<i class="fa-solid fa-trash"></i> تم حذف المتجر');
   });
 }
@@ -17579,12 +17636,12 @@ function toggleOrdersOpen(){
   if(!S.settings) S.settings={};
   S.settings.svc_orders_open=!(S.settings.svc_orders_open!==false);
   _setOrdersOpenUI(S.settings.svc_orders_open);
-  lsSave(); cloudSave(S); toast(S.settings.svc_orders_open?'✅ فُتح الاستقبال':'⏸ أُغلق الاستقبال');
+  lsSave(); cloudSaveNow(S); toast(S.settings.svc_orders_open?'✅ فُتح الاستقبال':'⏸ أُغلق الاستقبال');
 }
 function saveSiteDesc(){
   if(!S.settings) S.settings={};
   S.settings.svc_site_desc=(document.getElementById('svc-site-desc')||{}).value||'';
-  lsSave(); cloudSave(S); toast('✅ تم حفظ الوصف');
+  lsSave(); cloudSaveNow(S); toast('✅ تم حفظ الوصف');
 }
 
 // ── لوجو الموقع الرئيسي ──
@@ -17609,7 +17666,7 @@ function clearSvcLogo(){
   if(pv) pv.innerHTML='<i class="fa-solid fa-image" style="color:var(--text3);font-size:22px"></i>';
   var cl=document.getElementById('svc-logo-clear-btn'); if(cl) cl.style.display='none';
   var inp=document.getElementById('svc-logo-input'); if(inp) inp.value='';
-  lsSave(); cloudSave(S); toast('تم إزالة لوجو المتجر');
+  lsSave(); cloudSaveNow(S); toast('تم إزالة لوجو المتجر');
 }
 function saveSvcLogo(){
   if(!S.settings) S.settings={};
@@ -17617,7 +17674,7 @@ function saveSvcLogo(){
   if(!logo){toast('<i class="fa-solid fa-triangle-exclamation"></i> ارفع لوجو أولاً');return;}
   // حفظ في store_logo فقط — للمتجر والتاب فقط، مش السايدبار
   S.settings.store_logo=logo; _svcLogoData='';
-  lsSave(); cloudSave(S);
+  lsSave(); cloudSaveNow(S);
   toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ لوجو المتجر — سيظهر في المتجر وتاب المتجر');
 }
 
@@ -17630,7 +17687,7 @@ function saveSvcUsername(){
   S.settings.username=un;
   var setInp=document.getElementById('set-username'); if(setInp) setInp.value=un;
   var pv=document.getElementById('svc-un-live-preview'); if(pv) pv.textContent=un;
-  lsSave(); cloudSave(S);
+  lsSave(); cloudSaveNow(S);
   toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ اليوزرنيم: @'+un);
   // تحديث الرابط في الـ header
   try{ var lnk=document.getElementById('svc-inner-store-link'); if(lnk) lnk.textContent=getSvcLink(_getCurrentStoreId()); }catch(e){}
@@ -17640,7 +17697,7 @@ function saveSvcUsername(){
 function saveSvcBannerNow(){
   var banner=(_currentStoreIdx!=null&&_getStores()[_currentStoreIdx]&&_getStores()[_currentStoreIdx].banner)||S.settings&&S.settings.svc_banner||'';
   if(!banner){toast('<i class="fa-solid fa-triangle-exclamation"></i> ارفع بانر أولاً');return;}
-  lsSave(); cloudSave(S);
+  lsSave(); cloudSaveNow(S);
   toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ البانر');
 }
 function saveSocials(){
@@ -17651,7 +17708,7 @@ function saveSocials(){
     var v=(el.value||'').trim(); if(v) socs.push({type:k,url:v});
   });
   S.settings.socials=socs;
-  lsSave(); cloudSave(S); toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ الروابط');
+  lsSave(); cloudSaveNow(S); toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ الروابط');
 }
 function setSvcBannerSize(sz){
   var _stIdx=_currentStoreIdx;
@@ -17665,14 +17722,14 @@ function setSvcBannerSize(sz){
     var inp=document.getElementById('banner-custom-px');
     if(inp) inp.value=(_curSt?(_curSt.banner_custom_px||300):(S.settings&&S.settings.svc_banner_custom_px)||300);
   }
-  lsSave(); cloudSave(S); toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تغيير حجم البانر');
+  lsSave(); cloudSaveNow(S); toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تغيير حجم البانر');
 }
 function saveBannerCustomPx(){
   if(!S.settings) S.settings={};
   var v=parseInt((document.getElementById('banner-custom-px')||{}).value)||300;
   if(v<80) v=80; if(v>800) v=800;
   S.settings.svc_banner_custom_px=v;
-  lsSave(); cloudSave(S);
+  lsSave(); cloudSaveNow(S);
 }
 
 // ══════════════════════════════════
@@ -17962,7 +18019,7 @@ function handleSvcBanner(input){
     else { if(!S.settings) S.settings={}; S.settings.svc_banner=e.target.result; }
     var prev=document.getElementById('svc-banner-preview'); var img=document.getElementById('svc-banner-img'); var clr=document.getElementById('svc-banner-clear-btn');
     if(prev) prev.style.display=''; if(img) img.src=e.target.result; if(clr) clr.style.display='';
-    lsSave(); cloudSave(S); toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع البانر');
+    lsSave(); cloudSaveNow(S); toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع البانر');
   };
   r.readAsDataURL(file);
 }
@@ -19127,7 +19184,7 @@ function _buildSvcOrderPage(userId){
     var bannerCustomPx=(_storeObj ? (_storeObj.banner_custom_px||300) : (settings.svc_banner_custom_px||300));
     var bannerH={sm:'160px',md:'260px',lg:'400px',custom:bannerCustomPx+'px'}[bannerSize]||'260px';
     var logo=settings.logo||'';
-    var studioName=settings.name||'Studio';
+    var studioName=settings.name||'Ordo';
     var phone=settings.phone||'';
     var socials=settings.socials||[];
     var _dm = settings.displayMode||settings.display_mode||localStorage.getItem('studioDisplayMode')||'dark';
@@ -19940,7 +19997,7 @@ function _buildNewOrderPortalPage(userId, portalId){
     var cardBg=isLight?'rgba(0,0,0,.04)':'rgba(255,255,255,.06)';
     var cardBorder=isLight?'rgba(0,0,0,.08)':'rgba(255,255,255,.09)';
     var logo=settings.logo||'';
-    var studioName=settings.name||'Studio';
+    var studioName=settings.name||'Ordo';
     document.body.innerHTML='';
     document.body.style.cssText='margin:0;padding:0;background:'+bg+';font-family:Cairo,Tajawal,system-ui,sans-serif;direction:rtl;color:'+textMain;
     var st=document.createElement('style');
@@ -20091,7 +20148,7 @@ function _buildClientPortalPage(userId, portalId){
     var cardBg=isLight?'rgba(0,0,0,.03)':'rgba(255,255,255,.05)';
     var cardBorder=isLight?'rgba(0,0,0,.07)':'rgba(255,255,255,.09)';
     var navBg=isLight?'rgba(255,255,255,.92)':'rgba(10,10,15,.92)';
-    var logo=settings.logo||''; var studioName=settings.name||'Studio';
+    var logo=settings.logo||''; var studioName=settings.name||'Ordo';
     var phone=settings.phone||''; var socials=settings.socials||[];
     var tasks=ud.tasks||[];
     var invoices=ud.invoices||[];
@@ -21353,14 +21410,14 @@ async function _adminCreateUser(){
     if(typeof supa !== 'undefined' && supa.auth.admin){
       result = await supa.auth.admin.createUser({
         email, password: pass,
-        user_metadata: { full_name: name, name, studio: studio||name+' Studio' },
+        user_metadata: { full_name: name, name, studio: studio||name+' Ordo' },
         email_confirm: true
       });
     } else {
       // Fallback: create via regular signup
       result = await supa.auth.signUp({
         email, password: pass,
-        options: { data: { full_name: name, name, studio: studio||name+' Studio' } }
+        options: { data: { full_name: name, name, studio: studio||name+' Ordo' } }
       });
     }
 
@@ -21560,7 +21617,16 @@ window.addEventListener('load', function(){
   setInterval(_loadServerNotifications, 30000);
 });
 document.addEventListener('visibilitychange', function(){
-  if(!document.hidden) _loadServerNotifications();
+  if(!document.hidden) {
+    _loadServerNotifications();
+  } else {
+    // المستخدم غادر التاب — احفظ فوراً لو في timer معلّق
+    if(_supaUserId && S && _syncTimer) {
+      clearTimeout(_syncTimer);
+      _syncTimer = null;
+      _doCloudSave(S);
+    }
+  }
 });
 // ═══════════════════════════════════════════════════
 
@@ -23469,7 +23535,7 @@ function _buildFullClientPortal(userId, clientId){
     var borderC=isLight?'rgba(0,0,0,.1)':'rgba(255,255,255,.08)';
     var navBg=isLight?'rgba(255,255,255,.95)':'rgba(10,10,15,.95)';
     var logo=settings.store_logo||settings.logo||'';
-    var studioName=settings.name||'Studio';
+    var studioName=settings.name||'Ordo';
 
     // Client's data
     var cName=client.name||'العميل';
