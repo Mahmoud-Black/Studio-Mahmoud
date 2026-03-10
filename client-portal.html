@@ -107,7 +107,12 @@ body.lm .sheet{background:var(--s1)}
 </style>
 </head>
 <body>
-<div id="ls"><div class="ll"><i class="fa-solid fa-gauge"></i></div><div class="lbar"><div class="lbarf"></div></div><div style="font-size:12px;color:var(--t3)">جاري تحميل لوحتك...</div></div>
+<div id="ls">
+  <div id="ls-logo" class="ll"><i class="fa-solid fa-gauge"></i></div>
+  <div id="ls-name" style="font-size:15px;font-weight:800;color:var(--t2);margin-top:2px;opacity:0;transition:opacity .4s"></div>
+  <div class="lbar" style="margin-top:8px"><div id="ls-bar" class="lbarf"></div></div>
+  <div style="font-size:12px;color:var(--t3);margin-top:6px">جاري تحميل لوحتك...</div>
+</div>
 <div id="er"><div style="font-size:48px;opacity:.4">⚠️</div><div style="font-size:18px;font-weight:800;color:var(--t2)">لا يمكن تحميل لوحة التحكم</div><div style="font-size:13px;color:var(--t3);max-width:300px;line-height:1.7" id="er-msg">تأكد من صحة الرابط</div></div>
 <div id="root" style="display:none"></div>
 
@@ -178,8 +183,34 @@ async function _bootWithData(userId, clientId, ud){
   try{
     _ud=ud;_settings=ud.settings||{};
     const accent=_settings.accent||_settings.accentColor||'#7c6ff7';
+    const accent2=_settings.accent2||_settings.accentColor2||accent;
     if((_settings.displayMode||_settings.display_mode||'dark')==='light')document.body.classList.add('lm');
     document.documentElement.style.setProperty('--ac',accent);
+    // ── تحديث شاشة اللود بلون ولوجو المستخدم فوراً ──
+    (function(){
+      var lsEl=document.getElementById('ls');
+      var lsLogo=document.getElementById('ls-logo');
+      var lsName=document.getElementById('ls-name');
+      var lsBar=document.getElementById('ls-bar');
+      var logo=_settings.logo||'';
+      var studioName=_settings.name||'';
+      if(lsEl){
+        var bgMode=(_settings.displayMode||_settings.display_mode||'dark')==='light'?'#f4f5fb':'#0a0a0f';
+        lsEl.style.background=bgMode;
+      }
+      if(lsLogo){
+        lsLogo.style.background='linear-gradient(135deg,'+accent+','+accent2+')';
+        lsLogo.style.boxShadow='0 8px 32px '+accent+'44';
+        if(logo){
+        lsLogo.innerHTML='<img src="'+logo+'" style="width:100%;height:100%;object-fit:cover;border-radius:14px" onerror="this.style.display=&quot;none&quot;">';
+        }
+      }
+      if(lsBar) lsBar.style.background='linear-gradient(90deg,'+accent+','+accent2+')';
+      if(lsName&&studioName){
+        lsName.textContent=studioName;
+        setTimeout(function(){lsName.style.opacity='1';},100);
+      }
+    })();
 
     // ── تحديد هوية العميل ──
     if(clientId){
@@ -259,6 +290,35 @@ function renderPage(){
 
   <div class="wrap">
     <!-- WELCOME -->
+    ${totalReceivable>0?`
+    <div style="display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(255,107,107,.12),rgba(255,107,107,.06));border:1.5px solid rgba(255,107,107,.4);border-radius:16px;padding:16px 18px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,107,107,.18);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">💳</div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:rgba(255,107,107,.9);margin-bottom:3px">المبلغ المستحق عليك</div>
+          <div style="font-size:11px;color:var(--t3)">${unpaid>0?'فواتير غير مسددة'+(openingBal>0&&openingType==='receivable'?' + رصيد سابق':''):'رصيد افتتاحي'}</div>
+        </div>
+      </div>
+      <div style="text-align:left">
+        <div style="font-size:26px;font-weight:900;color:rgba(255,107,107,.95);line-height:1">${totalReceivable.toLocaleString()}</div>
+        <div style="font-size:11px;color:var(--t3);text-align:center">جنيه</div>
+      </div>
+    </div>
+    `:(openingBal>0&&openingType==='prepaid')?`
+    <div style="display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(79,209,165,.1),rgba(79,209,165,.05));border:1.5px solid rgba(79,209,165,.35);border-radius:16px;padding:16px 18px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(79,209,165,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">✅</div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--g);margin-bottom:3px">رصيد مدفوع مسبقاً</div>
+          <div style="font-size:11px;color:var(--t3)">لديك رصيد إيجابي</div>
+        </div>
+      </div>
+      <div style="text-align:left">
+        <div style="font-size:26px;font-weight:900;color:var(--g);line-height:1">${openingBal.toLocaleString()}</div>
+        <div style="font-size:11px;color:var(--t3);text-align:center">جنيه</div>
+      </div>
+    </div>
+    `:''}
     <div class="welcome">
       <div class="wlc-name">مرحباً، ${xe(_clientName)} 👋</div>
       <div class="wlc-svc">${xe(svcName)}</div>
