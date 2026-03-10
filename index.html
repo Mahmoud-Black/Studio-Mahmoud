@@ -3066,12 +3066,21 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     <input type="hidden" id="ptask-proj-id">
     <div class="form-group"><label class="form-label">عنوان المهمة *</label><input class="form-input" id="ptask-title" placeholder="ماذا يجب إنجازه؟"></div>
     <div class="form-group"><label class="form-label">الوصف</label><textarea class="form-textarea" id="ptask-desc" rows="2" placeholder="تفاصيل إضافية..."></textarea></div>
-    <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
+    <!-- فلتر الفريق + المسؤول -->
+    <div class="form-row" style="grid-template-columns:1fr 1fr">
+      <div class="form-group">
+        <label class="form-label"><i class="fa-solid fa-users" style="color:var(--accent2)"></i> الفريق</label>
+        <select class="form-input" id="ptask-team-filter" onchange="onPtaskTeamChange(this.value)">
+          <option value="">— كل الأعضاء —</option>
+        </select>
+      </div>
       <div class="form-group">
         <label class="form-label"><i class="fa-solid fa-user" style="color:var(--accent)"></i> المسؤول <span id="ptask-assignee-src" style="font-size:9px;color:var(--text3);font-weight:400"></span></label>
         <select class="form-input" id="ptask-assignee"><option value="">— اختر —</option></select>
         <div id="ptask-no-members-hint" style="display:none;font-size:10px;color:var(--accent4);margin-top:4px"><i class="fa-solid fa-triangle-exclamation"></i> لا يوجد أعضاء في المشروع — <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="closeM('modal-proj-task');setTimeout(function(){openProjectModal(document.getElementById('ptask-proj-id')?.value||'')},200)">عدّل المشروع لإضافة فريق</span></div>
       </div>
+    </div>
+    <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
       <div class="form-group">
         <label class="form-label">الأولوية</label>
         <select class="form-input" id="ptask-priority">
@@ -23560,6 +23569,48 @@ function onProjTeamChange(teamGroupId){
   }
 }
 
+// ── فلتر الفريق في modal مهمة المشروع ──
+function onPtaskTeamChange(teamGroupId){
+  var projId = document.getElementById('ptask-proj-id')?.value;
+  var proj = projId ? _getProjById(projId) : null;
+  var projMembers = proj ? (proj.members||[]) : [];
+  var allTeamMembers = (S.teams||[]).filter(function(m){ return m.role!='invite_pending'; });
+  var me = {id:'me', name:S.settings?.name||'أنا'};
+
+  var members;
+  if(teamGroupId){
+    // فلتر بالفريق المختار
+    var groups = _getTeamGroups();
+    var g = groups.find(function(x){ return x.id===teamGroupId; });
+    var groupMemberIds = g ? (g.members||[]).map(function(m){ return String(m.id); }) : [];
+    // من أعضاء المشروع اللي في الفريق ده، أو من كل أعضاء الفريق
+    if(projMembers.length > 0){
+      members = projMembers.filter(function(m){ return groupMemberIds.includes(String(m.id)) || m.id==='me'; });
+      if(!members.length) members = (g?g.members:[]);
+    } else {
+      members = g ? [me, ...g.members] : [me, ...allTeamMembers];
+    }
+  } else {
+    // كل الأعضاء
+    if(projMembers.length > 0){
+      var hasMeInProj = projMembers.some(function(m){ return m.id==='me'; });
+      members = hasMeInProj ? projMembers : [me, ...projMembers];
+    } else {
+      members = [me, ...allTeamMembers];
+    }
+  }
+
+  var asel = document.getElementById('ptask-assignee');
+  if(!asel) return;
+  var curVal = asel.value;
+  asel.innerHTML = '<option value="">— اختر من '+(teamGroupId?'الفريق':'الأعضاء')+' —</option>' +
+    members.map(function(m){
+      var n = escapeHtml(m.name||m.email||'?');
+      var sel = curVal===String(m.id) ? 'selected' : '';
+      return '<option value="'+m.id+'" '+sel+'>'+n+'</option>';
+    }).join('');
+}
+
 function togglePtaskDepositField(){
   var sel=document.getElementById('ptask-payment-status');
   var row=document.getElementById('ptask-deposit-row');
@@ -24024,9 +24075,23 @@ function openProjTaskModal(projId, taskId, defaultStatus){
   var depInp=document.getElementById('ptask-deposit');
   if(depInp) depInp.value=t&&t.deposit?t.deposit:'';
   togglePtaskDepositField();
+  // ── ملأ dropdown الفريق ──
+  var teamFilterSel = document.getElementById('ptask-team-filter');
+  var _projForTeam = _getProjById(projId);
+  if(teamFilterSel){
+    var allGroups = _getTeamGroups();
+    teamFilterSel.innerHTML = '<option value="">— كل الأعضاء —</option>' +
+      allGroups.map(function(g){
+        return '<option value="'+g.id+'">'+escapeHtml(g.name)+'</option>';
+      }).join('');
+    // لو المشروع له فريق معين → اختره تلقائياً
+    var savedTeamId = _projForTeam && _projForTeam.team_group_id ? _projForTeam.team_group_id : '';
+    teamFilterSel.value = savedTeamId;
+  }
+
   // Assignee from project members — fallback to all team members
-  var proj=_getProjById(projId);
-  var projMembers=proj?proj.members||[]:[];
+  var proj2=_projForTeam||_getProjById(projId);
+  var projMembers=proj2?proj2.members||[]:[];
   var allTeamMembers=(S.teams||[]).filter(function(m){return m.role!='invite_pending';});
   var me={id:'me',name:S.settings?.name||'أنا (أنت)'};
   var members;
@@ -24036,6 +24101,16 @@ function openProjTaskModal(projId, taskId, defaultStatus){
     members=hasMeInProj?projMembers:[me,...projMembers];
   } else {
     members=[me,...allTeamMembers];
+  }
+  // لو في فريق محدد → فلتر الأعضاء
+  var savedTeamId2 = proj2 && proj2.team_group_id ? proj2.team_group_id : '';
+  if(savedTeamId2){
+    var grp2 = _getTeamGroups().find(function(g){ return g.id===savedTeamId2; });
+    if(grp2){
+      var grpIds = (grp2.members||[]).map(function(m){ return String(m.id); });
+      var filtered2 = members.filter(function(m){ return m.id==='me' || grpIds.includes(String(m.id)); });
+      if(filtered2.length > 0) members = filtered2;
+    }
   }
   var asel=document.getElementById('ptask-assignee');
   var assigneeLabel=hasProjectMembers?'— اختر من فريق المشروع —':'— اختر عضو —';
