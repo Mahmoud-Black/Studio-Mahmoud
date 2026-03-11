@@ -100,6 +100,16 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 .ftr-in{max-width:860px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--t3)}
 .ftr-pw{display:flex;align-items:center;gap:7px}
 .ftr-try{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border:none;border-radius:6px;padding:4px 10px;font-family:var(--font);font-size:11px;font-weight:800;cursor:pointer;text-decoration:none;transition:.15s}
+/* STARS */
+.stars-row{display:flex;gap:6px;justify-content:center;margin:10px 0}
+.star-btn{font-size:32px;background:none;border:none;cursor:pointer;transition:transform .15s;line-height:1;padding:2px;filter:grayscale(1);opacity:.4}
+.star-btn.on{filter:none;opacity:1;transform:scale(1.15)}
+.star-btn:hover{transform:scale(1.2)}
+/* REVIEW CARD */
+.rev-card{background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:10px}
+.rev-stars{font-size:16px;letter-spacing:2px;margin-bottom:6px}
+.rev-comment{font-size:12px;color:var(--t2);line-height:1.7}
+.rev-meta{font-size:10px;color:var(--t3);margin-top:6px}
 /* LIGHT MODE */
 body.lm{--bg:#f4f5fb;--s1:#fff;--s2:#f0f1f8;--s3:#e8e9f2;--bd:rgba(0,0,0,.08);--t1:#1a1a2e;--t2:#444466;--t3:#888899}
 body.lm .nav{background:rgba(244,245,251,.92)}
@@ -355,6 +365,7 @@ function renderPage(){
       <button class="tab" onclick="switchTab('projects')" id="tab-projects"><i class="fa-solid fa-folder-open"></i>المشاريع (${_clientProjects.length})</button>
       <button class="tab" onclick="switchTab('invoices')" id="tab-invoices"><i class="fa-solid fa-file-invoice"></i>الفواتير (${_clientInvoices.length})</button>
       <button class="tab" onclick="switchTab('accounts')" id="tab-accounts"><i class="fa-solid fa-coins"></i>حسابي</button>
+      <button class="tab" onclick="switchTab('reviews')" id="tab-reviews"><i class="fa-solid fa-star"></i>تقييماتي</button>
     </div>
 
     <!-- TASKS PANEL (الطلبات العادية) -->
@@ -365,6 +376,8 @@ function renderPage(){
     <div class="tab-panel" id="tp-invoices">${renderInvoices()}</div>
     <!-- ACCOUNTS PANEL -->
     <div class="tab-panel" id="tp-accounts">${renderAccounts()}</div>
+    <!-- REVIEWS PANEL -->
+    <div class="tab-panel" id="tp-reviews">${renderMyReviews()}</div>
   </div>
 
   ${renderServices()}
@@ -469,6 +482,10 @@ function renderTasks(){
             </div>
             <span style="font-size:11px;color:${acc};font-weight:700">التفاصيل ←</span>
           </div>
+          ${_isTaskDone(t)?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+            ${_getTaskReview(t.id)?`<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g)"><i class="fa-solid fa-star"></i> قيّمت هذا الطلب — شكراً!</div>`
+            :`<button onclick="event.stopPropagation();openReviewSheet('${xe(String(t.id))}','${xe(String(t.title||t.name||'طلب'))}')" style="display:flex;align-items:center;gap:6px;background:rgba(247,201,72,.12);color:var(--y);border:1.5px solid rgba(247,201,72,.35);border-radius:8px;padding:6px 12px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer"><i class="fa-solid fa-star"></i> قيّم الطلب</button>`}
+          </div>`:''}
         </div>`;
       }).join('');
 
@@ -840,6 +857,145 @@ function openTask(taskId, fromUrl){
       const card=document.querySelector(`[onclick*="${taskId}"]`);
       if(card)card.scrollIntoView({behavior:'smooth',block:'center'});
     },200);
+  }
+}
+
+// ── REVIEWS SYSTEM ──
+let _selectedStars = 0;
+
+function _getTaskReview(taskId){
+  return (_ud.reviews||[]).find(r=>String(r.task_id)===String(taskId)&&String(r.client_id)===String(_clientId));
+}
+
+function renderMyReviews(){
+  const myRevs = (_ud.reviews||[]).filter(r=>String(r.client_id)===String(_clientId));
+  const acc = _settings?.accent||'#7c6ff7';
+  if(!myRevs.length) return`<div class="empty"><i class="fa-solid fa-star"></i><div style="font-size:14px;font-weight:700;color:var(--t2);margin-bottom:5px">لا توجد تقييمات بعد</div><div>بعد اكتمال طلب يمكنك تقييمه من تبويب طلباتي</div></div>`;
+  const avg = (myRevs.reduce((s,r)=>s+(+r.stars||0),0)/myRevs.length).toFixed(1);
+  return`
+  <div style="background:var(--s2);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:14px;text-align:center">
+    <div style="font-size:40px;font-weight:900;color:var(--y);line-height:1">${avg}</div>
+    <div style="font-size:18px;margin:6px 0">${'⭐'.repeat(Math.round(+avg))}</div>
+    <div style="font-size:12px;color:var(--t3)">${myRevs.length} تقييم منك</div>
+  </div>
+  ${myRevs.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)).map(r=>`
+  <div class="rev-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="font-size:13px;font-weight:800;color:var(--t1)">${xe(r.task_title||'طلب')}</div>
+      <div class="rev-stars">${'⭐'.repeat(+r.stars||0)}</div>
+    </div>
+    ${r.comment?`<div class="rev-comment">"${xe(r.comment)}"</div>`:''}
+    <div class="rev-meta"><i class="fa-solid fa-calendar"></i> ${r.created_at?new Date(r.created_at).toLocaleDateString('ar-EG'):''}</div>
+  </div>`).join('')}`;
+}
+
+function openReviewSheet(taskId, taskTitle){
+  _selectedStars = 0;
+  const acc = _settings?.accent||'#7c6ff7';
+  const existing = _getTaskReview(taskId);
+  if(existing){ alert('لقد قيّمت هذا الطلب مسبقاً ⭐'); return; }
+
+  const ov=document.createElement('div');ov.className='overlay';ov.id='rev-ov';
+  ov.onclick=ev=>{if(ev.target===ov)ov.remove();};
+  ov.innerHTML=`<div class="sheet" style="max-height:80vh">
+    <div class="sheet-hdl"></div>
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:36px;margin-bottom:8px">⭐</div>
+      <div style="font-size:17px;font-weight:900;color:var(--t1)">قيّم طلبك</div>
+      <div style="font-size:12px;color:var(--t3);margin-top:4px">${xe(taskTitle)}</div>
+    </div>
+    <div style="text-align:center;margin-bottom:8px;font-size:13px;color:var(--t3);font-weight:700">اختر تقييمك</div>
+    <div class="stars-row" id="stars-row">
+      ${[1,2,3,4,5].map(n=>`<button class="star-btn" data-star="${n}" onclick="selectStar(${n})">⭐</button>`).join('')}
+    </div>
+    <div id="stars-label" style="text-align:center;font-size:13px;font-weight:800;color:var(--y);min-height:20px;margin-bottom:14px"></div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:6px">تعليق (اختياري)</div>
+      <textarea id="rev-comment" placeholder="شاركنا رأيك في الخدمة..." style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:12px;font-family:var(--font);font-size:13px;color:var(--t1);resize:none;height:90px;outline:none"></textarea>
+    </div>
+    <button id="rev-submit-btn" onclick="submitReview('${xe(taskId)}','${xe(taskTitle)}')" style="width:100%;background:var(--y);color:#1a1a2e;border:none;border-radius:12px;padding:13px;font-family:var(--font);font-size:15px;font-weight:900;cursor:pointer;opacity:.5;pointer-events:none;transition:.2s">
+      <i class="fa-solid fa-paper-plane"></i> إرسال التقييم
+    </button>
+  </div>`;
+  document.body.appendChild(ov);
+}
+
+function selectStar(n){
+  _selectedStars = n;
+  const labels = ['','سيء 😞','مقبول 😐','جيد 🙂','رائع 😊','ممتاز 🤩'];
+  document.querySelectorAll('.star-btn').forEach(b=>{
+    const s=+b.dataset.star;
+    b.classList.toggle('on', s<=n);
+  });
+  document.getElementById('stars-label').textContent = labels[n]||'';
+  const btn = document.getElementById('rev-submit-btn');
+  if(btn){ btn.style.opacity='1'; btn.style.pointerEvents='auto'; }
+}
+
+async function submitReview(taskId, taskTitle){
+  if(!_selectedStars){ alert('اختر عدد النجوم أولاً'); return; }
+  const btn = document.getElementById('rev-submit-btn');
+  const comment = (document.getElementById('rev-comment')?.value||'').trim();
+  if(btn){ btn.textContent='جاري الإرسال...'; btn.style.opacity='.7'; btn.style.pointerEvents='none'; }
+
+  const review = {
+    id: 'rev_'+Date.now(),
+    task_id: taskId,
+    task_title: taskTitle,
+    client_id: String(_clientId),
+    client_name: _clientName,
+    stars: _selectedStars,
+    comment: comment,
+    created_at: new Date().toISOString()
+  };
+
+  try{
+    // جيب أحدث بيانات من Supabase
+    const uid = window._resolvedUid||pUid;
+    const {data:row} = await db.from('studio_data').select('data').eq('user_id',uid).maybeSingle();
+    let fresh = row?.data;
+    if(typeof fresh==='string') fresh=JSON.parse(fresh);
+    if(fresh?.data&&!fresh?.tasks) fresh=typeof fresh.data==='string'?JSON.parse(fresh.data):fresh.data;
+
+    if(!fresh.reviews) fresh.reviews=[];
+    // منع التكرار
+    if(fresh.reviews.find(r=>String(r.task_id)===String(taskId)&&String(r.client_id)===String(_clientId))){
+      document.getElementById('rev-ov')?.remove();
+      alert('قيّمت هذا الطلب مسبقاً ⭐');
+      return;
+    }
+    fresh.reviews.push(review);
+    fresh._savedAt = new Date().toISOString();
+
+    const {error} = await db.from('studio_data').upsert({user_id:uid, data:fresh, updated_at:new Date().toISOString()},{onConflict:'user_id'});
+    if(error) throw error;
+
+    // تحديث الـ local state
+    _ud.reviews = fresh.reviews;
+    document.getElementById('rev-ov')?.remove();
+
+    // إظهار شكر
+    const thnk=document.createElement('div');thnk.className='overlay';
+    thnk.onclick=()=>thnk.remove();
+    thnk.innerHTML=`<div class="sheet" style="max-height:50vh;text-align:center;padding:40px 20px">
+      <div style="font-size:60px;margin-bottom:12px">🎉</div>
+      <div style="font-size:20px;font-weight:900;color:var(--t1);margin-bottom:8px">شكراً على تقييمك!</div>
+      <div style="font-size:13px;color:var(--t3);line-height:1.8">رأيك يساعدنا على التحسين المستمر</div>
+      <div style="margin-top:8px;font-size:28px">${'⭐'.repeat(_selectedStars)}</div>
+      ${comment?`<div style="margin-top:12px;font-size:13px;color:var(--t2);font-style:italic">"${xe(comment)}"</div>`:''}
+      <button onclick="this.closest('.overlay').remove()" style="margin-top:20px;background:var(--ac);color:#fff;border:none;border-radius:10px;padding:10px 28px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer">تم ✓</button>
+    </div>`;
+    document.body.appendChild(thnk);
+
+    // تحديث تبويب الطلبات
+    document.getElementById('tp-tasks').innerHTML = renderTasks();
+    // تحديث تبويب التقييمات لو مفتوح
+    const revPanel = document.getElementById('tp-reviews');
+    if(revPanel) revPanel.innerHTML = renderMyReviews();
+
+  }catch(e){
+    console.error('review error:',e);
+    if(btn){ btn.textContent='حدث خطأ — حاول مجدداً'; btn.style.opacity='1'; btn.style.pointerEvents='auto'; }
   }
 }
 
