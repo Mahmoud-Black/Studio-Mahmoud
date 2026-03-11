@@ -342,6 +342,132 @@ let _pendingSave = false;
 let _lastSaveHash = 0;
 const SAVE_DEBOUNCE_MS = 600;
 
+// ══════════════════════════════════════════════════════════════════
+// ── NEW DUAL-WRITE SAVE SYSTEM ──
+// كل entity بتتحفظ في جدولها الخاص + studio_data كـ backup
+// ══════════════════════════════════════════════════════════════════
+
+// ── Safe JSON serialize ──
+function _safeSerialize(d) {
+  const bad = v => v && typeof v === 'object' && (
+    v instanceof Headers || v instanceof Response || v instanceof Request ||
+    v instanceof Blob || v instanceof File || v instanceof ArrayBuffer ||
+    (typeof Node !== 'undefined' && v instanceof Node)
+  );
+  try {
+    return JSON.parse(JSON.stringify(d, (k, v) => bad(v) ? undefined : v));
+  } catch(e) {
+    try { return JSON.parse(JSON.stringify(d)); } catch(e2) { return {}; }
+  }
+}
+
+// ── Migration: نقل بيانات studio_data القديمة للجداول الجديدة ──
+async function _migrateToNewTables(uid, data) {
+  if (!uid || !data) return;
+  // لو الـ migration اتعملت قبل كده، مش هنعملها تاني
+  const _migKey = '_ordo_migrated_' + uid;
+  if (localStorage.getItem(_migKey)) return;
+
+  console.log('🔄 Starting migration to new tables...');
+  try {
+    const tasks = (data.tasks || []).filter(t => t && t.id);
+    const clients = (data.clients || []).filter(c => c && c.id);
+    const invoices = (data.invoices || []).filter(i => i && i.id);
+    const transactions = (data.transactions || []).filter(t => t && t.id);
+    const reviews = (data.reviews || []).filter(r => r && r.id);
+
+    // batch upsert لكل entity
+    const _batchUpsert = async (table, items, idField) => {
+      if (!items.length) return;
+      const rows = items.map(item => ({
+        user_id: uid,
+        [idField]: String(item.id),
+        data: item,
+        updated_at: item.updatedAt || item.updated_at || new Date().toISOString()
+      }));
+      // حفظ على دفعات من 50 عشان نتجنب حد الـ request size
+      for (let i = 0; i < rows.length; i += 50) {
+        const batch = rows.slice(i, i + 50);
+        const { error } = await supa.from(table).upsert(batch, { onConflict: `user_id,${idField}` });
+        if (error) console.warn(`Migration ${table} batch error:`, error.message);
+      }
+    };
+
+    await Promise.all([
+      _batchUpsert('tasks', tasks, 'task_id'),
+      _batchUpsert('clients', clients, 'client_id'),
+      _batchUpsert('invoices', invoices, 'invoice_id'),
+      _batchUpsert('transactions', transactions, 'transaction_id'),
+      _batchUpsert('reviews', reviews, 'review_id'),
+    ]);
+
+    // حفظ الإعدادات
+    if (data.settings) {
+      await supa.from('user_settings').upsert({
+        user_id: uid,
+        data: data.settings,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+    }
+
+    localStorage.setItem(_migKey, '1');
+    console.log(`✅ Migration done: ${tasks.length} tasks, ${clients.length} clients, ${invoices.length} invoices`);
+  } catch(e) {
+    console.warn('Migration error (non-critical):', e.message);
+  }
+}
+
+// ── حفظ entity واحدة في جدولها ──
+async function _saveEntity(table, idField, item) {
+  if (!_supaUserId || !item || !item.id) return;
+  try {
+    await supa.from(table).upsert({
+      user_id: _supaUserId,
+      [idField]: String(item.id),
+      data: _safeSerialize(item),
+      updated_at: new Date().toISOString()
+    }, { onConflict: `user_id,${idField}` });
+  } catch(e) {
+    console.warn(`_saveEntity ${table} error:`, e.message);
+  }
+}
+
+// ── حذف entity من جدولها ──
+async function _deleteEntity(table, idField, itemId) {
+  if (!_supaUserId || !itemId) return;
+  try {
+    await supa.from(table).delete()
+      .eq('user_id', _supaUserId)
+      .eq(idField, String(itemId));
+  } catch(e) {
+    console.warn(`_deleteEntity ${table} error:`, e.message);
+  }
+}
+
+// ── Smart save: يحفظ التغييرات الجديدة في الجداول المناسبة ──
+let _lastSavedTasks = 0, _lastSavedClients = 0, _lastSavedInvoices = 0, _lastSavedTrans = 0;
+function _smartEntitySave() {
+  if (!_supaUserId || !S || !window._appReady) return;
+  // نشوف إيه اللي اتغير وبس نحفظه
+  const now = Date.now();
+  if ((S.tasks||[]).length !== _lastSavedTasks) {
+    _lastSavedTasks = (S.tasks||[]).length;
+    (S.tasks||[]).forEach(t => _saveEntity('tasks', 'task_id', t));
+  }
+  if ((S.clients||[]).length !== _lastSavedClients) {
+    _lastSavedClients = (S.clients||[]).length;
+    (S.clients||[]).forEach(c => _saveEntity('clients', 'client_id', c));
+  }
+  if ((S.invoices||[]).length !== _lastSavedInvoices) {
+    _lastSavedInvoices = (S.invoices||[]).length;
+    (S.invoices||[]).forEach(i => _saveEntity('invoices', 'invoice_id', i));
+  }
+  if ((S.transactions||[]).length !== _lastSavedTrans) {
+    _lastSavedTrans = (S.transactions||[]).length;
+    (S.transactions||[]).forEach(t => _saveEntity('transactions', 'transaction_id', t));
+  }
+}
+
 async function _doCloudSave(data, force) {
   if (!_supaUserId || !data) return false;
   if (!force && !window._appReady) return false;
@@ -357,20 +483,7 @@ async function _doCloudSave(data, force) {
   _cloudSaving = true;
 
   try {
-    // Safe serializable copy — strip non-cloneable objects
-    const _safe = (function serialize(d) {
-      const bad = v => v && typeof v === 'object' && (
-        v instanceof Headers || v instanceof Response || v instanceof Request ||
-        v instanceof Blob || v instanceof File || v instanceof ArrayBuffer ||
-        (typeof Node !== 'undefined' && v instanceof Node)
-      );
-      try {
-        return JSON.parse(JSON.stringify(d, (k, v) => bad(v) ? undefined : v));
-      } catch(e) {
-        try { return JSON.parse(JSON.stringify(d)); } catch(e2) { return {}; }
-      }
-    })(data);
-
+    const _safe = _safeSerialize(data);
     _safe._savedAt = new Date().toISOString();
     const _un = _safe?.settings?.username || null;
     const payload = {
@@ -380,10 +493,24 @@ async function _doCloudSave(data, force) {
       ...(_un ? { username_index: _un.toLowerCase() } : {})
     };
 
+    // ── الحفظ الأساسي في studio_data (backup) ──
     const { error } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
 
-    const harmless = e => (e?.message || e?.error || '').toString().match(/DataCloneError|postMessage|Headers/);
+    // ── الحفظ الموازي في الجداول الجديدة (non-blocking) ──
+    setTimeout(() => _smartEntitySave(), 0);
 
+    // ── حفظ الإعدادات دايماً ──
+    if (_safe.settings) {
+      setTimeout(() => {
+        supa.from('user_settings').upsert({
+          user_id: _supaUserId,
+          data: _safe.settings,
+          updated_at: _safe._savedAt
+        }, { onConflict: 'user_id' }).catch(() => {});
+      }, 0);
+    }
+
+    const harmless = e => (e?.message || e?.error || '').toString().match(/DataCloneError|postMessage|Headers/);
     if (error && !harmless(error)) {
       console.error('❌ SAVE FAILED', error.message);
       showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل الحفظ', '#f7c948');
@@ -391,7 +518,6 @@ async function _doCloudSave(data, force) {
     }
 
     showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
-    // ── احفظ نسخة cache في localStorage للمقارنة عند الـ refresh ──
     try { localStorage.setItem('_ordo_cache_' + _supaUserId, payload.data); } catch(e) {}
     return true;
 
@@ -2614,6 +2740,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
   <div class="nav-item" onclick="showPage(&#39;timetracker&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span><span class="nav-label" data-ar="تتبع الوقت" data-i18n="nav_timetracker">تتبع الوقت</span></div>
   <div class="nav-item" onclick="showPage(&#39;freelancer-goals&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><span class="nav-label" data-ar="الأهداف والإنجازات" data-i18n="nav_goals">الأهداف والإنجازات</span></div>
   <div class="nav-item" onclick="showPage('vault',this)" id="nav-vault"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg></span><span class="nav-label">حساباتي</span></div>
+  <div class="nav-item" onclick="showPage('reviews',this)" id="nav-reviews"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span><span class="nav-label">التقييمات</span><span class="nav-badge" id="reviews-badge" style="display:none;background:#f7c948;color:#1a1a2e"></span></div>
   <div class="nav-section-label" data-i18n="sec_settings">الإعدادات</div>
   <div class="nav-item" onclick="showPage(&#39;settings&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M20 12h2M2 12h2M12 20v2M12 2v2"/></svg></span><span class="nav-label" data-ar="إعدادات النظام" data-i18n="nav_settings">إعدادات النظام</span></div>
   <div class="nav-item" onclick="openBackupModal()" style="color:var(--accent3)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span><span data-i18n="nav_backup" data-i18n="nav_backup"><i class="fa-solid fa-cloud-arrow-up" style="margin-left:6px"></i> نسخ احتياطي</span><span id="backup-reminder-dot" style="display:none;width:8px;height:8px;background:var(--accent4);border-radius:50%;margin-right:auto;flex-shrink:0"></span></div>
@@ -4388,6 +4515,21 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       </div>
     </div>
   </div>
+</div>
+
+<!-- REVIEWS PAGE -->
+<div class="page" id="page-reviews">
+  <div class="page-header">
+    <div>
+      <div class="page-title">⭐ التقييمات</div>
+      <div class="page-subtitle">آراء العملاء في خدماتك — اجمع الفيدباك في مكان واحد</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-ghost btn-sm" onclick="_copyReviewLink()"><i class="fa-solid fa-link"></i> رابط التقييم</button>
+      <button class="btn btn-primary btn-sm" onclick="_exportReviews()"><i class="fa-solid fa-download"></i> تصدير</button>
+    </div>
+  </div>
+  <div id="reviews-page-content"></div>
 </div>
 
 <!-- SETTINGS -->
@@ -6383,6 +6525,126 @@ function _confirmCollect(clientId, totalOwed){
   renderAll();
 }
 
+// ══════════════════════════════════════════════════════
+// ── REVIEWS PAGE ──
+// ══════════════════════════════════════════════════════
+function renderReviewsPage() {
+  const cont = document.getElementById('reviews-page-content');
+  if (!cont) return;
+  const reviews = (S.reviews || []).sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0));
+  const total = reviews.length;
+  const avg = total ? (reviews.reduce((s,r) => s + (+r.stars||0), 0) / total).toFixed(1) : 0;
+  const dist = [5,4,3,2,1].map(n => ({ n, count: reviews.filter(r => +r.stars === n).length }));
+  const acc = S.settings?.accent || S.settings?.accentColor || '#7c6ff7';
+
+  // تحديث الـ badge
+  const badge = document.getElementById('reviews-badge');
+  if (badge) { badge.textContent = total; badge.style.display = total ? 'inline-flex' : 'none'; }
+
+  if (!total) {
+    cont.innerHTML = `<div style="text-align:center;padding:80px 20px;color:var(--text3)">
+      <div style="font-size:64px;opacity:.25;margin-bottom:16px">⭐</div>
+      <div style="font-size:18px;font-weight:800;color:var(--text2);margin-bottom:8px">لا توجد تقييمات بعد</div>
+      <div style="font-size:13px;line-height:1.8;max-width:340px;margin:0 auto">أرسل رابط بوابة العميل لعملائك وعد بعد اكتمال المهام ستظهر تقييماتهم هنا</div>
+      <button onclick="_copyReviewLink()" class="btn btn-primary" style="margin-top:20px"><i class="fa-solid fa-link"></i> انسخ رابط البوابة</button>
+    </div>`;
+    return;
+  }
+
+  // فلتر النجوم
+  const _rf = window._reviewsFilter || 'all';
+
+  const filtered = _rf === 'all' ? reviews : reviews.filter(r => +r.stars === +_rf);
+
+  cont.innerHTML = `
+  <!-- Summary Cards -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px">
+    <div class="card" style="padding:20px;text-align:center;border-right:3px solid #f7c948">
+      <div style="font-size:48px;font-weight:900;color:#f7c948;line-height:1">${avg}</div>
+      <div style="font-size:22px;margin:6px 0">${'⭐'.repeat(Math.round(+avg))}</div>
+      <div style="font-size:12px;color:var(--text3)">${total} تقييم إجمالي</div>
+    </div>
+    <div class="card" style="padding:20px">
+      <div style="font-size:12px;font-weight:800;color:var(--text3);margin-bottom:12px">توزيع التقييمات</div>
+      ${dist.map(d => `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer" onclick="window._reviewsFilter='${d.n}';renderReviewsPage()">
+        <div style="font-size:12px;color:var(--text3);width:14px;text-align:center">${d.n}</div>
+        <div style="font-size:11px">⭐</div>
+        <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${total?Math.round(d.count/total*100):0}%;background:#f7c948;border-radius:4px;transition:width .4s"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);width:20px;text-align:left">${d.count}</div>
+      </div>`).join('')}
+    </div>
+    <div class="card" style="padding:20px">
+      <div style="font-size:12px;font-weight:800;color:var(--text3);margin-bottom:12px">أفضل العملاء</div>
+      ${[...new Map(reviews.map(r=>[r.client_name,r])).values()].slice(0,4).map(r=>`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="width:28px;height:28px;border-radius:50%;background:${acc}22;color:${acc};font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${(r.client_name||'?')[0]}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(r.client_name||'عميل')}</div>
+          <div style="font-size:10px;color:var(--text3)">${reviews.filter(x=>x.client_name===r.client_name).length} تقييم · ⭐ ${(reviews.filter(x=>x.client_name===r.client_name).reduce((s,x)=>s+(+x.stars||0),0)/reviews.filter(x=>x.client_name===r.client_name).length).toFixed(1)}</div>
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+    <span style="font-size:12px;color:var(--text3);font-weight:700">فلتر:</span>
+    ${[{v:'all',l:'الكل ('+total+')'},{v:'5',l:'⭐⭐⭐⭐⭐'},{v:'4',l:'⭐⭐⭐⭐'},{v:'3',l:'⭐⭐⭐'},{v:'2',l:'⭐⭐'},{v:'1',l:'⭐'}].map(f=>`
+    <button onclick="window._reviewsFilter='${f.v}';renderReviewsPage()" class="btn btn-sm" style="background:${_rf===f.v?'var(--accent)':'var(--surface2)'};color:${_rf===f.v?'#fff':'var(--text2)'};border:1px solid ${_rf===f.v?'var(--accent)':'var(--border)'}">${f.l}</button>`).join('')}
+    ${_rf!=='all'?`<button onclick="window._reviewsFilter='all';renderReviewsPage()" class="btn btn-ghost btn-sm"><i class="fa-solid fa-xmark"></i> إلغاء الفلتر</button>`:''}
+  </div>
+
+  <!-- Reviews List -->
+  <div style="display:flex;flex-direction:column;gap:12px">
+    ${filtered.length ? filtered.map(r => {
+      const clientObj = (S.clients||[]).find(c=>String(c.id)===String(r.client_id)||c.name===r.client_name);
+      const taskObj = (S.tasks||[]).find(t=>String(t.id)===String(r.task_id));
+      return `<div class="card" style="padding:18px;border-right:3px solid ${+r.stars>=4?'#f7c948':+r.stars===3?'var(--accent2)':'var(--accent4)'}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:38px;height:38px;border-radius:50%;background:${acc}22;color:${acc};font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">${(r.client_name||'?')[0]}</div>
+            <div>
+              <div style="font-size:14px;font-weight:800">${escapeHtml(r.client_name||'عميل')}</div>
+              <div style="font-size:11px;color:var(--text3)"><i class="fa-solid fa-calendar"></i> ${r.created_at?new Date(r.created_at).toLocaleDateString('ar-EG'):''}</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <div style="font-size:22px;letter-spacing:2px">${'⭐'.repeat(+r.stars||0)}</div>
+            <span style="font-size:11px;font-weight:800;padding:2px 10px;border-radius:10px;background:${+r.stars>=4?'rgba(247,201,72,.15)':+r.stars===3?'rgba(168,156,255,.15)':'rgba(255,107,107,.12)'};color:${+r.stars>=4?'#f7c948':+r.stars===3?'var(--accent2)':'var(--accent4)'}">${['','سيء 😞','مقبول 😐','جيد 🙂','رائع 😊','ممتاز 🤩'][+r.stars]||''}</span>
+          </div>
+        </div>
+        ${r.comment?`<div style="font-size:13px;color:var(--text2);line-height:1.8;padding:12px 14px;background:var(--surface2);border-radius:10px;margin-bottom:10px;font-style:italic border-right:2px solid #f7c948">"${escapeHtml(r.comment)}"</div>`:''}
+        ${taskObj||r.task_title?`<div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px"><i class="fa-solid fa-clipboard-list" style="color:var(--accent)"></i> الطلب: <span style="font-weight:700;color:var(--text2)">${escapeHtml(r.task_title||taskObj?.title||'طلب')}</span></div>`:''}
+      </div>`;
+    }).join('') : `<div style="text-align:center;padding:40px;color:var(--text3)"><i class="fa-solid fa-star" style="font-size:32px;opacity:.3;display:block;margin-bottom:10px"></i>لا توجد تقييمات بهذا التصنيف</div>`}
+  </div>`;
+}
+
+function _copyReviewLink() {
+  const uid = _supaUserId;
+  const un = S.settings?.username;
+  const link = un
+    ? `${location.origin}/client-portal.html?u=${encodeURIComponent(un)}`
+    : `${location.origin}/client-portal.html?uid=${uid}`;
+  navigator.clipboard?.writeText(link).then(() => toast('✅ تم نسخ رابط البوابة'));
+}
+
+function _exportReviews() {
+  const reviews = S.reviews || [];
+  if (!reviews.length) { toast('لا توجد تقييمات للتصدير'); return; }
+  const rows = [['العميل','الطلب','النجوم','التعليق','التاريخ']];
+  reviews.forEach(r => rows.push([r.client_name||'', r.task_title||'', r.stars||'', r.comment||'', r.created_at?new Date(r.created_at).toLocaleDateString('ar-EG'):'']));
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = 'reviews-ordo.csv';
+  a.click();
+  toast('✅ تم تصدير التقييمات');
+}
+
 function showPage(id,el){
   if(_supaUserId && hasActiveSub() && !FREE_PAGES.includes(id) && !hasPageFeature(id)){
     _showPageLock(id,el,'feature'); return;
@@ -6427,6 +6689,9 @@ function showPage(id,el){
     setTimeout(function(){
       if(typeof renderStoresHomeList==='function') renderStoresHomeList();
     }, 50);
+  }
+  if(id === 'reviews'){
+    setTimeout(renderReviewsPage, 50);
   }
   // Refresh team invites immediately when opening team page
   if(id === 'team' && typeof window._teamPollNow === 'function'){
@@ -10920,6 +11185,12 @@ function renderAll(){
   if(document.getElementById('page-freelancer-goals')?.classList.contains('active')){
     renderFreelancerGoalsPage();
   }
+  if(document.getElementById('page-reviews')?.classList.contains('active')){
+    renderReviewsPage();
+  }
+  // تحديث badge التقييمات
+  const _rb = document.getElementById('reviews-badge');
+  if(_rb){ const _rc=(S.reviews||[]).length; _rb.textContent=_rc; _rb.style.display=_rc?'inline-flex':'none'; }
 }
 
 // ============================================================
@@ -11283,6 +11554,8 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     window._appReady = true;
     window._cloudLoadDone = true;
     migrateSFields();
+    // ── Migration للجداول الجديدة (في الخلفية، مش بيعلق) ──
+    setTimeout(() => _migrateToNewTables(_supaUserId, S), 2000);
     // ── أخفي مؤشر التحميل فوراً ──
     var _si = document.getElementById('sync-indicator');
     if(_si) { clearTimeout(_si._t); _si.style.opacity = '0'; }
