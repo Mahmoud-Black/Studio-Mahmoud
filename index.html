@@ -14975,6 +14975,45 @@ function renderFinLoansSummary(){
 }
 
 function renderWalletsTab() {
+  var methods = getAllPayMethods();
+  var transactions = S.transactions || [];
+  var grid = document.getElementById('fin-wallets-grid');
+  if(!grid) return;
+  var manualSel = document.getElementById('fin-manual-wallet');
+  if(manualSel) {
+    manualSel.innerHTML = methods.map(function(m) {
+      return '<option value="'+m.id+'">'+m.label+'</option>';
+    }).join('');
+  }
+  var walletColors = {cash:'#4fd1a5',instapay:'#7c6ff7',vodafone:'#e53935',etisalat:'#1565c0'};
+  var walletIcons  = {cash:'<i class="fa-solid fa-money-bill-wave"></i>',instapay:'<i class="fa-solid fa-mobile"></i>',vodafone:'<i class="fa-brands fa-vimeo" style="color:#e53935"></i>',etisalat:'<i class="fa-solid fa-phone"></i>'};
+  grid.innerHTML = methods.map(function(m) {
+    var mTrans = transactions.filter(function(t){ return t.payMethod===m.id || t.method===m.id; });
+    var income  = mTrans.filter(function(t){ return t.type==='income'; }).reduce(function(s,t){ return s+(t.amount||0); }, 0);
+    var expense = mTrans.filter(function(t){ return t.type==='expense'; }).reduce(function(s,t){ return s+(t.amount||0); }, 0);
+    var balance = income - expense;
+    var color   = m.color || walletColors[m.id] || '#7c6ff7';
+    var icon    = m.icon  || walletIcons[m.id]  || '<i class="fa-solid fa-wallet"></i>';
+    var pct     = (income+expense) > 0 ? Math.round(income/(income+expense)*100) : 0;
+    return '<div class="card" style="cursor:pointer;border:1.5px solid '+color+'33;position:relative;overflow:hidden" data-wid="'+m.id+'" onclick="showWalletDetail(this.dataset.wid)">'+
+      '<div style="position:absolute;top:0;right:0;width:100%;height:3px;background:'+color+'"></div>'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
+        '<div style="width:38px;height:38px;border-radius:10px;background:'+color+'22;display:flex;align-items:center;justify-content:center;color:'+color+';font-size:18px">'+icon+'</div>'+
+        '<div><div style="font-weight:800;font-size:14px">'+m.label+'</div>'+
+        '<div style="font-size:11px;color:var(--text3)">'+mTrans.length+' معاملة</div></div>'+
+      '</div>'+
+      '<div style="font-size:20px;font-weight:900;color:'+(balance>=0?'var(--accent3)':'var(--accent4)')+'">'+balance.toLocaleString('ar-EG')+' ج</div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px">'+
+        '<span style="color:var(--accent3)">↑ '+income.toLocaleString('ar-EG')+'</span>'+
+        '<span style="color:var(--accent4)">↓ '+expense.toLocaleString('ar-EG')+'</span>'+
+      '</div>'+
+      '<div style="margin-top:8px;height:4px;background:var(--surface2);border-radius:4px;overflow:hidden">'+
+        '<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:4px;transition:width .5s"></div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
 // ══════════════════════════════════════════════════
 // BUDGETS
 // ══════════════════════════════════════════════════
@@ -15188,49 +15227,6 @@ function renderLoans(){
       +'</div>'
       +'</div>';
   }).join('')+'</div>';
-}
-
-
-  var methods = getAllPayMethods();
-  var transactions = S.transactions || [];
-  var grid = document.getElementById('fin-wallets-grid');
-  if(!grid) return;
-
-  // Fill manual wallet select
-  var manualSel = document.getElementById('fin-manual-wallet');
-  if(manualSel) {
-    manualSel.innerHTML = methods.map(function(m) {
-      return '<option value="'+m.id+'">'+m.label+'</option>';
-    }).join('');
-  }
-
-  var walletColors = {cash:'#4fd1a5',instapay:'#7c6ff7',vodafone:'#e53935',etisalat:'#1565c0'};
-  var walletIcons  = {cash:'<i class="fa-solid fa-money-bill-wave"></i>',instapay:'<i class="fa-solid fa-mobile"></i>',vodafone:'<i class="fa-brands fa-vimeo" style="color:#e53935"></i>',etisalat:'<i class="fa-solid fa-phone"></i>'};
-
-  grid.innerHTML = methods.map(function(m) {
-    var mTrans = transactions.filter(function(t){ return t.payMethod===m.id || t.method===m.id; });
-    var income  = mTrans.filter(function(t){ return t.type==='income'; }).reduce(function(s,t){ return s+(t.amount||0); }, 0);
-    var expense = mTrans.filter(function(t){ return t.type==='expense'; }).reduce(function(s,t){ return s+(t.amount||0); }, 0);
-    var balance = income - expense;
-    var color   = m.color || walletColors[m.id] || '#7c6ff7';
-    var icon    = m.icon  || walletIcons[m.id]  || '<i class="fa-solid fa-wallet"></i>';
-    var pct     = (income+expense) > 0 ? Math.round(income/(income+expense)*100) : 0;
-    return '<div class="card" style="cursor:pointer;border:1.5px solid '+color+'33;position:relative;overflow:hidden" data-wid="'+m.id+'" onclick="showWalletDetail(this.dataset.wid)">'+
-      '<div style="position:absolute;top:0;right:0;width:100%;height:3px;background:'+color+'"></div>'+
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
-        '<div style="width:42px;height:42px;border-radius:12px;background:'+color+'22;display:flex;align-items:center;justify-content:center;font-size:20px;color:'+color+'">'+icon+'</div>'+
-        '<div><div style="font-size:13px;font-weight:800">'+m.label+'</div><div style="font-size:10px;color:var(--text3)">'+mTrans.length+' معاملة</div></div>'+
-      '</div>'+
-      '<div style="font-size:22px;font-weight:900;color:'+(balance>=0?'var(--accent3)':'var(--accent4)')+'">'+balance.toLocaleString('ar-EG')+' <span style="font-size:12px;font-weight:400">ج</span></div>'+
-      '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--text3)">'+
-        '<span style="color:var(--accent3)">↑ '+income.toLocaleString('ar-EG')+'</span>'+
-        '<span style="color:var(--accent4)">↓ '+expense.toLocaleString('ar-EG')+'</span>'+
-      '</div>'+
-      '<div style="margin-top:8px;height:4px;background:var(--surface2);border-radius:4px;overflow:hidden">'+
-        '<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:4px;transition:width .5s"></div>'+
-      '</div>'+
-    '</div>';
-  }).join('');
 }
 
 function showWalletDetail(methodId) {
