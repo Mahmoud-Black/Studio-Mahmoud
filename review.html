@@ -311,31 +311,47 @@ async function boot(){
 
     // Resolve username → uid
     if(!uid && pUsername){
-      // Try multiple search strategies for reliability
-      const searchVariants = [
-        '%"username":"'+pUsername+'"%',
-        '%"username": "'+pUsername+'"%',
-        '%username%'+pUsername+'%'
-      ];
-      
-      for(const pattern of searchVariants){
-        let res=await db.from('studio_data').select('user_id,data').like('data::text', pattern).limit(20);
-        if(res.data && res.data.length){
-          for(const row of res.data){
-            try{
-              let d=row.data;
-              if(typeof d==='string') d=JSON.parse(d);
-              if(d?.data&&!d?.tasks) d=typeof d.data==='string'?JSON.parse(d.data):d.data;
-              const uname = d?.settings?.username || d?.settings?.name;
-              if(uname && uname.toLowerCase()===pUsername.toLowerCase()){
-                uid=row.user_id; break;
-              }
-            }catch(e){}
-          }
-        }
-        if(uid) break;
+      // Strategy 1: Direct username_index column (fastest & most reliable)
+      const r1 = await db.from('studio_data')
+        .select('user_id')
+        .eq('username_index', pUsername)
+        .maybeSingle();
+      if(r1.data?.user_id) uid = r1.data.user_id;
+
+      // Strategy 2: Case-insensitive username_index
+      if(!uid){
+        const r2 = await db.from('studio_data')
+          .select('user_id')
+          .ilike('username_index', pUsername)
+          .maybeSingle();
+        if(r2.data?.user_id) uid = r2.data.user_id;
       }
-      if(!uid){showErr('لم يتم العثور على الحساب — تأكد من الرابط أو اطلب رابطاً جديداً من الفريلانسر');return;}
+
+      // Strategy 3: Fallback — LIKE search inside JSON data
+      if(!uid){
+        const searchVariants = [
+          '%"username":"'+pUsername+'"%',
+          '%"username": "'+pUsername+'"%',
+          '%username%'+pUsername+'%'
+        ];
+        for(const pattern of searchVariants){
+          const res = await db.from('studio_data').select('user_id,data').like('data::text', pattern).limit(20);
+          if(res.data?.length){
+            for(const row of res.data){
+              try{
+                let d=row.data;
+                if(typeof d==='string') d=JSON.parse(d);
+                if(d?.data&&!d?.tasks) d=typeof d.data==='string'?JSON.parse(d.data):d.data;
+                const uname = d?.settings?.username || d?.settings?.name || d?.settings?.displayName;
+                if(uname && uname.toLowerCase()===pUsername.toLowerCase()){ uid=row.user_id; break; }
+              }catch(e){}
+            }
+          }
+          if(uid) break;
+        }
+      }
+
+      if(!uid){ showErr('لم يتم العثور على الحساب — تأكد من الرابط أو اطلب رابطاً جديداً من الفريلانسر'); return; }
     }
 
     if(!uid){showErr('رابط التقييم غير صالح — يرجى طلب رابط جديد من الفريلانسر');return;}
