@@ -365,31 +365,24 @@ async function _doCloudSave(data, force) {
       ...(_un ? { username_index: _un.toLowerCase() } : {})
     };
 
-    // ── DEBUG: طباعة تفاصيل الحفظ ──
-    console.log('💾 SAVING to Supabase | user_id:', _supaUserId, '| data size:', payload.data.length, 'chars');
-
     const { error } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
 
     const harmless = e => (e?.message || e?.error || '').toString().match(/DataCloneError|postMessage|Headers/);
 
     if (error && !harmless(error)) {
-      // ── DEBUG: إظهار الخطأ بوضوح ──
-      console.error('❌ SAVE FAILED | code:', error.code, '| message:', error.message, '| details:', error.details, '| hint:', error.hint);
-      // إظهار رسالة خطأ واضحة للمستخدم
-      _showSaveError(error);
+      console.error('❌ SAVE FAILED', error.message);
       showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> فشل الحفظ', '#f7c948');
       return false;
     }
 
-    console.log('✅ SAVED successfully to Supabase');
     showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
+    // ── احفظ نسخة cache في localStorage للمقارنة عند الـ refresh ──
+    try { localStorage.setItem('_ordo_cache_' + _supaUserId, payload.data); } catch(e) {}
     return true;
 
   } catch (e) {
     const harmless = (e?.message || '').match(/DataCloneError|postMessage|Headers/);
     if (!harmless) {
-      console.error('❌ SAVE EXCEPTION:', e.message, e);
-      _showSaveError(e);
       showSyncIndicator('<i class="fa-solid fa-triangle-exclamation"></i> خطأ في الحفظ', '#f76f7c');
     } else {
       showSyncIndicator('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> محفوظ', '#4fd1a5');
@@ -404,33 +397,6 @@ async function _doCloudSave(data, force) {
       setTimeout(() => _doCloudSave(S), 500);
     }
   }
-}
-
-// ── إظهار رسالة خطأ الحفظ بوضوح ──
-function _showSaveError(error) {
-  var msg = error?.message || error?.error || JSON.stringify(error);
-  var existing = document.getElementById('_save-error-banner');
-  if(existing) existing.remove();
-  var banner = document.createElement('div');
-  banner.id = '_save-error-banner';
-  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#c0392b;color:#fff;padding:12px 20px;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;direction:rtl;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 2px 12px rgba(0,0,0,.4)';
-  
-  var errText = '⚠️ فشل الحفظ على Supabase: ' + msg;
-  
-  // تشخيص المشكلة
-  if(msg.includes('violates row-level security') || msg.includes('RLS') || msg.includes('42501')) {
-    errText = '🔒 مشكلة RLS: الـ Row Level Security في Supabase بتمنع الحفظ — افتح Supabase Dashboard وفعّل الـ Policy للـ studio_data table';
-  } else if(msg.includes('does not exist') || msg.includes('42P01')) {
-    errText = '❌ الجدول studio_data مش موجود في Supabase — لازم تنشئه أولاً';
-  } else if(msg.includes('JWT') || msg.includes('401') || msg.includes('invalid')) {
-    errText = '🔑 مشكلة في الـ Authentication — الـ JWT token انتهى أو غلط';
-  } else if(msg.includes('network') || msg.includes('fetch') || msg.includes('Failed')) {
-    errText = '🌐 مشكلة في الاتصال بالإنترنت أو Supabase';
-  }
-  
-  banner.innerHTML = '<span>' + errText + '</span><button onclick="this.parentNode.remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;font-family:Cairo,sans-serif">✕</button>';
-  document.body.appendChild(banner);
-  setTimeout(function(){ var b=document.getElementById('_save-error-banner'); if(b) b.remove(); }, 15000);
 }
 
 // ── lsSave: debounced 600ms — the ONE function everyone calls ──
@@ -572,6 +538,11 @@ function _mergeUiSettingsIntoS(){
 // حفظ فوري عند إغلاق الصفحة
 window.addEventListener('beforeunload', function() {
   if(!_supaUserId || !S || !window._appReady) return;
+  // ── حفظ cache محلي فوري قبل الإغلاق/الريفريش ──
+  try {
+    S._savedAt = new Date().toISOString();
+    localStorage.setItem('_ordo_cache_' + _supaUserId, JSON.stringify(S));
+  } catch(e) {}
   // إرسال للسحابة بـ keepalive — بيكمّل حتى بعد إغلاق الصفحة
   try {
     // تحقق إن البيانات مش فاضية قبل الحفظ
@@ -11202,10 +11173,38 @@ async function loginWithSupaSession(supaUser, session, userMeta){
 
   // ── حمّل من السحابة مباشرة ──
   showSyncIndicator('<i class="fa-solid fa-cloud"></i>️ جاري تحميل بياناتك...', 'var(--accent)');
+
+  // ── اقرأ الـ cache المحلي للمقارنة ──
+  let _cachedData = null;
+  try {
+    const _cacheRaw = localStorage.getItem('_ordo_cache_' + supaUser.id);
+    if(_cacheRaw) _cachedData = JSON.parse(_cacheRaw);
+  } catch(e) {}
+
   const cloudData = await cloudLoad();
-  if(cloudData){
-    // السحابة هي مصدر الحقيقة — نستخدمها دايماً
-    S = cloudData;
+
+  // ── اختار أحدث بيانات بين السحابة والـ cache ──
+  let _bestData = cloudData;
+  if(_cachedData) {
+    const cloudTime = cloudData?._savedAt ? new Date(cloudData._savedAt).getTime() : 0;
+    const cacheTime = _cachedData._savedAt ? new Date(_cachedData._savedAt).getTime() : 0;
+    const cloudScore = (cloudData?.tasks?.length||0) + (cloudData?.clients?.length||0) + (cloudData?.invoices?.length||0);
+    const cacheScore = (_cachedData.tasks?.length||0) + (_cachedData.clients?.length||0) + (_cachedData.invoices?.length||0);
+
+    if(cacheScore > cloudScore || (cacheScore === cloudScore && cacheTime > cloudTime)) {
+      console.log('⚡ Cache is newer than cloud | cache:', cacheScore, 'cloud:', cloudScore, '— using cache and re-saving');
+      _bestData = _cachedData;
+      // أعد الحفظ للسحابة فوراً لمزامنتها
+      setTimeout(async () => {
+        const _rp = { user_id: supaUser.id, data: JSON.stringify(_cachedData), updated_at: _cachedData._savedAt || new Date().toISOString() };
+        await supa.from('studio_data').upsert(_rp, { onConflict: 'user_id' });
+        console.log('✅ Re-synced cache to cloud');
+      }, 500);
+    }
+  }
+
+  if(_bestData){
+    S = _bestData;
     window._appReady = true;
     window._cloudLoadDone = true;
     migrateSFields();
@@ -16832,104 +16831,6 @@ async function initAuthFallback(){
 }
 
 initAuthFallback();
-
-// ══════════════════════════════════════════════
-// 🔧 SUPABASE DIAGNOSTIC TOOL
-// اضغط Ctrl+Shift+D لفتح أداة التشخيص
-// ══════════════════════════════════════════════
-document.addEventListener('keydown', function(e) {
-  if(e.ctrlKey && e.shiftKey && e.key === 'D') _openDiagnostic();
-});
-
-async function _openDiagnostic() {
-  var existing = document.getElementById('_diag-panel');
-  if(existing) { existing.remove(); return; }
-  
-  var panel = document.createElement('div');
-  panel.id = '_diag-panel';
-  panel.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:999999;background:#0e0f1a;border:2px solid #7c6ff7;border-radius:16px;padding:20px;width:360px;font-family:Cairo,sans-serif;direction:rtl;box-shadow:0 8px 32px rgba(0,0,0,.8);color:#e2e4f0;font-size:13px';
-  panel.innerHTML = `
-    <div style="font-weight:800;font-size:15px;margin-bottom:14px;color:#7c6ff7">🔧 تشخيص Supabase</div>
-    <div id="_diag-log" style="background:#141522;border-radius:8px;padding:12px;min-height:120px;max-height:200px;overflow-y:auto;font-size:11px;line-height:1.8;margin-bottom:14px;font-family:monospace;direction:ltr">جاري الفحص...</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button onclick="_diagTest()" style="flex:1;padding:8px;background:#7c6ff7;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Cairo,sans-serif;font-weight:700">🔍 فحص الآن</button>
-      <button onclick="_diagForceSave()" style="flex:1;padding:8px;background:#4fd1a5;color:#0e0f1a;border:none;border-radius:8px;cursor:pointer;font-family:Cairo,sans-serif;font-weight:700">💾 حفظ إجباري</button>
-      <button onclick="document.getElementById('_diag-panel').remove()" style="padding:8px 12px;background:#252640;color:#e2e4f0;border:none;border-radius:8px;cursor:pointer;font-family:Cairo,sans-serif">✕</button>
-    </div>
-  `;
-  document.body.appendChild(panel);
-  _diagTest();
-}
-
-function _diagLog(msg, color) {
-  var log = document.getElementById('_diag-log');
-  if(!log) return;
-  var line = document.createElement('div');
-  line.style.color = color || '#e2e4f0';
-  line.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
-  log.appendChild(line);
-  log.scrollTop = log.scrollHeight;
-}
-
-async function _diagTest() {
-  var log = document.getElementById('_diag-log');
-  if(log) log.innerHTML = '';
-  
-  _diagLog('User ID: ' + (_supaUserId || '❌ غير موجود'), _supaUserId ? '#4fd1a5' : '#f76f7c');
-  _diagLog('_appReady: ' + (window._appReady ? '✅' : '❌'), window._appReady ? '#4fd1a5' : '#f76f7c');
-  
-  if(!_supaUserId) {
-    _diagLog('❌ مش مسجل دخول — لازم تسجل دخول أول', '#f76f7c');
-    return;
-  }
-  
-  // Test READ
-  _diagLog('📖 جاري قراءة البيانات من Supabase...', '#f7c948');
-  try {
-    const { data, error } = await supa.from('studio_data').select('user_id, updated_at, data').eq('user_id', _supaUserId).maybeSingle();
-    if(error) {
-      _diagLog('❌ READ ERROR: ' + error.message + ' (code: ' + error.code + ')', '#f76f7c');
-      if(error.code === '42501' || error.message.includes('security')) _diagLog('🔒 السبب: RLS Policy محظورة في Supabase', '#f76f7c');
-    } else if(!data) {
-      _diagLog('⚠️ لا توجد بيانات محفوظة لهذا المستخدم — Row جديدة', '#f7c948');
-    } else {
-      var parsed = JSON.parse(data.data || '{}');
-      _diagLog('✅ READ OK | updated_at: ' + data.updated_at, '#4fd1a5');
-      _diagLog('   clients: ' + (parsed.clients?.length||0) + ' | tasks: ' + (parsed.tasks?.length||0) + ' | invoices: ' + (parsed.invoices?.length||0), '#4fd1a5');
-    }
-  } catch(e) { _diagLog('❌ READ EXCEPTION: ' + e.message, '#f76f7c'); }
-  
-  // Test WRITE
-  _diagLog('✏️ جاري اختبار الكتابة...', '#f7c948');
-  try {
-    const testPayload = { user_id: _supaUserId, data: JSON.stringify({_test: true, _ts: Date.now()}), updated_at: new Date().toISOString() };
-    const { error: we } = await supa.from('studio_data').upsert(testPayload, { onConflict: 'user_id' });
-    if(we) {
-      _diagLog('❌ WRITE ERROR: ' + we.message + ' (code: ' + we.code + ')', '#f76f7c');
-      if(we.code === '42501' || we.message.includes('security')) _diagLog('🔒 السبب: RLS Policy بتمنع الكتابة — افتح Supabase Dashboard', '#f76f7c');
-      else if(we.message.includes('does not exist')) _diagLog('❌ الجدول studio_data مش موجود', '#f76f7c');
-    } else {
-      _diagLog('✅ WRITE OK — الحفظ شغال صح!', '#4fd1a5');
-      // Restore real data
-      if(S && window._appReady) {
-        const realPayload = { user_id: _supaUserId, data: JSON.stringify(S), updated_at: new Date().toISOString() };
-        await supa.from('studio_data').upsert(realPayload, { onConflict: 'user_id' });
-        _diagLog('✅ تم استرجاع البيانات الحقيقية', '#4fd1a5');
-      }
-    }
-  } catch(e) { _diagLog('❌ WRITE EXCEPTION: ' + e.message, '#f76f7c'); }
-  
-  // Check S data
-  _diagLog('📊 S في الذاكرة: clients=' + (S?.clients?.length||0) + ' tasks=' + (S?.tasks?.length||0), '#a89cff');
-}
-
-async function _diagForceSave() {
-  if(!_supaUserId || !S) { _diagLog('❌ مش مسجل دخول', '#f76f7c'); return; }
-  window._appReady = true;
-  _diagLog('💾 جاري الحفظ الإجباري...', '#f7c948');
-  const ok = await _doCloudSave(S, true);
-  _diagLog(ok ? '✅ تم الحفظ بنجاح!' : '❌ فشل الحفظ — شوف الرسالة فوق', ok ? '#4fd1a5' : '#f76f7c');
-}
 // close sidebar on desktop resize
 window.addEventListener('resize',()=>{
   if(window.innerWidth>1024) closeSidebar();
