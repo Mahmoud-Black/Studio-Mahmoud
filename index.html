@@ -3948,128 +3948,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
 
 </div><!-- end page-finance -->
 
-<!-- LOAN MODAL -->
-<div class="modal-overlay" id="modal-loan">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="loan-modal-ttl"><i class="fa-solid fa-handshake"></i> قرض / دين جديد</div>
-      <button class="close-btn" onclick="closeM('modal-loan')"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <input type="hidden" id="loan-eid">
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">نوع القرض *</label>
-        <select class="form-select" id="loan-direction" onchange="updateLoanDirection()">
-          <option value="lent">💰 سلّفت للغير (فلوس ليا)</option>
-          <option value="borrowed">↩ استلفت من حد (فلوس عليا)</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">المبلغ (ج.م) *</label>
-        <input class="form-input" type="number" id="loan-amount" placeholder="0" min="0">
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label" id="loan-person-label">اسم الشخص اللي سلّفته *</label>
-      <input class="form-input" id="loan-person" placeholder="اسم الشخص أو الجهة">
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">تاريخ القرض</label>
-        <input class="form-input" type="date" id="loan-date">
-      </div>
-      <div class="form-group">
-        <label class="form-label">تاريخ السداد المتوقع</label>
-        <input class="form-input" type="date" id="loan-due">
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">ملاحظات</label>
-      <textarea class="form-textarea" id="loan-notes" placeholder="تفاصيل القرض..." style="min-height:60px"></textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label">الحالة</label>
-      <select class="form-select" id="loan-status">
-        <option value="pending">⏳ لسه مترددتش</option>
-        <option value="partial">🟡 مترددت جزء</option>
-        <option value="settled">✅ اترد بالكامل</option>
-      </select>
-    </div>
-    <div class="form-group" id="loan-settled-amount-wrap" style="display:none">
-      <label class="form-label">المبلغ اللي اترد</label>
-      <input class="form-input" type="number" id="loan-settled-amount" placeholder="0">
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeM('modal-loan')">إلغاء</button>
-      <button class="btn btn-primary" onclick="saveLoan()"><i class="fa-solid fa-floppy-disk" style="margin-left:4px"></i> حفظ</button>
-    </div>
-  </div>
-</div>
 
-<!-- BUDGET MODAL -->
-<div class="modal-overlay" id="modal-budget">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="budget-modal-ttl"><i class="fa-solid fa-bullseye-arrow"></i> ميزانية جديدة</div>
-      <button class="close-btn" onclick="closeM('modal-budget')"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <input type="hidden" id="budget-eid">
-    <div class="form-group">
-      <label class="form-label">اسم الميزانية *</label>
-      <input class="form-input" id="budget-name" placeholder="مثال: شراء لابتوب، تطوير السيت آب...">
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">المبلغ المستهدف (ج.م) *</label>
-        <input class="form-input" type="number" id="budget-target" placeholder="0" min="0">
-      </div>
-      <div class="form-group">
-        <label class="form-label">المبلغ المدّخر حتى الآن</label>
-        <input class="form-input" type="number" id="budget-saved" placeholder="0" min="0">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">الفئة</label>
-        <select class="form-select" id="budget-cat">
-          <option value="equipment">💻 معدات وأجهزة</option>
-          <option value="software">🔧 برامج واشتراكات</option>
-          <option value="setup">🏠 تطوير السيت آب</option>
-          <option value="marketing">📢 تسويق</option>
-          <option value="education">📚 تعليم وكورسات</option>
-          <option value="emergency">🛡 طوارئ</option>
-          <option value="other">📦 أخرى</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">الأولوية</label>
-        <select class="form-select" id="budget-priority">
-          <option value="high">🔴 عالية</option>
-          <option value="medium">🟡 متوسطة</option>
-          <option value="low">🟢 منخفضة</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">تاريخ البدء</label>
-        <input class="form-input" type="date" id="budget-start">
-      </div>
-      <div class="form-group">
-        <label class="form-label">تاريخ الهدف</label>
-        <input class="form-input" type="date" id="budget-deadline">
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">ملاحظات</label>
-      <textarea class="form-textarea" id="budget-notes" placeholder="لماذا تحتاج هذه الميزانية..." style="min-height:55px"></textarea>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeM('modal-budget')">إلغاء</button>
-      <button class="btn btn-primary" onclick="saveBudget()"><i class="fa-solid fa-floppy-disk" style="margin-left:4px"></i> حفظ</button>
-    </div>
-  </div>
-</div>
 
 <!-- VAULT PAGE -->
 <div class="page" id="page-vault">
@@ -5131,6 +5010,129 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
 </div><!-- end page-support -->
 
 </main><!-- end main -->
+
+<!-- LOAN MODAL -->
+<div class="modal-overlay" id="modal-loan">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="loan-modal-ttl"><i class="fa-solid fa-handshake"></i> قرض / دين جديد</div>
+      <button class="close-btn" onclick="closeM('modal-loan')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="loan-eid">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">نوع القرض *</label>
+        <select class="form-select" id="loan-direction" onchange="updateLoanDirection()">
+          <option value="lent">💰 سلّفت للغير (فلوس ليا)</option>
+          <option value="borrowed">↩ استلفت من حد (فلوس عليا)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">المبلغ (ج.م) *</label>
+        <input class="form-input" type="number" id="loan-amount" placeholder="0" min="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" id="loan-person-label">اسم الشخص اللي سلّفته *</label>
+      <input class="form-input" id="loan-person" placeholder="اسم الشخص أو الجهة">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">تاريخ القرض</label>
+        <input class="form-input" type="date" id="loan-date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">تاريخ السداد المتوقع</label>
+        <input class="form-input" type="date" id="loan-due">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ملاحظات</label>
+      <textarea class="form-textarea" id="loan-notes" placeholder="تفاصيل القرض..." style="min-height:60px"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">الحالة</label>
+      <select class="form-select" id="loan-status">
+        <option value="pending">⏳ لسه مترددتش</option>
+        <option value="partial">🟡 مترددت جزء</option>
+        <option value="settled">✅ اترد بالكامل</option>
+      </select>
+    </div>
+    <div class="form-group" id="loan-settled-amount-wrap" style="display:none">
+      <label class="form-label">المبلغ اللي اترد</label>
+      <input class="form-input" type="number" id="loan-settled-amount" placeholder="0">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeM('modal-loan')">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveLoan()"><i class="fa-solid fa-floppy-disk" style="margin-left:4px"></i> حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- BUDGET MODAL -->
+<div class="modal-overlay" id="modal-budget">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="budget-modal-ttl"><i class="fa-solid fa-bullseye-arrow"></i> ميزانية جديدة</div>
+      <button class="close-btn" onclick="closeM('modal-budget')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="budget-eid">
+    <div class="form-group">
+      <label class="form-label">اسم الميزانية *</label>
+      <input class="form-input" id="budget-name" placeholder="مثال: شراء لابتوب، تطوير السيت آب...">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">المبلغ المستهدف (ج.م) *</label>
+        <input class="form-input" type="number" id="budget-target" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">المبلغ المدّخر حتى الآن</label>
+        <input class="form-input" type="number" id="budget-saved" placeholder="0" min="0">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">الفئة</label>
+        <select class="form-select" id="budget-cat">
+          <option value="equipment">💻 معدات وأجهزة</option>
+          <option value="software">🔧 برامج واشتراكات</option>
+          <option value="setup">🏠 تطوير السيت آب</option>
+          <option value="marketing">📢 تسويق</option>
+          <option value="education">📚 تعليم وكورسات</option>
+          <option value="emergency">🛡 طوارئ</option>
+          <option value="other">📦 أخرى</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">الأولوية</label>
+        <select class="form-select" id="budget-priority">
+          <option value="high">🔴 عالية</option>
+          <option value="medium">🟡 متوسطة</option>
+          <option value="low">🟢 منخفضة</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">تاريخ البدء</label>
+        <input class="form-input" type="date" id="budget-start">
+      </div>
+      <div class="form-group">
+        <label class="form-label">تاريخ الهدف</label>
+        <input class="form-input" type="date" id="budget-deadline">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ملاحظات</label>
+      <textarea class="form-textarea" id="budget-notes" placeholder="لماذا تحتاج هذه الميزانية..." style="min-height:55px"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeM('modal-budget')">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveBudget()"><i class="fa-solid fa-floppy-disk" style="margin-left:4px"></i> حفظ</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══ MODAL: ADD/EDIT SERVICE ══ -->
 <div class="modal-overlay" id="modal-svc">
@@ -6643,9 +6645,9 @@ function _copyReviewLink() {
   var _rparts = window.location.pathname.split('/').filter(function(p){return p!=='';});
   if(_rparts.length && _rparts[_rparts.length-1].endsWith('.html')) _rparts.pop();
   var _rbase = _rparts.length ? '/' + _rparts.join('/') + '/' : '/';
-  var _rportal = window.location.origin + _rbase + 'client-portal.html';
-  const link = un ? `${_rportal}?u=${encodeURIComponent(un)}&tab=reviews` : `${_rportal}?uid=${uid}&tab=reviews`;
-  navigator.clipboard?.writeText(link).then(() => toast('✅ تم نسخ رابط التقييمات'));
+  var _reviewPage = window.location.origin + _rbase + 'review.html';
+  const link = un ? `${_reviewPage}?u=${encodeURIComponent(un)}` : `${_reviewPage}?uid=${uid}`;
+  navigator.clipboard?.writeText(link).then(() => toast('✅ تم نسخ رابط فورم التقييم'));
 }
 
 function _exportReviews() {
@@ -8767,9 +8769,9 @@ function _renderProfileTab(tab, id){
   const monthStr=`${curY}-${String(curM).padStart(2,'0')}`;
   const _taskDate=t=>t.isoDate||t.createdAt||t.doneAt||'';
   const monthTasks=cTasks.filter(t=>_taskDate(t).startsWith(monthStr));
-  const monthIncome=cTrans.filter(t=>t.type==='income'&&(t.isoDate||t.date||'').startsWith(monthStr)).reduce((s,t)=>s+t.amount,0);
+  const monthIncome=cTrans.filter(t=>t.type==='income'&&!t.isLoan&&(t.isoDate||t.date||'').startsWith(monthStr)).reduce((s,t)=>s+t.amount,0);
   const pendingInv=cInvs.filter(i=>i.status==='pending');
-  const totalInc=cTrans.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const totalInc=cTrans.filter(t=>t.type==='income'&&!t.isLoan).reduce((s,t)=>s+t.amount,0);
 
   const statusBadge={new:'<span class="badge badge-gray">جديد</span>',progress:'<span class="badge badge-yellow">جاري</span>',review:'<span class="badge badge-purple">مراجعة</span>',done:'<span class="badge badge-green">مكتمل</span>'};
   const body=document.getElementById('profile-body');
@@ -9911,6 +9913,7 @@ function saveTrans(type){
     if(lt) finalSource = lt.client||lt.title;
   }
   const incRcpt = isInc ? (window._incReceiptData||null) : null;
+  const isLoanTrans = isInc && paymentType==='loan_received';
   const d={type,amount,source:finalSource,desc:v(isInc?'in-desc':'ex-desc'),
     date:new Date(isoDate+'T00:00:00').toLocaleDateString('ar-EG'), isoDate,
     payMethod,
@@ -9918,7 +9921,8 @@ function saveTrans(type){
     ...(paymentType  ? {paymentType}  : {}),
     ...(expCat       ? {expCat}       : {}),
     ...(expImpact    ? {expImpact}    : {}),
-    ...(incRcpt      ? {receiptImage:incRcpt} : {})};
+    ...(incRcpt      ? {receiptImage:incRcpt} : {}),
+    ...(isLoanTrans  ? {isLoan:true}  : {})};
   if(eid){const i=S.transactions.findIndex(t=>t.id==eid);if(i>-1){d.id=+eid;if(!incRcpt&&S.transactions[i].receiptImage)d.receiptImage=S.transactions[i].receiptImage;S.transactions[i]=d;}}
   else{d.id=Date.now();S.transactions.push(d);}
   if(isInc) window._incReceiptData=null;
@@ -10043,8 +10047,8 @@ function renderFinance(){
     lbl.innerHTML = parts.length ? '<i class="fa-solid fa-calendar-days"></i> '+parts.join(' ') : '';
   }
 
-  const inc = filtered.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
-  const exp = filtered.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  const inc = filtered.filter(t=>t.type==='income'&&!t.isLoan).reduce((s,t)=>s+t.amount,0);
+  const exp = filtered.filter(t=>t.type==='expense'&&t.expCat!=='سلفة للغير').reduce((s,t)=>s+t.amount,0);
   const net = inc-exp, margin = inc?Math.round(net/inc*100):0;
   
   // Category breakdown
