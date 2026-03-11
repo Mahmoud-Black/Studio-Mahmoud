@@ -502,11 +502,7 @@ async function _doCloudSave(data, force) {
     // ── حفظ الإعدادات دايماً ──
     if (_safe.settings) {
       setTimeout(() => {
-        supa.from('user_settings').upsert({
-          user_id: _supaUserId,
-          data: _safe.settings,
-          updated_at: _safe._savedAt
-        }, { onConflict: 'user_id' }).catch(() => {});
+        (async()=>{ try{ await supa.from('user_settings').upsert({ user_id: _supaUserId, data: _safe.settings, updated_at: _safe._savedAt }, { onConflict: 'user_id' }); }catch(e){} })();
       }, 0);
     }
 
@@ -3894,10 +3890,8 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     <div id="loans-list"></div>
   </div>
 
-</div>
-
-<!-- STATS PANEL -->
-<div id="fin-panel-stats" style="display:none">
+  <!-- STATS PANEL -->
+  <div id="fin-panel-stats" style="display:none">
   <!-- فلتر الإحصائيات -->
   <div class="filter-bar" style="margin-bottom:16px;flex-wrap:wrap;gap:8px">
     <select id="stats-filter-period" onchange="renderFinStats()" style="height:36px;padding:0 12px;background:var(--surface3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px">
@@ -3950,7 +3944,9 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     <div class="section-title" style="margin-bottom:16px"><i class="fa-solid fa-star" style="color:var(--accent3)"></i> أعلى 5 مصادر دخل</div>
     <div id="stats-top-income"></div>
   </div>
-</div>
+</div><!-- end fin-panel-stats -->
+
+</div><!-- end page-finance -->
 
 <!-- LOAN MODAL -->
 <div class="modal-overlay" id="modal-loan">
@@ -6626,10 +6622,11 @@ function renderReviewsPage() {
 function _copyReviewLink() {
   const uid = _supaUserId;
   const un = S.settings?.username;
-  const link = un
+  const base = un
     ? `${location.origin}/client-portal.html?u=${encodeURIComponent(un)}`
     : `${location.origin}/client-portal.html?uid=${uid}`;
-  navigator.clipboard?.writeText(link).then(() => toast('✅ تم نسخ رابط البوابة'));
+  const link = base + `&tab=reviews`;
+  navigator.clipboard?.writeText(link).then(() => toast('✅ تم نسخ رابط التقييمات'));
 }
 
 function _exportReviews() {
@@ -13901,16 +13898,16 @@ async function saveTeam(){
       let targetUserId = m.linkedUserId || null;
       if(!targetUserId){
         try{
-          const { data: rpcId } = await supa.rpc('get_user_id_by_email', { p_email: email }).catch(()=>({data:null}));
-          if(rpcId) targetUserId = rpcId;
+          const rpcRes = await supa.rpc('get_user_id_by_email', { p_email: email });
+          if(rpcRes?.data) targetUserId = rpcRes.data;
         }catch(e){}
       }
 
       // Method 2: scan auth_users via admin (may not work with anon key — fallback only)
       if(!targetUserId){
         try{
-          const { data: pr } = await supa.from('profiles').select('id').eq('email', email).maybeSingle().catch(()=>({data:null}));
-          if(pr) targetUserId = pr.id;
+          const prRes = await supa.from('profiles').select('id').eq('email', email).maybeSingle();
+          if(prRes?.data) targetUserId = prRes.data.id;
         }catch(e){}
       }
 
@@ -13930,20 +13927,22 @@ async function saveTeam(){
         created_at : new Date().toISOString()
       };
 
-      const { error: notifErr } = await supa.from('user_notifications').insert([notifRow]).catch(e=>({error:e}));
+      let notifErr = null;
+      try{ const r = await supa.from('user_notifications').insert([notifRow]); notifErr = r.error; }catch(e){ notifErr = e; }
 
       if(notifErr){
         // Fallback: write to studio_data if we somehow have access
         console.warn('user_notifications insert failed:', notifErr.message, '— trying studio_data fallback');
         try{
-          const { data: tgtRow } = await supa.from('studio_data').select('data').eq('user_id',targetUserId).maybeSingle().catch(()=>({data:null}));
+          const tgtRes = await supa.from('studio_data').select('data').eq('user_id',targetUserId).maybeSingle();
+          const tgtRow = tgtRes?.data;
           if(tgtRow && tgtRow.data){
             let ud2 = typeof tgtRow.data==='string' ? JSON.parse(tgtRow.data) : tgtRow.data;
             ud2._pending_notifications = ud2._pending_notifications||[];
             const alreadyEx = ud2._pending_notifications.find(n=>n.type==='team_added'&&String(n.teamId)===String(d.id));
             if(!alreadyEx){
               ud2._pending_notifications.push({ id:Date.now()+'_ta', title:'تمت إضافتك لفريق!', body:notifRow.body, type:'team_added', teamId:d.id, teamName:name, created_at:notifRow.created_at, read:false });
-              await supa.from('studio_data').update({data:JSON.stringify(ud2),updated_at:new Date().toISOString()}).eq('user_id',targetUserId).catch(()=>null);
+              try{ await supa.from('studio_data').update({data:JSON.stringify(ud2),updated_at:new Date().toISOString()}).eq('user_id',targetUserId); }catch(e2){}
             }
           }
         }catch(e2){}
@@ -14432,9 +14431,9 @@ async function _sendMemberMessage(memberName){
       if(rows){for(var row of rows){try{var ud2=typeof row.data==='string'?JSON.parse(row.data):row.data;var se2=(ud2?.settings?.email||ud2?._user_email||'').toLowerCase().trim();if(se2&&se2===memberEmail){targetUserId=row.user_id;break;}}catch(e){}}}
     }catch(e){}
     if(targetUserId){
-      var {data:tgt}=await supa.from('studio_data').select('data').eq('user_id',targetUserId).single().catch(()=>({data:null}));
+      var tgtRow=null; try{ var r14=await supa.from('studio_data').select('data').eq('user_id',targetUserId).single(); tgtRow=r14?.data||null; }catch(e){}
       var ud=null;
-      if(tgt){try{ud=typeof tgt.data==='string'?JSON.parse(tgt.data):tgt.data;}catch(e){}}
+      if(tgtRow){try{ud=typeof tgtRow.data==='string'?JSON.parse(tgtRow.data):tgtRow.data;}catch(e){}}
       if(!ud)ud={};
       ud._pending_notifications=ud._pending_notifications||[];
       ud._messages=ud._messages||[];
@@ -17714,7 +17713,7 @@ function ctShare(id){
   try{ localStorage.setItem('ct_sign_'+c.token, JSON.stringify(c)); }catch(e){}
   // Also save to Supabase if available
   if(typeof supa !== 'undefined' && _supaUserId){
-    supa.from('shared_contracts').upsert([{token:c.token, data:JSON.stringify(c), user_id:_supaUserId, updated_at:new Date().toISOString()}]).then(()=>{}).catch(()=>{});
+    (async()=>{ try{ await supa.from('shared_contracts').upsert([{token:c.token, data:JSON.stringify(c), user_id:_supaUserId, updated_at:new Date().toISOString()}]); }catch(e){} })();
   }
   const arr=ctContracts();const i=arr.findIndex(x=>x.id===id);
   if(i>-1){arr[i].token=c.token;if(arr[i].status==='draft'){arr[i].status='sent';}ctSave(arr);renderContractsList();}
@@ -18139,7 +18138,7 @@ window._inboxAcceptInvite = function(idx){
     }
     // Update team_invites table
     if(typeof supa !== 'undefined' && inv.id) {
-      supa.from('team_invites').update({status:'accepted'}).eq('id', String(inv.id).replace('pn_','')).catch(()=>null);
+      (async()=>{ try{ await supa.from('team_invites').update({status:'accepted'}).eq('id', String(inv.id).replace('pn_','')); }catch(e){} })();
     }
   }
   // Re-check membership
@@ -18598,7 +18597,7 @@ window.openMyMemberTeamProfile = function(ownerId){
       showMiniNotif('🎉 انضممت لفريق "'+invite.teamName+'" — '+invite.ownerName);
       // Update team_invites table
       if(typeof supa!=='undefined' && invite.id){
-        supa.from('team_invites').update({status:'accepted'}).eq('id', invite.id.replace('pn_','')).catch(()=>null);
+        (async()=>{ try{ await supa.from('team_invites').update({status:'accepted'}).eq('id', invite.id.replace('pn_','')); }catch(e){} })();
       }
       var em = null;
       try{ var _s=JSON.parse(localStorage.getItem('studioOS_auth_v1')||'{}'); em=_s&&_s.email?_s.email:null; }catch(e){}
@@ -18606,7 +18605,7 @@ window.openMyMemberTeamProfile = function(ownerId){
     } else {
       showMiniNotif('تم رفض دعوة "'+invite.teamName+'"');
       if(typeof supa!=='undefined' && invite.id){
-        supa.from('team_invites').update({status:'declined'}).eq('id', invite.id.replace('pn_','')).catch(()=>null);
+        (async()=>{ try{ await supa.from('team_invites').update({status:'declined'}).eq('id', invite.id.replace('pn_','')); }catch(e){} })();
       }
       // حفظ الرفض محلياً لتجنب إعادة العرض
       var decKey = '_declined_team_invites_'+(_supaUserId||'');
@@ -23433,6 +23432,30 @@ window.addEventListener('load', function(){
   setTimeout(_loadServerNotifications, 6000);
   setInterval(_loadServerNotifications, 30000);
 });
+
+// ══ polling التقييمات من السحابة كل 45 ثانية ══
+async function _pollReviews(){
+  if(!_supaUserId || !db) return;
+  try{
+    const {data:row} = await db.from('studio_data').select('data').eq('user_id',_supaUserId).maybeSingle();
+    if(!row?.data) return;
+    let fresh = row.data;
+    if(typeof fresh==='string') fresh=JSON.parse(fresh);
+    if(fresh?.data && typeof fresh.tasks==='undefined') fresh = typeof fresh.data==='string'?JSON.parse(fresh.data):fresh.data;
+    const newRevs = fresh?.reviews||[];
+    const oldCount = (S.reviews||[]).length;
+    if(newRevs.length > oldCount){
+      S.reviews = newRevs;
+      lsSave();
+      const _rb = document.getElementById('reviews-badge');
+      if(_rb){ _rb.textContent=newRevs.length; _rb.style.display=newRevs.length?'inline-flex':'none'; }
+      if(document.getElementById('page-reviews')?.classList.contains('active')) renderReviewsPage();
+      toast('⭐ وصل تقييم جديد!');
+    }
+  }catch(e){}
+}
+setInterval(_pollReviews, 45000);
+setTimeout(_pollReviews, 5000);
 document.addEventListener('visibilitychange', function(){
   if(!document.hidden) {
     _loadServerNotifications();
