@@ -11953,7 +11953,8 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     S._user_email = supaUser.email.toLowerCase().trim();
     // تأكد إن S فيها بيانات حقيقية قبل الحفظ
     var _emailSaveScore = (S.tasks?.length||0) + (S.clients?.length||0) + (S.invoices?.length||0) + (S.settings?.name ? 1 : 0);
-    if(_emailSaveScore > 0 || S._user_email) cloudSave(S);
+    // FIX: لا تحفظ S فاضية — اشترط وجود بيانات حقيقية (ليس مجرد email)
+    if(_emailSaveScore > 0) cloudSave(S);
   }
   _checkTeamMembership(supaUser.email || userObj.email);
 
@@ -22071,7 +22072,7 @@ function _buildNewOrderPortalPage(userId, portalId){
     var portal=(ud.client_portals||[]).find(function(p){return p.id===portalId;}); if(!portal) return;
     var tasks=ud.tasks||[];
     var task=(portal.task_id?tasks.find(function(t){return String(t.id)===String(portal.task_id);}):null)||
-             tasks.find(function(t){return t.client&&t.client===portal.client_name&&t.status!=='\u0645\u0643\u062a\u0645\u0644\u0629';});
+             tasks.find(function(t){return t.client&&t.client.trim().toLowerCase()===portal.client_name.trim().toLowerCase()&&t.status!=='\u0645\u0643\u062a\u0645\u0644\u0629';});
     var settings=ud.settings||{};
     var accent=(settings.accentColor)||'#7c6ff7';
     var isLight=settings.displayMode==='light';
@@ -22104,7 +22105,7 @@ function _buildNewOrderPortalPage(userId, portalId){
     // Collect related data
     var relatedTasks=portal.task_id
       ? tasks.filter(function(t){return String(t.id)===String(portal.task_id);})
-      : tasks.filter(function(t){return t.client&&(t.client===portal.client_name||t.client_phone===portal.client_phone);});
+      : tasks.filter(function(t){return t.client&&(t.client.trim().toLowerCase()===portal.client_name.trim().toLowerCase()||t.client_phone===portal.client_phone);});
     var relatedInvoices=(ud.invoices||[]).filter(function(inv){
       return inv.client&&(inv.client===portal.client_name||(portal.client_phone&&inv.client_phone===portal.client_phone));
     });
@@ -22245,7 +22246,7 @@ function _buildClientPortalPage(userId, portalId){
       ? tasks.filter(function(t){return String(t.id)===String(portal.task_id);})
       : tasks.filter(function(t){
           return t.source_order_id===portal.order_id||
-                 (t.client&&(t.client===portal.client_name||(portal.client_phone&&t.clientPhone===portal.client_phone)));
+                 (t.client&&(t.client.trim().toLowerCase()===(portal.client_name||'').trim().toLowerCase()||(portal.client_phone&&(t.clientPhone===portal.client_phone||t.client_phone===portal.client_phone))));
         });
 
     var clientInvoices=invoices.filter(function(inv){
@@ -26060,9 +26061,12 @@ function _buildFullClientPortal(userId, clientId){
     });
     // Project tasks
     var allProjTasks=ud.project_tasks||[];
-    // Tasks (regular)
+    // Tasks (regular) — FIX: trim + case-insensitive match to handle slight name differences
+    var cNameNorm = (cName||'').trim().toLowerCase();
     var tasks=(ud.tasks||[]).filter(function(t){
-      return t.client===cName||(cPhone&&(t.client_phone===cPhone||t.clientPhone===cPhone));
+      var tClientNorm = (t.client||'').trim().toLowerCase();
+      return tClientNorm === cNameNorm ||
+             (cPhone && (t.client_phone===cPhone||t.clientPhone===cPhone||t.phone===cPhone));
     });
     // Invoices
     var invoices=(ud.invoices||[]).filter(function(inv){
