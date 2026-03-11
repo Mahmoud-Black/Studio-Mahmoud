@@ -139,7 +139,7 @@ function showErr(m){document.getElementById('ls').style.display='none';const er=
 
 const P=new URLSearchParams(location.search);
 const pUid=P.get('uid'),pCid=P.get('cid'),pOrderId=P.get('order'),pTaskId=P.get('taskid'),pName=P.get('name')||'',pPhone=P.get('phone')||'';
-const pUsername=P.get('u'), pClientSlug=P.get('p');
+const pUsername=P.get('u'), pClientSlug=P.get('p'), pTab=P.get('tab');
 let _ud,_settings,_clientName,_clientPhone,_clientId,_clientTasks,_clientProjects,_clientInvoices,_clientOrders;
 
 async function boot(){
@@ -240,7 +240,30 @@ async function _bootWithData(userId, clientId, ud){
       if(ord){_clientName=pName||ord.client_name;_clientPhone=pPhone||ord.client_phone;}
     }
     if(!_clientName){_clientName=pName;_clientPhone=pPhone;}
-    if(!_clientName){showErr('لم يتم التعرف على العميل. تأكد من الرابط.');return;}
+    if(!_clientName){
+      // لو الرابط رابط تقييم عام (tab=reviews) - اطلب اسم العميل
+      if(pTab==='reviews'){
+        hideLs();
+        document.body.innerHTML = `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg,#13131f);font-family:var(--font,'Cairo'),sans-serif;direction:rtl">
+          <div style="background:var(--s2,#1e1e30);border-radius:20px;padding:32px;max-width:400px;width:90%;text-align:center;box-shadow:0 8px 40px #0008">
+            <div style="font-size:42px;margin-bottom:12px">⭐</div>
+            <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:6px">قيّم خدماتنا</div>
+            <div style="font-size:13px;color:#aaa;margin-bottom:24px">أدخل بياناتك لتتمكن من إرسال تقييمك</div>
+            <input id="guest-name" placeholder="اسمك الكريم *" style="width:100%;padding:12px;border-radius:12px;border:1px solid #333;background:#13131f;color:#fff;font-family:inherit;font-size:14px;margin-bottom:10px;box-sizing:border-box;text-align:right">
+            <input id="guest-phone" placeholder="رقم هاتفك (اختياري)" style="width:100%;padding:12px;border-radius:12px;border:1px solid #333;background:#13131f;color:#fff;font-family:inherit;font-size:14px;margin-bottom:18px;box-sizing:border-box;text-align:right">
+            <button onclick="
+              var n=document.getElementById('guest-name').value.trim();
+              var ph=document.getElementById('guest-phone').value.trim();
+              if(!n){this.previousElementSibling.previousElementSibling.style.borderColor='red';return;}
+              var newUrl=location.href.replace(/[?&]tab=reviews/,'')+'&name='+encodeURIComponent(n)+(ph?'&phone='+encodeURIComponent(ph):'')+'&tab=reviews';
+              location.href=newUrl;
+            " style="width:100%;padding:13px;border-radius:12px;background:#7c6ff7;color:#fff;border:none;font-family:inherit;font-size:15px;font-weight:900;cursor:pointer">متابعة ✓</button>
+          </div>
+        </div>`;
+        return;
+      }
+      showErr('لم يتم التعرف على العميل. تأكد من الرابط.');return;
+    }
 
     const cn=_clientName.trim().toLowerCase();
     const cp=(_clientPhone||'').replace(/\D/g,'');
@@ -269,6 +292,9 @@ async function _bootWithData(userId, clientId, ud){
         switchTab('tasks');
         openTask(pTaskId,true);
       },500);
+    } else if(pTab){
+      // دعم رابط مباشر لتاب معين مثل &tab=reviews
+      setTimeout(()=>{ switchTab(pTab); },400);
     }
   }catch(e){console.error('_bootWithData error:',e);showErr('حدث خطأ، حاول تحديث الصفحة.');}
 }
@@ -864,11 +890,22 @@ function openTask(taskId, fromUrl){
 let _selectedStars = 0;
 
 function _getTaskReview(taskId){
-  return (_ud.reviews||[]).find(r=>String(r.task_id)===String(taskId)&&String(r.client_id)===String(_clientId));
+  if(_clientId){
+    return (_ud.reviews||[]).find(r=>String(r.task_id)===String(taskId)&&String(r.client_id)===String(_clientId));
+  }
+  // guest mode - match by name
+  const cn=(_clientName||'').trim().toLowerCase();
+  return (_ud.reviews||[]).find(r=>String(r.task_id)===String(taskId)&&(r.client_name||'').trim().toLowerCase()===cn);
 }
 
 function renderMyReviews(){
-  const myRevs = (_ud.reviews||[]).filter(r=>String(r.client_id)===String(_clientId));
+  let myRevs;
+  if(_clientId){
+    myRevs = (_ud.reviews||[]).filter(r=>String(r.client_id)===String(_clientId));
+  } else {
+    const cn=(_clientName||'').trim().toLowerCase();
+    myRevs = (_ud.reviews||[]).filter(r=>(r.client_name||'').trim().toLowerCase()===cn);
+  }
   const acc = _settings?.accent||'#7c6ff7';
   if(!myRevs.length) return`<div class="empty"><i class="fa-solid fa-star"></i><div style="font-size:14px;font-weight:700;color:var(--t2);margin-bottom:5px">لا توجد تقييمات بعد</div><div>بعد اكتمال طلب يمكنك تقييمه من تبويب طلباتي</div></div>`;
   const avg = (myRevs.reduce((s,r)=>s+(+r.stars||0),0)/myRevs.length).toFixed(1);
@@ -959,7 +996,10 @@ async function submitReview(taskId, taskTitle){
 
     if(!fresh.reviews) fresh.reviews=[];
     // منع التكرار
-    if(fresh.reviews.find(r=>String(r.task_id)===String(taskId)&&String(r.client_id)===String(_clientId))){
+    const isDup = _clientId
+      ? fresh.reviews.find(r=>String(r.task_id)===String(taskId)&&String(r.client_id)===String(_clientId))
+      : fresh.reviews.find(r=>String(r.task_id)===String(taskId)&&(r.client_name||'').trim().toLowerCase()===(_clientName||'').trim().toLowerCase());
+    if(isDup){
       document.getElementById('rev-ov')?.remove();
       alert('قيّمت هذا الطلب مسبقاً ⭐');
       return;
