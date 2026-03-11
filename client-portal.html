@@ -367,48 +367,198 @@ function renderPage(){
     <div class="tab-panel" id="tp-accounts">${renderAccounts()}</div>
   </div>
 
+  ${renderServices()}
+
   <footer class="ftr"><div class="ftr-in">
     <span>© ${new Date().getFullYear()} ${xe(nm)}</span>
     <div class="ftr-pw"><span>مدعوم من</span><span style="font-size:11px;font-weight:900;color:var(--ac)">⚡ Ordo</span><a href="${ORDO_HOME}" target="_blank" class="ftr-try"><i class="fa-solid fa-bolt"></i>جرّب الآن</a></div>
   </div></footer>`;
 }
 
-// ── TASKS (الطلبات العادية) ──
+// ── TASKS STATE ──
+let _tasksFilter = 'active'; // active | done | all
+let _tasksPage = 1;
+const TASKS_PER_PAGE = 5;
+
+const stMap={new:'جديد',progress:'قيد التنفيذ',review:'مراجعة',revision:'تعديلات',done:'مكتمل',paused:'موقوف',مكتملة:'مكتمل','قيد التنفيذ':'قيد التنفيذ',جديد:'جديد',موقوفة:'موقوف'};
+const scMap={done:'badge-done',مكتملة:'badge-done',مكتمل:'badge-done',progress:'badge-prog','قيد التنفيذ':'badge-prog',review:'badge-prog',revision:'badge-pend',new:'badge-pend',جديد:'badge-pend',paused:'badge-stop',موقوفة:'badge-stop',موقوف:'badge-stop'};
+
+function _isTaskDone(t){ return t.done||t.status==='done'||t.status==='مكتمل'||t.status==='مكتملة'; }
+function _isTaskActive(t){ return !_isTaskDone(t)&&t.status!=='paused'&&t.status!=='موقوف'&&t.status!=='موقوفة'; }
+
+function setTasksFilter(f){ _tasksFilter=f; _tasksPage=1; document.getElementById('tp-tasks').innerHTML=renderTasks(); }
+function setTasksPage(p){ _tasksPage=p; document.getElementById('tp-tasks').innerHTML=renderTasks(); window.scrollTo({top:document.getElementById('tabs').offsetTop-10,behavior:'smooth'}); }
+
+// ── TASKS (الطلبات) ──
 function renderTasks(){
   if(!_clientTasks.length)return`<div class="empty"><i class="fa-solid fa-clipboard-list"></i><div style="font-size:14px;font-weight:700;color:var(--t2);margin-bottom:5px">لا توجد طلبات بعد</div><div>ستظهر طلباتك هنا عند إضافتها</div></div>`;
-  const stMap={new:'جديد',progress:'قيد التنفيذ',review:'مراجعة',revision:'تعديلات',done:'مكتمل',paused:'موقوف',مكتملة:'مكتمل','قيد التنفيذ':'قيد التنفيذ',جديد:'جديد',موقوفة:'موقوف'};
-  const scMap={done:'badge-done',مكتملة:'badge-done',مكتمل:'badge-done',progress:'badge-prog','قيد التنفيذ':'badge-prog',review:'badge-prog',revision:'badge-pend',new:'badge-pend',جديد:'badge-pend',paused:'badge-stop',موقوفة:'badge-stop',موقوف:'badge-stop'};
-  return _clientTasks.sort((a,b)=>new Date(b.createdAt||b.created_at||0)-new Date(a.createdAt||a.created_at||0)).map(t=>{
-    const steps=t.steps||[];
-    const doneSteps=steps.filter(s=>s.done).length;
-    const prog=steps.length?Math.round(doneSteps/steps.length*100):(t.done?100:0);
-    const st=t.done?'مكتمل':(t.status||'جديد');
-    const sc=scMap[st]||scMap[t.status]||'badge-pend';
-    const lbl=stMap[st]||stMap[t.status]||st;
-    const hasDeposit=t.deposit&&+t.deposit>0;
-    const payStatus=t.pay||'none';
-    return`<div class="card" style="cursor:pointer" onclick="openTask('${xe(String(t.id))}')">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap">
-        <div style="flex:1;min-width:0">
-          <div class="card-ttl" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${xe(t.title||t.name||'طلب')}</div>
-          ${t.taskType?`<div style="font-size:10px;color:var(--ac);margin-top:2px;font-weight:700">${xe(t.taskType)}</div>`:''}
-        </div>
-        <span class="badge ${sc}">${xe(lbl)}</span>
+
+  const acc = _settings?.accent||_settings?.accentColor||'#7c6ff7';
+
+  // ── فلتر ──
+  const allSorted = [..._clientTasks].sort((a,b)=>new Date(b.createdAt||b.created_at||0)-new Date(a.createdAt||a.created_at||0));
+  const activeTasks = allSorted.filter(_isTaskActive);
+  const doneTasks   = allSorted.filter(_isTaskDone);
+  const filtered    = _tasksFilter==='active' ? activeTasks : _tasksFilter==='done' ? doneTasks : allSorted;
+
+  // ── pagination ──
+  const totalPages = Math.max(1, Math.ceil(filtered.length / TASKS_PER_PAGE));
+  if(_tasksPage > totalPages) _tasksPage = totalPages;
+  const pageTasks = filtered.slice((_tasksPage-1)*TASKS_PER_PAGE, _tasksPage*TASKS_PER_PAGE);
+
+  // ── كانبان بالألوان ──
+  const kanbanGroups = [
+    { key:'active',  label:'جاري ومراجعة وتعديلات', color:'var(--ac)',  icon:'fa-bolt',       tasks: activeTasks.filter(t=>['progress','قيد التنفيذ','review','مراجعة','revision','تعديلات'].includes(t.status||'progress')) },
+    { key:'new',     label:'جديد',                   color:'var(--y)',   icon:'fa-plus-circle', tasks: activeTasks.filter(t=>['new','جديد',''].includes(t.status||'')) },
+    { key:'paused',  label:'موقوف مؤقتاً',           color:'var(--r)',   icon:'fa-pause-circle',tasks: allSorted.filter(t=>t.status==='paused'||t.status==='موقوف'||t.status==='موقوفة') },
+    { key:'done',    label:'مكتمل',                  color:'var(--g)',   icon:'fa-check-circle',tasks: doneTasks },
+  ];
+
+  const filterBtns = [
+    {f:'active', label:'النشطة', count: activeTasks.length},
+    {f:'done',   label:'المكتملة', count: doneTasks.length},
+    {f:'all',    label:'الكل', count: allSorted.length},
+  ];
+
+  // ── كانبان summary ──
+  const kanbanHtml = `
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:18px">
+    ${kanbanGroups.map(g=>`
+    <div style="background:var(--s2);border:1.5px solid ${g.tasks.length?g.color+'55':'var(--bd)'};border-radius:14px;padding:12px 14px;text-align:center;cursor:pointer;transition:.15s" onclick="setTasksFilter('${g.key==='new'?'active':g.key==='paused'?'all':g.key}')">
+      <div style="font-size:22px;font-weight:900;color:${g.tasks.length?g.color:'var(--t3)'};line-height:1.2">${g.tasks.length}</div>
+      <div style="font-size:10px;color:var(--t3);margin-top:4px;font-weight:700"><i class="fa-solid ${g.icon}" style="color:${g.color};margin-left:3px"></i>${g.label}</div>
+    </div>`).join('')}
+  </div>`;
+
+  // ── فلتر أزرار ──
+  const filterHtml = `
+  <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+    ${filterBtns.map(b=>`
+    <button onclick="setTasksFilter('${b.f}')" style="padding:6px 14px;border-radius:20px;border:1.5px solid ${_tasksFilter===b.f?acc:'var(--bd)'};background:${_tasksFilter===b.f?acc+'22':'transparent'};color:${_tasksFilter===b.f?acc:'var(--t3)'};font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;transition:.15s">
+      ${b.label} <span style="opacity:.7">(${b.count})</span>
+    </button>`).join('')}
+  </div>`;
+
+  // ── قائمة الطلبات ──
+  const cardsHtml = pageTasks.length===0
+    ? `<div class="empty"><i class="fa-solid fa-inbox"></i><div style="font-size:13px;color:var(--t3);margin-top:8px">لا توجد طلبات في هذا التصنيف</div></div>`
+    : pageTasks.map(t=>{
+        const steps=t.steps||[];
+        const doneSteps=steps.filter(s=>s.done).length;
+        const prog=steps.length?Math.round(doneSteps/steps.length*100):(_isTaskDone(t)?100:0);
+        const st=_isTaskDone(t)?'مكتمل':(t.status||'جديد');
+        const sc=scMap[st]||scMap[t.status]||'badge-pend';
+        const lbl=stMap[st]||stMap[t.status]||st;
+        const payStatus=t.pay||'none';
+        return`<div class="card" style="cursor:pointer;border-right:3px solid ${_isTaskDone(t)?'var(--g)':_isTaskActive(t)?acc:'var(--r)'}" onclick="openTask('${xe(String(t.id))}')">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+            <div style="flex:1;min-width:0">
+              <div class="card-ttl" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${xe(t.title||t.name||'طلب')}</div>
+              ${t.taskType?`<div style="font-size:10px;color:${acc};margin-top:2px;font-weight:700">${xe(t.taskType)}</div>`:''}
+            </div>
+            <span class="badge ${sc}">${xe(lbl)}</span>
+          </div>
+          ${t.desc||t.brief?`<div class="card-sub" style="-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden">${xe(t.desc||t.brief)}</div>`:''}
+          ${steps.length?`<div class="prog-bar"><div class="prog-fill" style="width:${prog}%;background:${acc}"></div></div>`:''}
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-top:8px">
+            <div style="display:flex;gap:10px;font-size:11px;color:var(--t3);flex-wrap:wrap">
+              ${steps.length?`<span><i class="fa-solid fa-list-check"></i> ${doneSteps}/${steps.length} خطوة</span>`:''}
+              ${t.deadline?`<span><i class="fa-solid fa-calendar-days"></i> ${xe(t.deadline)}</span>`:''}
+              ${t.value?`<span style="color:${acc};font-weight:700"><i class="fa-solid fa-coins"></i> ${Number(t.value).toLocaleString()} ج</span>`:''}
+              ${payStatus==='full'?`<span style="color:var(--g);font-weight:700"><i class="fa-solid fa-square-check"></i> مدفوع</span>`:''}
+            </div>
+            <span style="font-size:11px;color:${acc};font-weight:700">التفاصيل ←</span>
+          </div>
+        </div>`;
+      }).join('');
+
+  // ── pagination ──
+  const paginationHtml = totalPages>1 ? `
+  <div style="display:flex;justify-content:center;gap:6px;margin-top:16px;flex-wrap:wrap">
+    ${Array.from({length:totalPages},(_,i)=>i+1).map(p=>`
+    <button onclick="setTasksPage(${p})" style="width:34px;height:34px;border-radius:50%;border:1.5px solid ${_tasksPage===p?acc:'var(--bd)'};background:${_tasksPage===p?acc:'transparent'};color:${_tasksPage===p?'#fff':'var(--t3)'};font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">${p}</button>`).join('')}
+  </div>` : '';
+
+  return kanbanHtml + filterHtml + cardsHtml + paginationHtml;
+}
+
+// ── SERVICES SECTION (خدمات المتجر) ──
+function renderServices(){
+  const svcs = (_ud.services||[]).filter(s=>s&&s.name&&s.active!==false);
+  const pkgs = (_ud.standalone_packages||[]).filter(p=>p&&p.name&&p.active!==false);
+  const allSvcs = [...svcs, ...pkgs];
+  const acc = _settings?.accent||_settings?.accentColor||'#7c6ff7';
+  const _storeUn=_settings.username;
+  const _storeLink=_storeUn?(STORE_URL+'?u='+encodeURIComponent(_storeUn)):(STORE_URL+'?uid='+(window._resolvedUid||pUid||''));
+
+  if(!allSvcs.length) return '';
+
+  return`
+  <div style="margin-top:32px;padding-top:24px;border-top:1.5px solid var(--bd)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-size:16px;font-weight:900;color:var(--t1)"><i class="fa-solid fa-store" style="color:${acc};margin-left:7px"></i>خدماتنا المتاحة</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:3px">اختر خدمة وأرسل طلبك مباشرة</div>
       </div>
-      ${t.desc||t.brief?`<div class="card-sub" style="-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden">${xe(t.desc||t.brief)}</div>`:''}
-      ${steps.length?`<div class="prog-bar"><div class="prog-fill" style="width:${prog}%;background:var(--ac)"></div></div>`:''}
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-top:8px">
-        <div style="display:flex;gap:10px;font-size:11px;color:var(--t3);flex-wrap:wrap">
-          ${steps.length?`<span><i class="fa-solid fa-list-check"></i> ${doneSteps}/${steps.length} خطوة</span>`:''}
-          ${t.deadline?`<span><i class="fa-solid fa-calendar-days"></i> ${xe(t.deadline)}</span>`:''}
-          ${t.value?`<span style="color:var(--ac);font-weight:700"><i class="fa-solid fa-coins"></i> ${Number(t.value).toLocaleString()} ج</span>`:''}
-          ${hasDeposit&&payStatus==='deposit'?`<span style="color:var(--y);font-weight:700"><i class="fa-solid fa-hand-holding-dollar"></i> عربون: ${Number(t.deposit).toLocaleString()} ج</span>`:''}
-          ${payStatus==='full'?`<span style="color:var(--g);font-weight:700"><i class="fa-solid fa-square-check"></i> مدفوع بالكامل</span>`:''}
-        </div>
-        <span style="font-size:11px;color:var(--ac);font-weight:700">التفاصيل ←</span>
-      </div>
-    </div>`;
-  }).join('');
+      <a href="${xe(_storeLink)}" target="_blank" style="display:inline-flex;align-items:center;gap:7px;background:${acc}22;color:${acc};border:1.5px solid ${acc}55;border-radius:10px;padding:8px 16px;font-size:12px;font-weight:800;text-decoration:none;transition:.15s">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i> زيارة المتجر الكامل
+      </a>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
+      ${allSvcs.slice(0,6).map(s=>{
+        const price=s.price||s.startingPrice||s.basePrice||0;
+        const dur=s.deliveryDays||s.duration||s.delivery||'';
+        const svcImg=s.image||s.logo||s.img||'';
+        return`<div class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px">
+            ${svcImg?`<img src="${xe(svcImg)}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`
+            :`<div style="width:44px;height:44px;border-radius:10px;background:${acc}22;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${s.icon||'🎯'}</div>`}
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:800;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${xe(s.name)}</div>
+              ${dur?`<div style="font-size:10px;color:var(--t3);margin-top:2px"><i class="fa-solid fa-clock"></i> ${xe(String(dur))} يوم</div>`:''}
+            </div>
+          </div>
+          ${s.desc||s.description?`<div style="font-size:11px;color:var(--t3);line-height:1.6;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden">${xe(s.desc||s.description)}</div>`:''}
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:auto">
+            ${price?`<div style="font-size:15px;font-weight:900;color:${acc}">${Number(price).toLocaleString()} <span style="font-size:10px;font-weight:600">ج</span></div>`:`<div style="font-size:12px;color:var(--t3)">تواصل للسعر</div>`}
+            <button onclick="orderService('${xe(String(s.id||s.name))}')" style="background:${acc};color:#fff;border:none;border-radius:8px;padding:7px 14px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;transition:.15s">
+              <i class="fa-solid fa-cart-plus"></i> اطلب الآن
+            </button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${allSvcs.length>6?`<div style="text-align:center;margin-top:12px"><a href="${xe(_storeLink)}" target="_blank" style="font-size:12px;color:${acc};font-weight:700;text-decoration:none"><i class="fa-solid fa-plus-circle"></i> عرض ${allSvcs.length-6} خدمة أخرى</a></div>`:''}
+  </div>`;
+}
+
+function orderService(svcId){
+  const svc = [...(_ud.services||[]),...(_ud.standalone_packages||[])].find(s=>String(s.id||s.name)===String(svcId));
+  if(!svc) return;
+  const acc = _settings?.accent||_settings?.accentColor||'#7c6ff7';
+  const _storeUn=_settings.username;
+  const _storeLink=_storeUn?(STORE_URL+'?u='+encodeURIComponent(_storeUn)+'&svc='+encodeURIComponent(svcId)):(STORE_URL+'?uid='+(window._resolvedUid||pUid||'')+'&svc='+encodeURIComponent(svcId));
+
+  const ov=document.createElement('div');ov.className='overlay';
+  ov.onclick=ev=>{if(ev.target===ov)ov.remove();};
+  ov.innerHTML=`<div class="sheet" style="max-height:70vh">
+    <div class="sheet-hdl"></div>
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:32px;margin-bottom:8px">${svc.icon||'🎯'}</div>
+      <div style="font-size:17px;font-weight:900;color:var(--t1)">${xe(svc.name)}</div>
+      ${svc.price?`<div style="font-size:20px;font-weight:900;color:${acc};margin-top:4px">${Number(svc.price).toLocaleString()} ج</div>`:''}
+    </div>
+    ${svc.desc||svc.description?`<div style="font-size:13px;color:var(--t2);line-height:1.8;background:var(--s2);border-radius:12px;padding:14px;margin-bottom:16px">${xe(svc.desc||svc.description)}</div>`:''}
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <a href="${xe(_storeLink)}" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:${acc};color:#fff;border:none;border-radius:12px;padding:12px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;text-decoration:none">
+        <i class="fa-solid fa-cart-shopping"></i> اطلب من المتجر
+      </a>
+      ${(_settings.phone||'').replace(/\D/g,'')?`<a href="https://wa.me/${(_settings.phone||'').replace(/\D/g,'')}?text=${encodeURIComponent('مرحباً، أريد طلب خدمة: '+svc.name)}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#25D366;color:#fff;border:none;border-radius:12px;padding:12px 16px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;text-decoration:none">
+        <i class="fa-brands fa-whatsapp"></i>
+      </a>`:''}
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
 }
 
 // ── PROJECTS (المشاريع الكبيرة) ──
