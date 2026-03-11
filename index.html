@@ -672,6 +672,7 @@ function _mergeUiSettingsIntoS(){
     if(!S.statements)          S.statements=[];
     if(!S.timeEntries)         S.timeEntries=[];
     if(!S.contracts)           S.contracts=[];
+    if(!S.proposals)           S.proposals=[];
   }catch(e){}
 }
 
@@ -2719,6 +2720,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
   <div class="nav-item" onclick="showPage(&#39;clients&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="nav-label" data-ar="قاعدة العملاء" data-i18n="nav_clients">قاعدة العملاء</span></div>
   <div class="nav-item" onclick="showPage(&#39;finance&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><span class="nav-label" data-ar="المالية" data-i18n="nav_finance">المالية</span></div>
   <div class="nav-item" onclick="showPage(&#39;invoices&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span><span class="nav-label" data-ar="الفواتير والعقود" data-i18n="nav_invoices">الفواتير والعقود</span></div>
+  <div class="nav-item" onclick="showPage('proposals',this)" id="nav-proposals"><span class="nav-icon"><i class="fa-solid fa-file-contract"></i></span><span class="nav-label">عروض الأسعار</span><span class="nav-badge" id="proposals-nav-badge" style="display:none;background:#f7c948;color:#1a1a2e;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:900"></span></div>
   <div class="nav-section-label" data-i18n="sec_services">خدماتي</div>
   <div class="nav-item" onclick="showPage('services',this)" id="nav-services">
     <span class="nav-icon"><i class="fa-solid fa-bag-shopping"></i></span>
@@ -2797,6 +2799,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
   <div class="bn-more-item" onclick="showPage(&#39;team&#39;);closeBnMore()" id="bnm-team"><span><i class="fa-solid fa-people-group"></i></span><span data-i18n="nav_team">فريق العمل</span></div>
   <div class="bn-more-item" onclick="showPage(&#39;finance&#39;);closeBnMore()" id="bnm-finance"><span><i class="fa-solid fa-coins"></i></span><span data-i18n="nav_finance">المالية</span></div>
   <div class="bn-more-item" onclick="showPage(&#39;invoices&#39;);closeBnMore()" id="bnm-invoices"><span><i class="fa-solid fa-file-invoice-dollar"></i></span><span data-i18n="nav_invoices">الفواتير والعقود</span></div>
+  <div class="bn-more-item" onclick="showPage('proposals');closeBnMore()" id="bnm-proposals"><span><i class="fa-solid fa-file-contract"></i></span><span>عروض الأسعار</span></div>
   <div class="bn-more-item" onclick="showPage('freelancer-goals');switchFgTab('courses');closeBnMore()" id="bnm-learning"><span><i class="fa-solid fa-graduation-cap"></i></span><span data-i18n="nav_goals">التعلم والأهداف</span></div>
   <div class="bn-more-item" onclick="showPage(&#39;meetings&#39;);closeBnMore()" id="bnm-meetings"><span><i class="fa-solid fa-calendar-check"></i></span><span data-i18n="nav_meetings">الميتنج</span></div>
   <div class="bn-more-item" onclick="showPage(&#39;schedule&#39;);closeBnMore()" id="bnm-schedule"><span><i class="fa-solid fa-clock"></i></span><span data-i18n="nav_schedule">تنظيم اليوم</span></div>
@@ -4136,6 +4139,52 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       </div>
     </div>
   </div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- PROPOSALS PAGE                                      -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="page" id="page-proposals">
+  <div class="page-header">
+    <div>
+      <div class="page-title">📋 <span>عروض</span> <span style="color:var(--accent)">الأسعار</span></div>
+      <div class="page-subtitle">أرسل عروض احترافية — العميل يوافق أو يرفض مباشرة من رابط خاص</div>
+    </div>
+    <button class="btn btn-primary" onclick="openProposalModal()">
+      <i class="fa-solid fa-plus" style="margin-left:4px"></i> عرض جديد
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+    <div class="card" style="padding:16px;text-align:center;border-right:3px solid var(--accent)">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">إجمالي العروض</div>
+      <div style="font-size:26px;font-weight:900;color:var(--text)" id="prop-stat-all">0</div>
+    </div>
+    <div class="card" style="padding:16px;text-align:center;border-right:3px solid #f7c948">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">⏳ في الانتظار</div>
+      <div style="font-size:26px;font-weight:900;color:#f7c948" id="prop-stat-pending">0</div>
+    </div>
+    <div class="card" style="padding:16px;text-align:center;border-right:3px solid var(--accent3)">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">✅ مقبولة</div>
+      <div style="font-size:26px;font-weight:900;color:var(--accent3)" id="prop-stat-accepted">0</div>
+    </div>
+    <div class="card" style="padding:16px;text-align:center;border-right:3px solid var(--accent4)">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">❌ مرفوضة</div>
+      <div style="font-size:26px;font-weight:900;color:var(--accent4)" id="prop-stat-rejected">0</div>
+    </div>
+  </div>
+
+  <!-- List -->
+  <div id="proposals-list-wrap">
+    <div class="card" style="text-align:center;padding:48px 20px;color:var(--text3)">
+      <div style="font-size:48px;margin-bottom:12px">📋</div>
+      <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--text)">لا توجد عروض أسعار</div>
+      <div style="font-size:13px;margin-bottom:18px">أنشئ عرضك الأول وأرسله للعميل الآن</div>
+      <button class="btn btn-primary" onclick="openProposalModal()"><i class="fa-solid fa-plus" style="margin-left:4px"></i> عرض جديد</button>
+    </div>
+  </div>
+</div>
+
 </div>
 
 <!-- LEARNING -->
@@ -11233,6 +11282,12 @@ function renderAll(){
   if(document.getElementById('page-reviews')?.classList.contains('active')){
     renderReviewsPage();
   }
+  if(document.getElementById('page-proposals')?.classList.contains('active')){
+    renderProposals();
+  }
+  // تحديث badge العروض
+  const _pb = document.getElementById('proposals-nav-badge');
+  if(_pb){ const _pc=(S.proposals||[]).filter(p=>p.status==='pending').length; _pb.textContent=_pc; _pb.style.display=_pc?'inline-flex':'none'; }
   // تحديث badge التقييمات
   const _rb = document.getElementById('reviews-badge');
   if(_rb){ const _rc=(S.reviews||[]).length; _rb.textContent=_rc; _rb.style.display=_rc?'inline-flex':'none'; }
@@ -28923,5 +28978,486 @@ function _resetVaultLockTimer() {
 }
 document.addEventListener('click', _resetVaultLockTimer);
 document.addEventListener('keydown', _resetVaultLockTimer);
+</script>
+
+<!-- ══ MODAL: NEW/EDIT PROPOSAL ══ -->
+<div class="modal-overlay" id="modal-proposal">
+  <div class="modal" style="max-width:620px;max-height:92vh;overflow-y:auto">
+    <div class="modal-header">
+      <div class="modal-title" id="prop-modal-ttl"><i class="fa-solid fa-file-contract" style="color:var(--accent)"></i> عرض سعر جديد</div>
+      <button class="close-btn" onclick="closeM('modal-proposal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="prop-eid">
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">العميل</label>
+        <select class="form-select" id="prop-client" onchange="_propClientChange()">
+          <option value="">— اختر عميل —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">عنوان العرض *</label>
+        <input class="form-input" id="prop-title" placeholder="مثال: تصميم هوية بصرية كاملة">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">تاريخ العرض</label>
+        <input class="form-input" type="date" id="prop-date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">صالح حتى</label>
+        <input class="form-input" type="date" id="prop-expiry">
+      </div>
+    </div>
+
+    <!-- Items table -->
+    <div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <label class="form-label" style="margin:0;font-weight:800">📦 بنود العرض</label>
+        <button class="btn btn-ghost btn-sm" onclick="_addPropItem()" style="font-size:12px">
+          <i class="fa-solid fa-plus"></i> إضافة بند
+        </button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 64px 88px 30px;gap:5px;margin-bottom:6px">
+        <div style="font-size:11px;color:var(--text3);font-weight:700;padding:0 4px">الوصف</div>
+        <div style="font-size:11px;color:var(--text3);font-weight:700;text-align:center">الكمية</div>
+        <div style="font-size:11px;color:var(--text3);font-weight:700;text-align:center">السعر</div>
+        <div></div>
+      </div>
+      <div id="prop-items-wrap"></div>
+    </div>
+
+    <!-- Totals -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:13px;color:var(--text2)">المجموع الجزئي</span>
+        <span style="font-weight:700;font-size:14px" id="prop-subtotal">0 ج.م</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;color:var(--text2)">خصم %</span>
+          <input class="form-input" type="number" id="prop-discount" value="0" min="0" max="100"
+            style="width:60px;height:28px;padding:0 8px;font-size:12px;text-align:center" oninput="_calcPropTotal()">
+        </div>
+        <span id="prop-discount-val" style="color:var(--accent4);font-weight:700">-0 ج.م</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;color:var(--text2)">ضريبة %</span>
+          <input class="form-input" type="number" id="prop-tax" value="0" min="0" max="100"
+            style="width:60px;height:28px;padding:0 8px;font-size:12px;text-align:center" oninput="_calcPropTotal()">
+        </div>
+        <span id="prop-tax-val" style="color:var(--accent2);font-weight:700">+0 ج.م</span>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:15px;font-weight:900">💰 الإجمالي</span>
+        <span style="font-size:22px;font-weight:900;color:var(--accent3)" id="prop-total">0 ج.م</span>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">شروط الدفع</label>
+        <select class="form-select" id="prop-payment-terms">
+          <option value="full">دفعة كاملة عند البدء</option>
+          <option value="50-50">50% مقدم + 50% عند التسليم</option>
+          <option value="30-70">30% مقدم + 70% عند التسليم</option>
+          <option value="installments">أقساط شهرية</option>
+          <option value="custom">مخصص</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">العملة</label>
+        <select class="form-select" id="prop-currency" onchange="_calcPropTotal()">
+          <option value="ج.م">🇪🇬 جنيه مصري</option>
+          <option value="$">🇺🇸 دولار أمريكي</option>
+          <option value="ر.س">🇸🇦 ريال سعودي</option>
+          <option value="د.إ">🇦🇪 درهم إماراتي</option>
+          <option value="€">🇪🇺 يورو</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">💬 رسالة ترحيب للعميل</label>
+      <textarea class="form-textarea" id="prop-intro" rows="2"
+        placeholder="مثال: أهلاً، يسعدني تقديم هذا العرض. أتطلع للعمل معك!"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📝 ملاحظات وشروط العرض</label>
+      <textarea class="form-textarea" id="prop-notes" rows="2"
+        placeholder="مثال: يشمل 3 جلسات تعديل. الأسعار صالحة لمدة 14 يوم."></textarea>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="closeM('modal-proposal')">إلغاء</button>
+      <button class="btn" style="background:var(--surface2);color:var(--text)" onclick="saveProposal('draft')">
+        <i class="fa-solid fa-floppy-disk"></i> حفظ مسودة
+      </button>
+      <button class="btn btn-primary" onclick="saveProposal('pending')">
+        <i class="fa-solid fa-paper-plane" style="margin-left:4px"></i> حفظ وإنشاء الرابط
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: PROPOSAL LINK SHARE ══ -->
+<div class="modal-overlay" id="modal-prop-link">
+  <div class="modal" style="max-width:460px;text-align:center">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-link" style="color:var(--accent3)"></i> رابط العرض جاهز! 🎉</div>
+      <button class="close-btn" onclick="closeM('modal-prop-link')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="padding:8px 0 16px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px">
+        أرسل الرابط ده للعميل — يقدر يشوف العرض ويوافق أو يرفض مباشرة
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:12px;
+        color:var(--accent3);word-break:break-all;margin-bottom:14px;font-family:monospace;direction:ltr;text-align:left" id="prop-share-link-display"></div>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button class="btn btn-primary" onclick="_doCopyPropLink()">
+          <i class="fa-solid fa-copy" style="margin-left:4px"></i> نسخ الرابط
+        </button>
+        <button class="btn btn-ghost" onclick="_doOpenPropLink()">
+          <i class="fa-solid fa-eye" style="margin-left:4px"></i> معاينة
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+// PROPOSALS (عروض الأسعار) — Full Implementation
+// ══════════════════════════════════════════════════
+
+var _propItemCount = 0;
+var _lastPropLink  = '';
+
+// ── Event delegation: prop item row remove ──
+document.addEventListener('click', function(e){
+  var rmBtn = e.target.closest('[data-rmrow]');
+  if (!rmBtn) return;
+  var row = rmBtn.closest('.prop-item-row');
+  if (row) { row.remove(); _calcPropTotal(); }
+});
+
+// ── Event delegation for proposals list ──
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  var propWrap = document.getElementById('proposals-list-wrap');
+  if (!propWrap || !propWrap.contains(btn)) return;
+  var act   = btn.dataset.act;
+  var token = btn.dataset.token;
+  var id    = btn.dataset.id;
+  if (act === 'share')   _showPropLinkModal(token);
+  if (act === 'edit')    openProposalModal(id);
+  if (act === 'del')     _delProposal(id);
+  if (act === 'preview') {
+    var p = (S.proposals||[]).find(function(x){ return x.token===token; });
+    if (p) window.open(_propUrl(p), '_blank');
+  }
+});
+
+// ── Get proposal page URL ──
+function _propUrl(p) {
+  var parts = window.location.pathname.split('/').filter(function(x){ return x!==''; });
+  if (parts.length && parts[parts.length-1].endsWith('.html')) parts.pop();
+  var base = parts.length ? '/' + parts.join('/') + '/' : '/';
+  return window.location.origin + base + 'proposal.html?token=' + encodeURIComponent(p.token);
+}
+
+function _propCur() {
+  return (document.getElementById('prop-currency')||{value:'ج.م'}).value || 'ج.م';
+}
+
+// ── Render proposals list ──
+function renderProposals() {
+  var wrap = document.getElementById('proposals-list-wrap'); if (!wrap) return;
+  var proposals = S.proposals || [];
+
+  var all = proposals.length;
+  var pending  = proposals.filter(function(p){ return (p.status==='pending'||p.status==='draft'); }).length;
+  var accepted = proposals.filter(function(p){ return p.status==='accepted'; }).length;
+  var rejected = proposals.filter(function(p){ return p.status==='rejected'; }).length;
+  ['all','pending','accepted','rejected'].forEach(function(k,i){
+    var el = document.getElementById('prop-stat-'+k);
+    if (el) el.textContent = [all,pending,accepted,rejected][i];
+  });
+  var badge = document.getElementById('proposals-nav-badge');
+  if (badge) {
+    var pend = proposals.filter(function(p){ return p.status==='pending'; }).length;
+    badge.textContent = pend; badge.style.display = pend ? 'inline-flex' : 'none';
+  }
+
+  if (!proposals.length) {
+    wrap.innerHTML = '<div class="card" style="text-align:center;padding:48px 20px;color:var(--text3)"><div style="font-size:48px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--text)">لا توجد عروض أسعار</div><div style="font-size:13px;margin-bottom:18px">أنشئ أول عرض وأرسله للعميل مباشرة</div><button class="btn btn-primary" onclick="openProposalModal()"><i class="fa-solid fa-plus" style="margin-left:4px"></i> عرض جديد</button></div>';
+    return;
+  }
+
+  var statusLabel = { pending:'⏳ في الانتظار', draft:'📝 مسودة', accepted:'✅ مقبول', rejected:'❌ مرفوض', expired:'🕐 منتهي الصلاحية' };
+  var statusColor = { pending:'#f7c948', draft:'var(--text3)', accepted:'var(--accent3)', rejected:'var(--accent4)', expired:'var(--text3)' };
+  var cur = S.settings && S.settings.currency ? S.settings.currency : 'ج.م';
+
+  wrap.innerHTML = proposals.slice().reverse().map(function(p) {
+    var sk = p.status || 'pending';
+    if (sk === 'pending' && p.expiry && new Date(p.expiry) < new Date()) sk = 'expired';
+    var total = (p.total || 0).toLocaleString();
+    var pcur  = p.currency || cur;
+    var link  = _propUrl(p);
+    var noteHtml = p.clientNote
+      ? '<div style="margin-top:10px;background:rgba(124,111,247,.1);border-right:3px solid var(--accent2);padding:8px 12px;border-radius:8px;font-size:12px;color:var(--text2)"><i class="fa-solid fa-comment" style="color:var(--accent2)"></i> ملاحظة العميل: <em>' + escapeHtml(p.clientNote) + '</em></div>' : '';
+    var respondedHtml = p.respondedAt
+      ? '<div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="fa-solid fa-clock"></i> رد العميل: ' + new Date(p.respondedAt).toLocaleDateString('ar-EG') + '</div>' : '';
+    return '<div class="card" style="margin-bottom:12px;border-right:4px solid '+statusColor[sk]+';transition:.2s">'
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:15px;font-weight:800;margin-bottom:4px">' + escapeHtml(p.title||'بدون عنوان') + '</div>'
+          + '<div style="font-size:12px;color:var(--text2);margin-bottom:8px;display:flex;flex-wrap:wrap;gap:10px">'
+            + (p.clientName ? '<span><i class="fa-solid fa-user" style="color:var(--accent2)"></i> ' + escapeHtml(p.clientName) + '</span>' : '')
+            + '<span><i class="fa-solid fa-calendar" style="color:var(--text3)"></i> ' + escapeHtml(p.date||'—') + '</span>'
+            + (p.expiry ? '<span><i class="fa-solid fa-hourglass-end" style="color:var(--text3)"></i> حتى: ' + escapeHtml(p.expiry) + '</span>' : '')
+            + (p.items ? '<span style="color:var(--text3)">(' + p.items.length + ' بند)</span>' : '')
+          + '</div>'
+          + '<span style="background:'+statusColor[sk]+'22;color:'+statusColor[sk]+';border:1px solid '+statusColor[sk]+'55;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">' + (statusLabel[sk]||sk) + '</span>'
+          + respondedHtml + noteHtml
+        + '</div>'
+        + '<div style="text-align:left;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;gap:8px">'
+          + '<div style="font-size:22px;font-weight:900;color:var(--accent3)">' + total + ' ' + escapeHtml(pcur) + '</div>'
+          + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'
+            + (sk!=='draft' ? '<button class="btn btn-ghost btn-sm" data-act="share" data-token="' + escapeHtml(p.token) + '" title="مشاركة الرابط"><i class="fa-solid fa-share-nodes"></i></button>' : '')
+            + '<button class="btn btn-ghost btn-sm" data-act="edit" data-id="' + escapeHtml(String(p.id)) + '" title="تعديل"><i class="fa-solid fa-pen"></i></button>'
+            + (sk!=='draft' ? '<button class="btn btn-ghost btn-sm" data-act="preview" data-token="' + escapeHtml(p.token) + '" title="معاينة"><i class="fa-solid fa-eye"></i></button>' : '')
+            + '<button class="btn btn-ghost btn-sm" style="color:var(--accent4)" data-act="del" data-id="' + escapeHtml(String(p.id)) + '" title="حذف"><i class="fa-solid fa-trash"></i></button>'
+          + '</div>'
+        + '</div>'
+      + '</div>'
+    + '</div>';
+  }).join('');
+}
+
+// ── Share link modal ──
+function _showPropLinkModal(token) {
+  var p = (S.proposals||[]).find(function(x){ return x.token===token; }); if (!p) return;
+  var link = _propUrl(p);
+  _lastPropLink = link;
+  document.getElementById('prop-share-link-display').textContent = link;
+  openM('modal-prop-link');
+}
+function _doCopyPropLink() {
+  navigator.clipboard && navigator.clipboard.writeText(_lastPropLink).then(function(){
+    toast('✅ تم نسخ الرابط — ابعته للعميل!');
+    closeM('modal-prop-link');
+  });
+}
+function _doOpenPropLink() { window.open(_lastPropLink,'_blank'); }
+
+// ── Delete ──
+function _delProposal(id) {
+  confirmDel('حذف هذا العرض نهائياً؟', function(){
+    S.proposals = (S.proposals||[]).filter(function(p){ return String(p.id)!==String(id); });
+    lsSave(); renderProposals();
+    toast('🗑️ تم حذف العرض');
+  });
+}
+
+// ── Items ──
+function _addPropItem(item) {
+  _propItemCount++;
+  var wrap = document.getElementById('prop-items-wrap'); if (!wrap) return;
+  var el = document.createElement('div');
+  el.style.cssText = 'display:grid;grid-template-columns:1fr 64px 88px 30px;gap:5px;align-items:center;margin-bottom:6px';
+  el.innerHTML =
+    '<input class="form-input" placeholder="وصف البند" value="' + (item&&item.desc?escapeHtml(item.desc):'') + '" oninput="_calcPropTotal()" style="font-size:13px">'
+    + '<input class="form-input" type="number" placeholder="1" value="' + (item&&item.qty!=null?item.qty:1) + '" min="1" oninput="_calcPropTotal()" style="font-size:13px;text-align:center">'
+    + '<input class="form-input" type="number" placeholder="0" value="' + (item&&item.price!=null?item.price:'') + '" min="0" oninput="_calcPropTotal()" style="font-size:13px;text-align:center">'
+    + '<button class="btn btn-ghost btn-sm" data-rmrow="1" style="padding:4px;color:var(--accent4);min-width:28px;height:32px"><i class="fa-solid fa-xmark"></i></button>';
+  wrap.appendChild(el);
+  _calcPropTotal();
+}
+
+function _getPropItems() {
+  var wrap = document.getElementById('prop-items-wrap'); if (!wrap) return [];
+  var items = [];
+  wrap.querySelectorAll('.prop-item-row').forEach(function(row){
+    var inputs = row.querySelectorAll('input');
+    if (inputs.length >= 3) {
+      var desc  = (inputs[0].value||'').trim();
+      var qty   = +(inputs[1].value)||1;
+      var price = +(inputs[2].value)||0;
+      if (desc || price) items.push({desc:desc, qty:qty, price:price, total:qty*price});
+    }
+  });
+  return items;
+}
+
+function _calcPropTotal() {
+  var items    = _getPropItems();
+  var subtotal = items.reduce(function(s,i){ return s+i.total; }, 0);
+  var disc     = Math.min(100, Math.max(0, +((document.getElementById('prop-discount')||{value:0}).value||0)));
+  var tax      = Math.min(100, Math.max(0, +((document.getElementById('prop-tax')||{value:0}).value||0)));
+  var discAmt  = subtotal * disc / 100;
+  var taxAmt   = (subtotal - discAmt) * tax / 100;
+  var total    = subtotal - discAmt + taxAmt;
+  var cur      = _propCur();
+  function setEl(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; }
+  setEl('prop-subtotal', subtotal.toLocaleString() + ' ' + cur);
+  setEl('prop-discount-val', '-' + discAmt.toLocaleString() + ' ' + cur);
+  setEl('prop-tax-val', '+' + taxAmt.toLocaleString() + ' ' + cur);
+  setEl('prop-total', total.toLocaleString() + ' ' + cur);
+  return {subtotal:subtotal, discAmt:discAmt, taxAmt:taxAmt, total:total};
+}
+
+// ── Open modal ──
+function openProposalModal(id) {
+  _propItemCount = 0;
+  var editing = !!id;
+  document.getElementById('prop-modal-ttl').innerHTML = editing
+    ? '<i class="fa-solid fa-pen" style="color:var(--accent)"></i> تعديل العرض'
+    : '<i class="fa-solid fa-file-contract" style="color:var(--accent)"></i> عرض سعر جديد';
+  document.getElementById('prop-eid').value = id || '';
+  document.getElementById('prop-items-wrap').innerHTML = '';
+
+  // Fill clients dropdown
+  var sel = document.getElementById('prop-client');
+  sel.innerHTML = '<option value="">— اختر عميل —</option>';
+  (S.clients||[]).forEach(function(cl){
+    var o = document.createElement('option');
+    o.value = cl.name; o.textContent = cl.name;
+    sel.appendChild(o);
+  });
+
+  var today   = new Date().toISOString().slice(0,10);
+  var expiry14 = new Date(Date.now()+14*864e5).toISOString().slice(0,10);
+
+  if (editing) {
+    var p = (S.proposals||[]).find(function(x){ return String(x.id)===String(id); });
+    if (!p) return;
+    sel.value = p.clientName || '';
+    document.getElementById('prop-title').value         = p.title || '';
+    document.getElementById('prop-date').value          = p.date  || today;
+    document.getElementById('prop-expiry').value        = p.expiry || expiry14;
+    document.getElementById('prop-discount').value      = p.discount || 0;
+    document.getElementById('prop-tax').value           = p.tax || 0;
+    document.getElementById('prop-payment-terms').value = p.paymentTerms || 'full';
+    document.getElementById('prop-currency').value      = p.currency || 'ج.م';
+    document.getElementById('prop-notes').value         = p.notes || '';
+    document.getElementById('prop-intro').value         = p.intro || '';
+    (p.items||[]).forEach(function(item){ _addPropItem(item); });
+    if (!p.items || !p.items.length) _addPropItem();
+  } else {
+    sel.value = '';
+    ['prop-title','prop-notes','prop-intro'].forEach(function(f){
+      var e=document.getElementById(f); if(e) e.value='';
+    });
+    document.getElementById('prop-date').value          = today;
+    document.getElementById('prop-expiry').value        = expiry14;
+    document.getElementById('prop-discount').value      = 0;
+    document.getElementById('prop-tax').value           = 0;
+    document.getElementById('prop-payment-terms').value = 'full';
+    document.getElementById('prop-currency').value      = 'ج.م';
+    _addPropItem(); _addPropItem(); _addPropItem();
+  }
+  _calcPropTotal();
+  openM('modal-proposal');
+}
+
+function _propClientChange() {
+  var name = (document.getElementById('prop-client')||{value:''}).value;
+  if (!name) return;
+  var titleEl = document.getElementById('prop-title');
+  if (titleEl && !titleEl.value) titleEl.value = 'عرض سعر لـ ' + name;
+}
+
+// ── Save proposal ──
+function saveProposal(saveStatus) {
+  var title = (document.getElementById('prop-title').value||'').trim();
+  if (!title) { toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل عنوان العرض'); return; }
+  var items = _getPropItems();
+  if (!items.length && saveStatus !== 'draft') {
+    toast('<i class="fa-solid fa-triangle-exclamation"></i> أضف بنداً واحداً على الأقل');
+    return;
+  }
+  var eid = document.getElementById('prop-eid').value;
+  var calc = _calcPropTotal();
+  var now  = new Date().toISOString();
+  var today = now.slice(0,10);
+  var existingProp = eid ? (S.proposals||[]).find(function(x){ return String(x.id)===String(eid); }) : null;
+
+  var d = {
+    id:           eid || ('prop_' + Date.now()),
+    token:        existingProp ? existingProp.token : ('prp_' + Date.now() + '_' + Math.random().toString(36).slice(2,8)),
+    clientName:   (document.getElementById('prop-client')||{value:''}).value,
+    title:        title,
+    date:         document.getElementById('prop-date').value || today,
+    expiry:       document.getElementById('prop-expiry').value || '',
+    items:        items,
+    subtotal:     calc.subtotal,
+    discount:     +((document.getElementById('prop-discount')||{value:0}).value||0),
+    discountAmt:  calc.discAmt,
+    tax:          +((document.getElementById('prop-tax')||{value:0}).value||0),
+    taxAmt:       calc.taxAmt,
+    total:        calc.total,
+    currency:     (document.getElementById('prop-currency')||{value:'ج.م'}).value,
+    paymentTerms: (document.getElementById('prop-payment-terms')||{value:'full'}).value,
+    notes:        (document.getElementById('prop-notes')||{value:''}).value,
+    intro:        (document.getElementById('prop-intro')||{value:''}).value,
+    status:       saveStatus || (existingProp ? existingProp.status : 'pending'),
+    clientNote:   existingProp ? (existingProp.clientNote||'') : '',
+    respondedAt:  existingProp ? (existingProp.respondedAt||'') : '',
+    createdAt:    existingProp ? existingProp.createdAt : now,
+    updatedAt:    now
+  };
+
+  if (!S.proposals) S.proposals = [];
+  if (existingProp) {
+    var idx = S.proposals.findIndex(function(x){ return String(x.id)===String(eid); });
+    if (idx > -1) S.proposals[idx] = d;
+  } else {
+    S.proposals.push(d);
+  }
+
+  lsSave();
+  closeM('modal-proposal');
+  renderProposals();
+
+  if (saveStatus !== 'draft') {
+    setTimeout(function(){ _showPropLinkModal(d.token); }, 300);
+  } else {
+    toast('📝 تم حفظ المسودة');
+  }
+}
+
+// ── Poll for client responses ──
+async function _pollProposalResponses() {
+  if (!window._supaUserId || !window.supa) return;
+  try {
+    var res = await supa.from('studio_data').select('data').eq('user_id', _supaUserId).maybeSingle();
+    if (!res || !res.data) return;
+    var fresh = res.data;
+    if (typeof fresh === 'string') fresh = JSON.parse(fresh);
+    if (fresh && fresh.data && !fresh.tasks) fresh = typeof fresh.data === 'string' ? JSON.parse(fresh.data) : fresh.data;
+    var newProps = fresh && fresh.proposals ? fresh.proposals : [];
+    var changed = false;
+    (S.proposals||[]).forEach(function(op){
+      var np = newProps.find(function(x){ return x.id === op.id; });
+      if (np && np.status !== op.status && (np.status === 'accepted' || np.status === 'rejected')) {
+        op.status      = np.status;
+        op.clientNote  = np.clientNote  || '';
+        op.respondedAt = np.respondedAt || '';
+        changed = true;
+        var lbl = np.status === 'accepted' ? '✅ قبل العرض' : '❌ رفض العرض';
+        toast('📋 ' + lbl + ': ' + escapeHtml(np.title||'عرض سعر'));
+      }
+    });
+    if (changed) { lsSave(); renderProposals(); }
+  } catch(e) {}
+}
+setInterval(_pollProposalResponses, 45000);
+setTimeout(_pollProposalResponses, 8000);
 </script>
 </body></html>
