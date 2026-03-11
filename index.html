@@ -447,7 +447,7 @@ async function _deleteEntity(table, idField, itemId) {
 // ── Smart save: يحفظ التغييرات الجديدة في الجداول المناسبة ──
 let _lastSavedTasks = 0, _lastSavedClients = 0, _lastSavedInvoices = 0, _lastSavedTrans = 0;
 function _smartEntitySave() {
-  if (!_supaUserId || !S || !window._appReady) return;
+  if (!_supaUserId || !S || !window._cloudLoadDone || !window._appReady) return;
   // نشوف إيه اللي اتغير وبس نحفظه
   const now = Date.now();
   if ((S.tasks||[]).length !== _lastSavedTasks) {
@@ -470,6 +470,8 @@ function _smartEntitySave() {
 
 async function _doCloudSave(data, force) {
   if (!_supaUserId || !data) return false;
+  // منع الحفظ قبل ما البيانات تتحمل من السحابة — حماية من مسح البيانات
+  if (!window._cloudLoadDone && !force) return false;
   if (!force && !window._appReady) return false;
 
   // Skip if already saving — mark pending, retry after
@@ -493,10 +495,18 @@ async function _doCloudSave(data, force) {
       ...(_un ? { username_index: _un.toLowerCase() } : {})
     };
 
-    // ── الحفظ الأساسي في studio_data (backup) ──
-    const { error } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
+    // ── الحفظ الأساسي في studio_data مع retry تلقائي ──
+    let error = null;
+    for (let _attempt = 0; _attempt < 3; _attempt++) {
+      const { error: _err } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
+      error = _err;
+      if (!error) break;
+      // retry بعد تأخير تدريجي (800ms, 1600ms)
+      await new Promise(r => setTimeout(r, 800 * (_attempt + 1)));
+    }
 
-    // ── الحفظ الموازي في الجداول الجديدة (non-blocking) ──
+    if (!window._cloudLoadDone) return;
+  // ── الحفظ الموازي في الجداول الجديدة (non-blocking) ──
     setTimeout(() => _smartEntitySave(), 0);
 
     // ── حفظ الإعدادات دايماً ──
@@ -678,7 +688,7 @@ function _mergeUiSettingsIntoS(){
 
 // حفظ فوري عند إغلاق الصفحة
 window.addEventListener('beforeunload', function() {
-  if(!_supaUserId || !S || !window._appReady) return;
+  if(!_supaUserId || !S || !window._appReady || !window._cloudLoadDone) return;
   // ── حفظ cache محلي فوري قبل الإغلاق/الريفريش ──
   try {
     S._savedAt = new Date().toISOString();
@@ -2539,8 +2549,14 @@ function getQRDataURL(text, size) {
 <script>
 // Prevent flash: show body only after auth check AND subscription load
 window._appReady = false;
+window._cloudLoadDone = false;
 window._showApp = function(){
-  window._appReady = true;
+  // لو في login flow نشط — مش نفعّل الحفظ قبل ما البيانات تتحمل
+  if(!window._cloudLoadDone) {
+    window._appReady = false; // لا نسمح بالحفظ قبل التحميل
+  } else {
+    window._appReady = true;
+  }
   document.body.style.visibility = 'visible';
   // لو صفحة متجر عام - لا تضيف overflow:hidden
   var _pp = new URLSearchParams(window.location.search);
@@ -3739,6 +3755,9 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       <option value="تسويق"><i class="fa-solid fa-bullhorn"></i> تسويق</option>
       <option value="تعليم وكورسات"><i class="fa-solid fa-books"></i> تعليم</option>
       <option value="سحب شخصي"><i class="fa-solid fa-dollar-sign"></i> شخصي</option>
+    </select>
+    <select id="fin-filter-project" onchange="applyFinanceFilter()" style="min-width:130px">
+      <option value="">كل المشاريع</option>
     </select>
     <button class="filter-reset" onclick="resetFinanceFilter()"><i class="fa-solid fa-xmark"></i> إعادة تعيين</button>
     <span id="fin-filter-label" style="font-size:12px;color:var(--accent);font-weight:700"></span>
@@ -5844,9 +5863,15 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">ربط بمشروع (اختياري)</label>
+        <label class="form-label">ربط بمهمة (اختياري)</label>
         <select class="form-select" id="in-linked-task" onchange="onIncomeTaskLink()">
           <option value="">— اختر عميل أولاً —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label"><i class="fa-solid fa-diagram-project" style="color:var(--accent)"></i> ربط بمشروع (اختياري)</label>
+        <select class="form-select" id="in-linked-project" onchange="onIncomeProjectLink()">
+          <option value="">— لا يوجد مشروع —</option>
         </select>
       </div>
     </div>
@@ -5854,10 +5879,10 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       <div class="form-group">
         <label class="form-label">نوع الدفعة</label>
         <select class="form-select" id="in-payment-type" onchange="document.getElementById('in-loan-fields').style.display=this.value==='loan_received'?'block':'none'">
-          <option value="full"><i class="fa-solid fa-coins"></i> دفعة كاملة</option>
+          <option value="full">دفعة كاملة</option>
           <option value="deposit">🔰 عربون</option>
-          <option value="partial"><i class="fa-solid fa-credit-card"></i> دفعة جزئية</option>
-          <option value="loan_received">🤝 قرض مستلم (استلفت فلوس)</option>
+          <option value="partial">دفعة جزئية</option>
+          <option value="loan_received">🤝 قرض مستلم</option>
         </select>
       </div>
       <div class="form-group">
@@ -6297,6 +6322,8 @@ function hasActiveSub(){
   if(!_supaUserId) return true;
   if(_isAdminUser) return true;  // المشرف له اشتراك مدى الحياة تلقائياً
   if(_isTrialActive()) return true;  // التجربة المجانية تعادل اشتراكاً نشطاً
+  // لو الاشتراك لسه بيتحمل — افتح كل الصفحات
+  if(!window._subLoadDone) return true;
   if(!_userSubscription) return false;
   if(_userSubscription.billing==='lifetime') return true;
   if(!_userSubscription.expiresAt) return true;
@@ -6682,7 +6709,7 @@ function renderReviewsPage() {
             <span style="font-size:11px;font-weight:800;padding:2px 10px;border-radius:10px;background:${+r.stars>=4?'rgba(247,201,72,.15)':+r.stars===3?'rgba(168,156,255,.15)':'rgba(255,107,107,.12)'};color:${+r.stars>=4?'#f7c948':+r.stars===3?'var(--accent2)':'var(--accent4)'}">${['','سيء 😞','مقبول 😐','جيد 🙂','رائع 😊','ممتاز 🤩'][+r.stars]||''}</span>
           </div>
         </div>
-        ${r.comment?`<div style="font-size:13px;color:var(--text2);line-height:1.8;padding:12px 14px;background:var(--surface2);border-radius:10px;margin-bottom:10px;font-style:italic border-right:2px solid #f7c948">"${escapeHtml(r.comment)}"</div>`:''}
+        ${r.comment?`<div style="font-size:13px;color:var(--text2);line-height:1.8;padding:12px 14px;background:var(--surface2);border-radius:10px;margin-bottom:10px;font-style:italic;border-right:3px solid #f7c948">"${escapeHtml(r.comment)}"</div>`:''}
         ${taskObj||r.task_title?`<div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px"><i class="fa-solid fa-clipboard-list" style="color:var(--accent)"></i> الطلب: <span style="font-weight:700;color:var(--text2)">${escapeHtml(r.task_title||taskObj?.title||'طلب')}</span></div>`:''}
       </div>`;
     }).join('') : `<div style="text-align:center;padding:40px;color:var(--text3)"><i class="fa-solid fa-star" style="font-size:32px;opacity:.3;display:block;margin-bottom:10px"></i>لا توجد تقييمات بهذا التصنيف</div>`}
@@ -7785,22 +7812,54 @@ function onTaskClientChange(clientName) {
 // ============================================================
 function onIncomeClientChange(clientName) {
   const taskSel = document.getElementById('in-linked-task');
-  if(!taskSel) return;
-  taskSel.innerHTML = '<option value="">— لا ربط —</option>';
-  if(!clientName) return;
-  // Filter tasks belonging to this client
-  const clientTasks = S.tasks.filter(t => t.client === clientName);
-  if(!clientTasks.length) {
-    taskSel.innerHTML = '<option value="">— لا توجد مشاريع لهذا العميل —</option>';
-    return;
+  // Fill tasks dropdown
+  if(taskSel) {
+    taskSel.innerHTML = '<option value="">— لا ربط —</option>';
+    if(clientName) {
+      const clientTasks = S.tasks.filter(t => t.client === clientName);
+      const statusLabel = {new:'جديد', progress:'جاري', review:'مراجعة', done:'مكتمل'};
+      clientTasks.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.title + (t.status ? ' (' + (statusLabel[t.status]||t.status) + ')' : '');
+        taskSel.appendChild(opt);
+      });
+    }
   }
-  const statusLabel = {new:'جديد', progress:'جاري', review:'مراجعة', done:'مكتمل'};
-  clientTasks.forEach(t => {
-    const opt = document.createElement('option');
-    opt.value = t.id;
-    opt.textContent = t.title + (t.status ? ' (' + (statusLabel[t.status]||t.status) + ')' : '');
-    taskSel.appendChild(opt);
-  });
+  // Fill projects dropdown
+  const projSel = document.getElementById('in-linked-project');
+  if(projSel) {
+    projSel.innerHTML = '<option value="">— لا يوجد مشروع —</option>';
+    if(clientName) {
+      const client = (S.clients||[]).find(c => c.name === clientName);
+      const clientProjects = (S.projects||[]).filter(p =>
+        (client && String(p.client_id) === String(client.id)) ||
+        p.client === clientName
+      );
+      if(clientProjects.length) {
+        clientProjects.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.name + (p.status ? ' · ' + ({active:'نشط',hold:'معلق',review:'مراجعة',done:'مكتمل'}[p.status]||p.status) : '');
+          projSel.appendChild(opt);
+        });
+      } else {
+        (S.projects||[]).forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.name;
+          projSel.appendChild(opt);
+        });
+      }
+    } else {
+      (S.projects||[]).forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        projSel.appendChild(opt);
+      });
+    }
+  }
 }
 
 // Populate income client dropdown with all clients
@@ -9877,6 +9936,28 @@ function onIncomeTaskLink(){
     if(t && amtEl && !amtEl.value) amtEl.value = t.value||'';
   }
 }
+function onIncomeProjectLink(){
+  const projSel = document.getElementById('in-linked-project');
+  if(!projSel || !projSel.value) return;
+  const proj = (S.projects||[]).find(p => String(p.id) === String(projSel.value));
+  if(!proj) return;
+  const descEl = document.getElementById('in-desc');
+  if(descEl && !descEl.value) descEl.value = 'دفعة مشروع: ' + proj.name;
+}
+
+function _fillOpenIncomeProject(projId) {
+  const projSel = document.getElementById('in-linked-project');
+  if(!projSel) return;
+  projSel.innerHTML = '<option value="">— لا يوجد مشروع —</option>';
+  (S.projects||[]).forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    projSel.appendChild(opt);
+  });
+  if(projId) projSel.value = String(projId);
+}
+
 function openIncomeModal(id, prefillTaskId){
   document.getElementById('income-ttl').innerHTML=id?'<i class="fa-solid fa-coins"></i> تعديل دخل':'<i class="fa-solid fa-coins"></i> تسجيل دخل';
   document.getElementById('income-eid').value=id||'';
@@ -9894,6 +9975,7 @@ function openIncomeModal(id, prefillTaskId){
     }
     document.getElementById('in-desc').value=t.desc||'';
     document.getElementById('in-date').value=t.isoDate||'';
+    setTimeout(()=>{ _fillOpenIncomeProject(t.project_id||''); }, 60);
     // After setting client, filter projects
     if(t.source) onIncomeClientChange(t.source);
     const taskSel = document.getElementById('in-linked-task');
@@ -9967,8 +10049,9 @@ function saveTrans(type){
   const d={type,amount,source:finalSource,desc:v(isInc?'in-desc':'ex-desc'),
     date:new Date(isoDate+'T00:00:00').toLocaleDateString('ar-EG'), isoDate,
     payMethod,
-    ...(linkedTaskId ? {linkedTaskId} : {}),
-    ...(paymentType  ? {paymentType}  : {}),
+    ...(linkedTaskId  ? {linkedTaskId}  : {}),
+    ...(linkedProjId  ? {project_id: String(linkedProjId), project_name: linkedProjObj?.name||''} : {}),
+    ...(paymentType   ? {paymentType}   : {}),
     ...(expCat       ? {expCat}       : {}),
     ...(expImpact    ? {expImpact}    : {}),
     ...(incRcpt      ? {receiptImage:incRcpt} : {}),
@@ -10010,7 +10093,7 @@ function saveTrans(type){
 }
 function delTrans(id){confirmDel('هل تريد حذف هذه المعاملة؟',()=>{S.transactions=S.transactions.filter(t=>t.id!==id);lsSave();renderAll();});}
 // Finance filter state
-let finFilterState = {month:'', year:'', type:'', method:'', cat:''};
+let finFilterState = {month:'', year:'', type:'', method:'', cat:'', project:''};
 
 function populateFinYears(){
   const sel = document.getElementById('fin-filter-year'); if(!sel) return;
@@ -10028,13 +10111,14 @@ function applyFinanceFilter(){
   finFilterState.year   = document.getElementById('fin-filter-year')?.value||'';
   finFilterState.type   = document.getElementById('fin-filter-type')?.value||'';
   finFilterState.method = document.getElementById('fin-filter-method')?.value||'';
-  finFilterState.cat    = document.getElementById('fin-filter-cat')?.value||'';
+  finFilterState.cat     = document.getElementById('fin-filter-cat')?.value||'';
+  finFilterState.project = document.getElementById('fin-filter-project')?.value||'';
   renderFinance();
 }
 
 function resetFinanceFilter(){
-  finFilterState = {month:'',year:'',type:'',method:'',cat:''};
-  ['fin-filter-month','fin-filter-year','fin-filter-type','fin-filter-method','fin-filter-cat'].forEach(id=>{
+  finFilterState = {month:'',year:'',type:'',method:'',cat:'',project:''};
+  ['fin-filter-month','fin-filter-year','fin-filter-type','fin-filter-method','fin-filter-cat','fin-filter-project'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
   });
   renderFinance();
@@ -10048,7 +10132,8 @@ function filterTransactions(transactions){
     if(f.year   && d.slice(0,4) !== f.year) return false;
     if(f.type   && t.type !== f.type) return false;
     if(f.method && (t.payMethod||'cash') !== f.method) return false;
-    if(f.cat    && (t.expCat||t.source||'') !== f.cat) return false;
+    if(f.cat     && (t.expCat||t.source||'') !== f.cat) return false;
+    if(f.project && String(t.project_id||'') !== String(f.project)) return false;
     return true;
   });
 }
@@ -10125,8 +10210,10 @@ function renderFinance(){
   renderUnpaidReminders();
   
   const tbody=document.getElementById('fin-tbody');if(!tbody)return;
-  const rows = [...filtered].sort((a,b)=>(b.isoDate||'').localeCompare(a.isoDate||'')).map(t=>`<tr>
-    <td>${t.desc||'—'}${t.linkedTaskId?(()=>{const lt=S.tasks.find(x=>x.id===t.linkedTaskId);return lt?` <span style="font-size:10px;background:rgba(124,111,247,.15);color:var(--accent);padding:1px 6px;border-radius:8px;cursor:pointer" onclick="openTaskDetail(${t.linkedTaskId})"><i class="fa-solid fa-link"></i> ${lt.title.slice(0,20)}</span>`:''})():''}</td><td class="hide-mobile">${t.source||'—'}${t.paymentType&&t.paymentType!=='full'?` <span style="font-size:10px;color:var(--accent2)">(${t.paymentType==='deposit'?'عربون':'جزئي'})</span>`:''}</td>
+  const rows = [...filtered].sort((a,b)=>(b.isoDate||'').localeCompare(a.isoDate||'')).map(t=>{
+    const projBadge = t.project_id ? (()=>{const pj=(S.projects||[]).find(p=>String(p.id)===String(t.project_id));return pj?` <span style="font-size:10px;background:rgba(79,209,165,.12);color:#4fd1a5;padding:1px 7px;border-radius:8px;cursor:pointer" onclick="showPage('projects');setTimeout(()=>openProjectDetail('${pj.id}'),200)"><i class="fa-solid fa-diagram-project"></i> ${pj.name.slice(0,18)}</span>`:'';})() : '';
+    return `<tr>
+    <td>${t.desc||'—'}${projBadge}${t.linkedTaskId?(()=>{const lt=S.tasks.find(x=>x.id===t.linkedTaskId);return lt?` <span style="font-size:10px;background:rgba(124,111,247,.15);color:var(--accent);padding:1px 6px;border-radius:8px;cursor:pointer" onclick="openTaskDetail(${t.linkedTaskId})"><i class="fa-solid fa-link"></i> ${lt.title.slice(0,20)}</span>`:''})():''}</td><td class="hide-mobile">${t.source||'—'}${t.paymentType&&t.paymentType!=='full'?` <span style="font-size:10px;color:var(--accent2)">(${t.paymentType==='deposit'?'عربون':'جزئي'})</span>`:''}</td>
     <td><span class="badge ${t.type==='income'?'badge-green':'badge-red'}">${t.type==='income'?'<i class="fa-solid fa-coins"></i> دخل':'<i class="fa-solid fa-money-bill-wave"></i> مصروف'}</span></td>
     <td style="font-weight:700;color:${t.type==='income'?'var(--accent3)':'var(--accent4)'}">${t.amount.toLocaleString()} ج</td>
     <td class="hide-mobile" style="font-family:var(--mono);font-size:11px">${t.isoDate||t.date||'—'}</td>
@@ -10135,7 +10222,7 @@ function renderFinance(){
       ${t.type==='income'?`<button class="btn btn-ghost btn-sm" onclick="exportReceipt(${t.id})" title="إيصال PDF" style="color:var(--accent3)"><i class="fa-solid fa-receipt"></i></button>`:''}
       <button class="btn btn-danger btn-sm" onclick="delTrans(${t.id})"><i class="fa-solid fa-trash"></i></button>
     </div></td>
-  </tr>`).join('');
+  </tr>`;}).join('');
   tbody.innerHTML = rows || '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">لا معاملات تطابق الفلتر</td></tr>';
 }
 
@@ -11641,12 +11728,23 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     if(cacheScore > cloudScore || (cacheScore === cloudScore && cacheTime > cloudTime)) {
       console.log('⚡ Cache is newer than cloud | cache:', cacheScore, 'cloud:', cloudScore, '— using cache and re-saving');
       _bestData = _cachedData;
-      // أعد الحفظ للسحابة فوراً لمزامنتها
-      setTimeout(async () => {
-        const _rp = { user_id: supaUser.id, data: JSON.stringify(_cachedData), updated_at: _cachedData._savedAt || new Date().toISOString() };
-        await supa.from('studio_data').upsert(_rp, { onConflict: 'user_id' });
-        console.log('✅ Re-synced cache to cloud');
-      }, 500);
+      // أعد الحفظ للسحابة فوراً لمزامنتها — لكن فقط لو السحابة فعلاً فاضية
+      if (_cloudScore === 0) {
+        setTimeout(async () => {
+          try {
+            const _verify = await supa.from('studio_data').select('updated_at').eq('user_id', supaUser.id).maybeSingle();
+            const _cloudUpdated = _verify?.data?.updated_at ? new Date(_verify.data.updated_at).getTime() : 0;
+            const _cacheUpdated = _cachedData._savedAt ? new Date(_cachedData._savedAt).getTime() : 0;
+            if (_cloudUpdated <= _cacheUpdated) {
+              const _rp = { user_id: supaUser.id, data: JSON.stringify(_cachedData), updated_at: _cachedData._savedAt || new Date().toISOString() };
+              await supa.from('studio_data').upsert(_rp, { onConflict: 'user_id' });
+              console.log('✅ Re-synced cache to cloud');
+            } else {
+              console.log('⚠️ Cloud is newer — skipping re-sync to avoid overwrite');
+            }
+          } catch(e) { console.warn('Re-sync check failed:', e); }
+        }, 500);
+      }
     }
   }
 
@@ -11695,7 +11793,8 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     } else {
       // السحابة فارغة أو مش متاحة — مستخدم جديد أو مشكلة شبكة
       migrateSFields(); // تأكد إن S فيها المصفوفات الأساسية
-      window._appReady = true; // ✅ آمن للحفظ (S موجودة وجاهزة)
+      window._appReady = true; // ✅ آمن للحفظ
+      window._subLoadDone = true; (S موجودة وجاهزة)
       window._cloudLoadDone = true;
       console.log('Cloud load failed or empty — treating as new user');
     }
@@ -23532,9 +23631,9 @@ window.addEventListener('load', function(){
 });
 
 async function _pollReviews(){
-  if(!_supaUserId||!db)return;
+  if(!_supaUserId||!supa)return;
   try{
-    const {data:row}=await db.from('studio_data').select('data').eq('user_id',_supaUserId).maybeSingle();
+    const {data:row}=await supa.from('studio_data').select('data').eq('user_id',_supaUserId).maybeSingle();
     if(!row?.data)return;
     let fresh=row.data; if(typeof fresh==='string')fresh=JSON.parse(fresh);
     if(fresh?.data&&typeof fresh.tasks==='undefined')fresh=typeof fresh.data==='string'?JSON.parse(fresh.data):fresh.data;
@@ -24914,7 +25013,7 @@ function renderProjectDetail(){
   var client=(S.clients||[]).find(c=>String(c.id)===String(proj.client_id));
   var clr=proj.color||'var(--accent)';
 
-  var tabs={overview:'نظرة عامة',tasks:'المهام',kanban:'كانبان',team:'الفريق',files:'الملفات'};
+  var tabs={overview:'نظرة عامة',tasks:'المهام',kanban:'كانبان',finance:'💰 المالية',team:'الفريق',files:'الملفات'};
   var tabsHtml=Object.keys(tabs).map(k=>`<button class="proj-tab${_currentProjTab===k?' active':''}" onclick="switchProjTab('${k}')">${tabs[k]}</button>`).join('');
 
   var inner=document.getElementById('proj-detail-inner'); if(!inner) return;
@@ -25074,6 +25173,135 @@ function renderProjTaskRow(t,clr){
       '<button data-tid="'+t.id+'" data-pid="'+t.project_id+'" onclick="deleteProjTask(this.dataset.tid,this.dataset.pid)" class="btn btn-danger btn-sm" style="padding:3px 7px"><i class="fa-solid fa-trash"></i></button>'+
     '</div>'+
   '</div>';
+}
+
+// ══════════════════════════════════════
+// PROJECT FINANCE TAB
+// ══════════════════════════════════════
+function renderProjFinanceTab(proj, tasks, clr) {
+  var cur = proj.budgetCurrency || 'ج.م';
+  var budget = proj.budget || 0;
+  var totalCost   = tasks.reduce(function(s,t){ return s + (t.value||0); }, 0);
+  var collected   = tasks.filter(function(t){ return t.paymentCollected||t.paymentStatus==='collected'; })
+                         .reduce(function(s,t){ return s + (t.value||0); }, 0);
+  var deposits    = tasks.filter(function(t){ return t.paymentStatus==='deposit'||t.deposit>0; })
+                         .reduce(function(s,t){ return s + (t.deposit||0); }, 0);
+  var pending     = totalCost - collected;
+  var profit      = budget > 0 ? (budget - totalCost) : 0;
+  var spent_pct   = budget > 0 ? Math.min(100, Math.round(totalCost/budget*100)) : 0;
+  var projTrans   = (S.transactions||[]).filter(function(tr){
+    if(tr.project_id && String(tr.project_id) === String(proj.id)) return true;
+    if(tr.linkedProjTaskId && tasks.some(function(t){ return String(tr.linkedProjTaskId) === String(t.id); })) return true;
+    return false;
+  });
+  var budgetColor = profit >= 0 ? '#4fd1a5' : '#f76f7c';
+  return '<div>' +
+  '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px">' +
+    _projFinCard('الميزانية', budget>0?(budget.toLocaleString()+' '+cur):'لم تُحدد', clr, 'fa-bullseye') +
+    _projFinCard('التكاليف', totalCost.toLocaleString()+' '+cur, '#f7c948', 'fa-coins') +
+    _projFinCard('المحصّل', collected.toLocaleString()+' '+cur, '#4fd1a5', 'fa-circle-check') +
+    _projFinCard('المتبقي', pending.toLocaleString()+' '+cur, '#f97316', 'fa-clock') +
+    (budget>0 ? _projFinCard('الربح/خسارة', (profit>=0?'+':'')+profit.toLocaleString()+' '+cur, budgetColor, 'fa-chart-line') : '') +
+  '</div>' +
+  (budget>0 ? '<div class="card" style="padding:16px;margin-bottom:16px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+      '<div style="font-size:13px;font-weight:800"><i class="fa-solid fa-chart-bar" style="color:'+clr+'"></i> استهلاك الميزانية</div>' +
+      '<div style="font-size:12px;font-weight:700;color:'+(spent_pct>90?'#f76f7c':spent_pct>70?'#f7c948':'#4fd1a5')+'">'+spent_pct+'%</div>' +
+    '</div>' +
+    '<div style="height:12px;background:var(--surface3);border-radius:6px;overflow:hidden;margin-bottom:8px">' +
+      '<div style="height:100%;width:'+spent_pct+'%;background:'+(spent_pct>90?'#f76f7c':spent_pct>70?'#f7c948':clr)+';border-radius:6px;transition:.5s"></div>' +
+    '</div>' +
+  '</div>' : '') +
+  '<div class="card" style="padding:16px;margin-bottom:16px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+      '<div style="font-size:13px;font-weight:800"><i class="fa-solid fa-list-check" style="color:'+clr+'"></i> مالية المهام</div>' +
+      '<button class="btn btn-primary btn-sm" onclick="openProjTaskModal('+proj.id+')"><i class="fa-solid fa-plus"></i> مهمة جديدة</button>' +
+    '</div>' +
+    (tasks.filter(function(t){return t.value>0;}).length===0 ?
+      '<div style="text-align:center;padding:24px;color:var(--text3)">لا توجد مهام بقيمة مالية</div>' :
+    '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+    '<thead><tr style="border-bottom:1px solid var(--border)">' +
+      '<th style="text-align:right;padding:8px 6px;color:var(--text3)">المهمة</th>' +
+      '<th style="text-align:center;padding:8px 6px;color:var(--text3)">القيمة</th>' +
+      '<th style="text-align:center;padding:8px 6px;color:var(--text3)">الحالة</th>' +
+    '</tr></thead><tbody>' +
+    tasks.filter(function(t){return t.value>0;}).map(function(t){
+      var payLabel=(t.paymentCollected||t.paymentStatus==='collected')?'✅ محصّل':(t.deposit>0?'🟣 عربون':'⏳ معلق');
+      return '<tr style="border-bottom:1px solid var(--border)">'+
+        '<td style="padding:10px 6px;font-weight:700">'+escapeHtml(t.title)+'</td>'+
+        '<td style="padding:10px 6px;text-align:center;color:#f7c948;font-weight:800">'+t.value.toLocaleString()+' '+(t.currency||cur)+'</td>'+
+        '<td style="padding:10px 6px;text-align:center;font-size:11px">'+payLabel+
+          (!t.paymentCollected&&t.status==='done'?' <button data-tid="'+t.id+'" onclick="event.stopPropagation();markTaskPaymentCollected(this.dataset.tid)" class="btn btn-success btn-sm" style="font-size:9px;padding:1px 6px">تحصيل</button>':'')+
+        '</td>'+
+      '</tr>';
+    }).join('')+
+    '</tbody></table>') +
+  '</div>' +
+  '<div class="card" style="padding:16px">' +
+    '<div style="font-size:13px;font-weight:800;margin-bottom:12px"><i class="fa-solid fa-arrows-left-right" style="color:'+clr+'"></i> معاملات مالية مرتبطة</div>' +
+    (projTrans.length===0 ?
+      '<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">لا توجد معاملات مرتبطة بعد</div>' :
+    '<div style="display:flex;flex-direction:column;gap:8px">'+
+    projTrans.map(function(tr){
+      var isInc=tr.type==='income';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px;border-right:3px solid '+(isInc?'#4fd1a5':'#f76f7c')+'">'+
+        '<i class="fa-solid '+(isInc?'fa-arrow-up':'fa-arrow-down')+'" style="color:'+(isInc?'#4fd1a5':'#f76f7c')+'"></i>'+
+        '<div style="flex:1"><div style="font-size:12px;font-weight:700">'+escapeHtml(tr.desc||'معاملة')+'</div>'+
+        '<div style="font-size:10px;color:var(--text3)">'+((tr.date||tr.isoDate||'').slice(0,10))+'</div></div>'+
+        '<div style="font-size:13px;font-weight:900;color:'+(isInc?'#4fd1a5':'#f76f7c')+'">'+(isInc?'+':'-')+((tr.amount||0).toLocaleString())+' '+(tr.currency||cur)+'</div>'+
+      '</div>';
+    }).join('')+'</div>') +
+    '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn btn-primary btn-sm" onclick="openProjIncomeModal('+proj.id+')"><i class="fa-solid fa-plus"></i> تسجيل دخل</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="openProjExpenseModal('+proj.id+')"><i class="fa-solid fa-minus"></i> مصروف</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="openNewInvoiceForProject('+proj.id+')"><i class="fa-solid fa-file-invoice"></i> فاتورة</button>' +
+    '</div>' +
+  '</div></div>';
+}
+
+function _projFinCard(label, value, color, icon) {
+  return '<div class="card" style="padding:14px;text-align:center">'+
+    '<div style="font-size:18px;color:'+color+';margin-bottom:6px"><i class="fa-solid '+icon+'"></i></div>'+
+    '<div style="font-size:15px;font-weight:900">'+value+'</div>'+
+    '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+label+'</div>'+
+  '</div>';
+}
+
+function openProjIncomeModal(projId) {
+  var proj = _getProjById(projId); if(!proj) return;
+  var client = proj.client_id ? (S.clients||[]).find(function(c){return String(c.id)===String(proj.client_id);}) : null;
+  openIncomeModal();
+  setTimeout(function(){
+    if(client) {
+      var srcSel = document.getElementById('in-source');
+      if(srcSel) { srcSel.value = client.name; if(typeof onIncomeClientChange==='function') onIncomeClientChange(client.name); }
+    }
+    setTimeout(function(){
+      _fillOpenIncomeProject(projId);
+      var descEl = document.getElementById('in-desc');
+      if(descEl && !descEl.value) descEl.value = 'دفعة مشروع: ' + proj.name;
+    }, 80);
+  }, 30);
+}
+
+function openProjExpenseModal(projId) {
+  var proj = _getProjById(projId); if(!proj) return;
+  openExpenseModal();
+  setTimeout(function(){
+    var descEl = document.getElementById('ex-desc');
+    if(descEl) descEl.value = 'مصروف مشروع: ' + proj.name;
+  }, 30);
+}
+
+function openNewInvoiceForProject(projId) {
+  var proj = _getProjById(projId); if(!proj) return;
+  showPage('invoices');
+  setTimeout(function(){
+    if(typeof openInvoiceModal === 'function') {
+      openInvoiceModal();
+      toast('<i class="fa-solid fa-file-invoice" style="color:var(--accent)"></i> فاتورة جديدة لمشروع ' + escapeHtml(proj.name));
+    }
+  }, 400);
 }
 
 // ── Kanban Tab ──
@@ -28328,8 +28556,8 @@ var _styleEl = document.createElement('style');
 _styleEl.id = '_i18n-style';
 _styleEl.textContent = [
   // Direction-aware flex
-  'body.lang-ltr .app-shell{flex-direction:row!important}',
-  'body.lang-ltr .sidebar{right:auto!important;left:0!important;border-left:none!important;border-right:1px solid var(--border)!important}',
+  
+  'body.lang-ltr .sidebar{right:auto!important;left:0!important;border-left:1px solid var(--border)!important;border-right:none!important;transform:translateX(-100%)}',
   '@media(min-width:1025px){body.lang-ltr .app-body{margin-right:0!important;margin-left:240px!important}}',
   'body.lang-ltr .app-header{direction:ltr!important}',
   'body.lang-ltr .header-actions{flex-direction:row!important}',
@@ -29035,9 +29263,13 @@ document.addEventListener('keydown', _resetVaultLockTimer);
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:13px;color:var(--text2)">خصم %</span>
-          <input class="form-input" type="number" id="prop-discount" value="0" min="0" max="100"
-            style="width:60px;height:28px;padding:0 8px;font-size:12px;text-align:center" oninput="_calcPropTotal()">
+          <span style="font-size:13px;color:var(--text2)">خصم</span>
+          <select id="prop-discount-type" onchange="_calcPropTotal()" style="height:28px;padding:0 6px;font-size:11px;border:1px solid var(--border);border-radius:var(--r1);background:var(--surface2);color:var(--text);cursor:pointer">
+            <option value="percent">%</option>
+            <option value="fixed">مبلغ ثابت</option>
+          </select>
+          <input class="form-input" type="number" id="prop-discount" value="0" min="0"
+            style="width:70px;height:28px;padding:0 8px;font-size:12px;text-align:center" oninput="_calcPropTotal()">
         </div>
         <span id="prop-discount-val" style="color:var(--accent4);font-weight:700">-0 ج.م</span>
       </div>
@@ -29267,6 +29499,7 @@ function _addPropItem(item) {
   _propItemCount++;
   var wrap = document.getElementById('prop-items-wrap'); if (!wrap) return;
   var el = document.createElement('div');
+  el.className = 'prop-item-row';
   el.style.cssText = 'display:grid;grid-template-columns:1fr 64px 88px 30px;gap:5px;align-items:center;margin-bottom:6px';
   el.innerHTML =
     '<input class="form-input" placeholder="وصف البند" value="' + (item&&item.desc?escapeHtml(item.desc):'') + '" oninput="_calcPropTotal()" style="font-size:13px">'
@@ -29295,9 +29528,10 @@ function _getPropItems() {
 function _calcPropTotal() {
   var items    = _getPropItems();
   var subtotal = items.reduce(function(s,i){ return s+i.total; }, 0);
-  var disc     = Math.min(100, Math.max(0, +((document.getElementById('prop-discount')||{value:0}).value||0)));
+  var discType = (document.getElementById('prop-discount-type')||{value:'percent'}).value || 'percent';
+  var discVal  = Math.max(0, +((document.getElementById('prop-discount')||{value:0}).value||0));
   var tax      = Math.min(100, Math.max(0, +((document.getElementById('prop-tax')||{value:0}).value||0)));
-  var discAmt  = subtotal * disc / 100;
+  var discAmt  = discType === 'fixed' ? Math.min(discVal, subtotal) : subtotal * Math.min(100, discVal) / 100;
   var taxAmt   = (subtotal - discAmt) * tax / 100;
   var total    = subtotal - discAmt + taxAmt;
   var cur      = _propCur();
@@ -29306,7 +29540,7 @@ function _calcPropTotal() {
   setEl('prop-discount-val', '-' + discAmt.toLocaleString() + ' ' + cur);
   setEl('prop-tax-val', '+' + taxAmt.toLocaleString() + ' ' + cur);
   setEl('prop-total', total.toLocaleString() + ' ' + cur);
-  return {subtotal:subtotal, discAmt:discAmt, taxAmt:taxAmt, total:total};
+  return {subtotal:subtotal, discAmt:discAmt, taxAmt:taxAmt, total:total, discType:discType};
 }
 
 // ── Open modal ──
