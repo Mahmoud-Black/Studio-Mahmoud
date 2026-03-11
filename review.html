@@ -311,23 +311,34 @@ async function boot(){
 
     // Resolve username → uid
     if(!uid && pUsername){
-      let res=await db.from('studio_data').select('user_id,data').like('data::text','%"username":"'+pUsername+'"%').limit(10);
-      if(res.data){
-        for(const row of res.data){
-          try{
-            let d=row.data;
-            if(typeof d==='string') d=JSON.parse(d);
-            if(d?.data&&!d?.tasks) d=typeof d.data==='string'?JSON.parse(d.data):d.data;
-            if(d?.settings?.username?.toLowerCase()===pUsername.toLowerCase()){
-              uid=row.user_id; break;
-            }
-          }catch(e){}
+      // Try multiple search strategies for reliability
+      const searchVariants = [
+        '%"username":"'+pUsername+'"%',
+        '%"username": "'+pUsername+'"%',
+        '%username%'+pUsername+'%'
+      ];
+      
+      for(const pattern of searchVariants){
+        let res=await db.from('studio_data').select('user_id,data').like('data::text', pattern).limit(20);
+        if(res.data && res.data.length){
+          for(const row of res.data){
+            try{
+              let d=row.data;
+              if(typeof d==='string') d=JSON.parse(d);
+              if(d?.data&&!d?.tasks) d=typeof d.data==='string'?JSON.parse(d.data):d.data;
+              const uname = d?.settings?.username || d?.settings?.name;
+              if(uname && uname.toLowerCase()===pUsername.toLowerCase()){
+                uid=row.user_id; break;
+              }
+            }catch(e){}
+          }
         }
+        if(uid) break;
       }
-      if(!uid){showErr('لم يتم التعرف على الحساب: '+pUsername);return;}
+      if(!uid){showErr('لم يتم العثور على الحساب — تأكد من الرابط أو اطلب رابطاً جديداً من الفريلانسر');return;}
     }
 
-    if(!uid){showErr('رابط التقييم غير صحيح — يرجى طلب رابط جديد من الفريلانسر');return;}
+    if(!uid){showErr('رابط التقييم غير صالح — يرجى طلب رابط جديد من الفريلانسر');return;}
     _resolvedUid=uid;
 
     // Fetch data
@@ -341,6 +352,17 @@ async function boot(){
 
     // Show freelancer info
     const s=ud?.settings||{};
+    
+    // Apply user's accent color if available
+    const userAccent = s.accentColor || s.accent || null;
+    if(userAccent){
+      document.documentElement.style.setProperty('--ac', userAccent);
+      document.documentElement.style.setProperty('--ac2', userAccent);
+      // Update gradient in background
+      document.body.style.backgroundImage = 
+        `radial-gradient(ellipse 80% 50% at 50% -10%, ${userAccent}22 0%, transparent 60%),
+         radial-gradient(ellipse 50% 40% at 80% 80%, ${userAccent}14 0%, transparent 60%)`;
+    }
     if(s.logo){
       document.getElementById('avatar-wrap').innerHTML=`<img class="freelancer-avatar" src="${s.logo}" onerror="this.style.display='none'">`;
     }
