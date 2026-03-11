@@ -493,8 +493,15 @@ async function _doCloudSave(data, force) {
       ...(_un ? { username_index: _un.toLowerCase() } : {})
     };
 
-    // ── الحفظ الأساسي في studio_data (backup) ──
-    const { error } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
+    // ── الحفظ الأساسي في studio_data مع retry تلقائي ──
+    let error = null;
+    for (let _attempt = 0; _attempt < 3; _attempt++) {
+      const { error: _err } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
+      error = _err;
+      if (!error) break;
+      // retry بعد تأخير تدريجي (800ms, 1600ms)
+      await new Promise(r => setTimeout(r, 800 * (_attempt + 1)));
+    }
 
     // ── الحفظ الموازي في الجداول الجديدة (non-blocking) ──
     setTimeout(() => _smartEntitySave(), 0);
@@ -11665,12 +11672,25 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     if(cacheScore > cloudScore || (cacheScore === cloudScore && cacheTime > cloudTime)) {
       console.log('⚡ Cache is newer than cloud | cache:', cacheScore, 'cloud:', cloudScore, '— using cache and re-saving');
       _bestData = _cachedData;
-      // أعد الحفظ للسحابة فوراً لمزامنتها
-      setTimeout(async () => {
-        const _rp = { user_id: supaUser.id, data: JSON.stringify(_cachedData), updated_at: _cachedData._savedAt || new Date().toISOString() };
-        await supa.from('studio_data').upsert(_rp, { onConflict: 'user_id' });
-        console.log('✅ Re-synced cache to cloud');
-      }, 500);
+      // أعد الحفظ للسحابة فوراً لمزامنتها — لكن فقط لو السحابة فعلاً فاضية (مش مجرد connection error)
+      if (_cloudScore === 0) {
+        setTimeout(async () => {
+          // تحقق مجدداً إن السحابة فاضية فعلاً قبل الكتابة
+          try {
+            const _verify = await supa.from('studio_data').select('updated_at').eq('user_id', supaUser.id).maybeSingle();
+            const _cloudUpdated = _verify?.data?.updated_at ? new Date(_verify.data.updated_at).getTime() : 0;
+            const _cacheUpdated = _cachedData._savedAt ? new Date(_cachedData._savedAt).getTime() : 0;
+            // لا تكتب فوق بيانات السحابة لو هي أحدث
+            if (_cloudUpdated <= _cacheUpdated) {
+              const _rp = { user_id: supaUser.id, data: JSON.stringify(_cachedData), updated_at: _cachedData._savedAt || new Date().toISOString() };
+              await supa.from('studio_data').upsert(_rp, { onConflict: 'user_id' });
+              console.log('✅ Re-synced cache to cloud');
+            } else {
+              console.log('⚠️ Cloud is newer — skipping re-sync to avoid overwrite');
+            }
+          } catch(e) { console.warn('Re-sync check failed:', e); }
+        }, 500);
+      }
     }
   }
 
@@ -18107,7 +18127,7 @@ function buildPortalHTML(d){
     // CONTRACTS
     (hasCt?'<div class="tab-panel" id="tab-ct"><div class="con"><div class="card"><div class="ct"><i class="fa-solid fa-pen-to-square"></i> العقود</div><table><thead><tr><th>العقد</th><th>القيمة</th><th>الحالة</th></tr></thead><tbody>'+ctRows+'</tbody></table></div></div></div>':'')+
     '<div class="ftr">'+d.studio+' · آخر تحديث: '+d.generated+'</div>'+
-    '<script>'+
+    '<scr'+'ipt>'+
     'function sw(n){'+
     'document.querySelectorAll(".tab").forEach(function(t,i){var ns=["ov","tk","fn","ct"];t.classList.toggle("active",ns[i]===n);});'+
     'document.querySelectorAll(".tab-panel").forEach(function(p){p.classList.toggle("active",p.id==="tab-"+n);});'+
@@ -23556,9 +23576,9 @@ window.addEventListener('load', function(){
 });
 
 async function _pollReviews(){
-  if(!_supaUserId||!db)return;
+  if(!_supaUserId||!supa)return;
   try{
-    const {data:row}=await db.from('studio_data').select('data').eq('user_id',_supaUserId).maybeSingle();
+    const {data:row}=await supa.from('studio_data').select('data').eq('user_id',_supaUserId).maybeSingle();
     if(!row?.data)return;
     let fresh=row.data; if(typeof fresh==='string')fresh=JSON.parse(fresh);
     if(fresh?.data&&typeof fresh.tasks==='undefined')fresh=typeof fresh.data==='string'?JSON.parse(fresh.data):fresh.data;
@@ -25139,7 +25159,7 @@ function renderProjFinanceTab(proj, tasks, clr) {
   '<div class="card" style="padding:16px;margin-bottom:16px">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
       '<div style="font-size:13px;font-weight:800"><i class="fa-solid fa-list-check" style="color:'+clr+'"></i> مالية المهام</div>' +
-      '<button class="btn btn-primary btn-sm" onclick="openProjTaskModal(''+proj.id+'')"><i class="fa-solid fa-plus"></i> مهمة جديدة</button>' +
+      '<button class="btn btn-primary btn-sm" onclick="openProjTaskModal('+proj.id+')"><i class="fa-solid fa-plus"></i> مهمة جديدة</button>' +
     '</div>' +
     (tasks.filter(function(t){return t.value>0;}).length === 0 ?
       '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px"><i class="fa-solid fa-coins" style="font-size:28px;opacity:.3;display:block;margin-bottom:8px"></i>لا توجد مهام بقيمة مالية بعد</div>' :
@@ -25157,7 +25177,7 @@ function renderProjFinanceTab(proj, tasks, clr) {
       var st = _getTaskStatusInfo(t.status||'todo');
       var payColor = (t.paymentCollected||t.paymentStatus==='collected') ? '#4fd1a5' : (t.paymentStatus==='deposit'||t.deposit>0) ? '#a78bfa' : '#f7c948';
       var payLabel = (t.paymentCollected||t.paymentStatus==='collected') ? '✅ محصّل' : (t.paymentStatus==='deposit'||t.deposit>0) ? ('🟣 عربون: '+(t.deposit||0)) : '⏳ معلق';
-      return '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="openProjTaskDetail(''+t.id+'',''+proj.id+'')">'+
+      return '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="openProjTaskDetail('+t.id+','+proj.id+')">'+
         '<td style="padding:10px 6px;font-weight:700">'+escapeHtml(t.title)+'</td>'+
         '<td style="padding:10px 6px;color:var(--text3)">'+escapeHtml(t.assignee_name||'—')+'</td>'+
         '<td style="padding:10px 6px;text-align:center;font-weight:800;color:#f7c948">'+t.value.toLocaleString()+' '+(t.currency||cur)+'</td>'+
@@ -25193,12 +25213,12 @@ function renderProjFinanceTab(proj, tasks, clr) {
           '<div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(tr.desc||'معاملة')+'</div>'+
           '<div style="font-size:10px;color:var(--text3)">'+((tr.date||'').slice(0,10))+'</div>'+
         '</div>'+
-        '<div style="font-size:13px;font-weight:900;color:'+(isInc?'#4fd1a5':'#f76f7c');text-align:left">'+
+        '<div style="font-size:13px;font-weight:900;color:'+(isInc?'#4fd1a5':'#f76f7c')+';text-align:left">'+
           (isInc?'+':'-')+((tr.amount||0).toLocaleString())+' '+(tr.currency||cur)+'</div>'+
       '</div>';
     }).join('') + '</div>') +
     '<div style="margin-top:12px;text-align:left">' +
-      '<button class="btn btn-primary btn-sm" onclick="openIncomeModal();document.getElementById('inc-desc').value='مشروع: '+escapeHtml(proj.name)+''">' +
+      '<button class="btn btn-primary btn-sm" onclick="openIncomeModal();document.getElementById(\'inc-desc\').value=\'مشروع: \'+escapeHtml(proj.name)+\'">' +
         '<i class="fa-solid fa-plus"></i> تسجيل دخل للمشروع</button> '+
       '<button class="btn btn-ghost btn-sm" onclick="openExpenseModal()" style="margin-right:6px">' +
         '<i class="fa-solid fa-minus"></i> تسجيل مصروف</button>' +
@@ -25226,7 +25246,7 @@ function renderProjTaskRow(t,clr){
   var payColor=(t.paymentCollected||t.paymentStatus==='collected')?'#4fd1a5':(t.deposit>0||t.paymentStatus==='deposit')?'#a78bfa':'#f97316';
   var payLabel=(t.paymentCollected||t.paymentStatus==='collected')?'محصّل':(t.deposit>0||t.paymentStatus==='deposit')?'عربون':'معلق';
 
-  return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden;cursor:pointer;transition:border-color .18s" onclick="openProjTaskDetail(''+t.id+'',''+t.project_id+'')">' +
+  return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden;cursor:pointer;transition:border-color .18s" onclick="openProjTaskDetail('+t.id+','+t.project_id+')">' +
     '<div style="height:3px;background:'+clr+'"></div>' +
     '<div style="padding:12px 14px">' +
       '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">' +
