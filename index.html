@@ -25700,7 +25700,7 @@ function openProjSharePortal(projId){
   if(_cppPath.length&&['dashboard','tasks','projects','schedule','meetings','clients','finance','invoices','services','support','team','timetracker','goals','settings','reports'].indexOf(_cppPath[_cppPath.length-1])>=0)_cppPath.pop();
   if(_cppPath.length&&_cppPath[_cppPath.length-1].endsWith('.html'))_cppPath.pop();
   var _cpBase2=window.location.origin+(_cppPath.length?'/'+_cppPath.join('/')+'/' :'/')+'client-portal.html';
-  var projLink=base+'?portal=project&uid='+uid+'&pid='+projId;
+  var projLink=_cpBase2+'?portal=project&uid='+uid+'&pid='+projId;
 
   // Try to find client for this project
   var proj=_getProjById(projId);
@@ -29240,9 +29240,13 @@ document.addEventListener('keydown', _resetVaultLockTimer);
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:13px;color:var(--text2)">خصم %</span>
-          <input class="form-input" type="number" id="prop-discount" value="0" min="0" max="100"
-            style="width:60px;height:28px;padding:0 8px;font-size:12px;text-align:center" oninput="_calcPropTotal()">
+          <span style="font-size:13px;color:var(--text2)">خصم</span>
+          <select id="prop-discount-type" onchange="_calcPropTotal()" style="height:28px;padding:0 6px;font-size:11px;border:1px solid var(--border);border-radius:var(--r1);background:var(--surface2);color:var(--text);cursor:pointer">
+            <option value="percent">%</option>
+            <option value="fixed">مبلغ ثابت</option>
+          </select>
+          <input class="form-input" type="number" id="prop-discount" value="0" min="0"
+            style="width:70px;height:28px;padding:0 8px;font-size:12px;text-align:center" oninput="_calcPropTotal()">
         </div>
         <span id="prop-discount-val" style="color:var(--accent4);font-weight:700">-0 ج.م</span>
       </div>
@@ -29472,6 +29476,7 @@ function _addPropItem(item) {
   _propItemCount++;
   var wrap = document.getElementById('prop-items-wrap'); if (!wrap) return;
   var el = document.createElement('div');
+  el.className = 'prop-item-row';
   el.style.cssText = 'display:grid;grid-template-columns:1fr 64px 88px 30px;gap:5px;align-items:center;margin-bottom:6px';
   el.innerHTML =
     '<input class="form-input" placeholder="وصف البند" value="' + (item&&item.desc?escapeHtml(item.desc):'') + '" oninput="_calcPropTotal()" style="font-size:13px">'
@@ -29500,9 +29505,10 @@ function _getPropItems() {
 function _calcPropTotal() {
   var items    = _getPropItems();
   var subtotal = items.reduce(function(s,i){ return s+i.total; }, 0);
-  var disc     = Math.min(100, Math.max(0, +((document.getElementById('prop-discount')||{value:0}).value||0)));
+  var discType = (document.getElementById('prop-discount-type')||{value:'percent'}).value || 'percent';
+  var discVal  = Math.max(0, +((document.getElementById('prop-discount')||{value:0}).value||0));
   var tax      = Math.min(100, Math.max(0, +((document.getElementById('prop-tax')||{value:0}).value||0)));
-  var discAmt  = subtotal * disc / 100;
+  var discAmt  = discType === 'fixed' ? Math.min(discVal, subtotal) : subtotal * Math.min(100, discVal) / 100;
   var taxAmt   = (subtotal - discAmt) * tax / 100;
   var total    = subtotal - discAmt + taxAmt;
   var cur      = _propCur();
@@ -29511,7 +29517,7 @@ function _calcPropTotal() {
   setEl('prop-discount-val', '-' + discAmt.toLocaleString() + ' ' + cur);
   setEl('prop-tax-val', '+' + taxAmt.toLocaleString() + ' ' + cur);
   setEl('prop-total', total.toLocaleString() + ' ' + cur);
-  return {subtotal:subtotal, discAmt:discAmt, taxAmt:taxAmt, total:total};
+  return {subtotal:subtotal, discAmt:discAmt, taxAmt:taxAmt, total:total, discType:discType};
 }
 
 // ── Open modal ──
@@ -29544,6 +29550,7 @@ function openProposalModal(id) {
     document.getElementById('prop-date').value          = p.date  || today;
     document.getElementById('prop-expiry').value        = p.expiry || expiry14;
     document.getElementById('prop-discount').value      = p.discount || 0;
+    document.getElementById('prop-discount-type').value = p.discountType || 'percent';
     document.getElementById('prop-tax').value           = p.tax || 0;
     document.getElementById('prop-payment-terms').value = p.paymentTerms || 'full';
     document.getElementById('prop-currency').value      = p.currency || 'ج.م';
@@ -29600,6 +29607,7 @@ function saveProposal(saveStatus) {
     items:        items,
     subtotal:     calc.subtotal,
     discount:     +((document.getElementById('prop-discount')||{value:0}).value||0),
+    discountType: (document.getElementById('prop-discount-type')||{value:'percent'}).value || 'percent',
     discountAmt:  calc.discAmt,
     tax:          +((document.getElementById('prop-tax')||{value:0}).value||0),
     taxAmt:       calc.taxAmt,
