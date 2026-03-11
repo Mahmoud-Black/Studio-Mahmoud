@@ -797,10 +797,9 @@ function showSyncIndicator(msg, color){
   el.innerHTML = msg;
   el.style.opacity = '1';
   clearTimeout(el._t);
-  // لو "جاري" — ما نخبيش لحد ما الحفظ يخلص
-  if(!msg.includes('جاري')) {
-    el._t = setTimeout(()=>{ el.style.opacity='0'; }, 2500);
-  }
+  // اخفي دايماً — لو "جاري" اخفي بعد 8 ثواني كحد أقصى
+  var delay = msg.includes('جاري') ? 8000 : 2500;
+  el._t = setTimeout(()=>{ el.style.opacity='0'; }, delay);
 }
 </script>
 <style>
@@ -7112,14 +7111,19 @@ function doSendWhatsApp(){
 function v(id){const e=document.getElementById(id);return e?e.value:'';}
 function uploadLogo(input){
   const f=input.files[0];if(!f)return;
-  if(f.size>5*1024*1024){toast('<i class="fa-solid fa-triangle-exclamation"></i> الصورة أكبر من 5 ميجا');input.value='';return;}
+  if(f.size>2*1024*1024){toast('<i class="fa-solid fa-triangle-exclamation"></i> الصورة أكبر من 2 ميجا');input.value='';return;}
   toast('<i class="fa-solid fa-spinner fa-spin"></i> جاري رفع اللوجو...');
-  uploadToStorage(f,'logos',function(url){
-    S.settings.logo=url; lsSave();cloudSaveNow(S);
-    const lp=document.getElementById('logo-preview');
-    if(lp) lp.innerHTML='<img src="'+url+'" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px">';
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const url = e.target.result;
+    S.settings.logo = url;
+    lsSave(); cloudSaveNow(S);
+    const lp = document.getElementById('logo-preview');
+    if(lp) lp.innerHTML = '<img src="'+url+'" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px">';
     toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم رفع اللوجو');
-  },function(){ toast('<i class="fa-solid fa-triangle-exclamation"></i> فشل الرفع — تأكد من إعداد Storage bucket'); });
+  };
+  reader.onerror = function(){ toast('<i class="fa-solid fa-triangle-exclamation"></i> فشل قراءة الصورة'); };
+  reader.readAsDataURL(f);
 }
 
 // ── مزامنة لوجو الستوديو مع platform_config ── (معطّلة - اللوجو للمتجر والفاتورة فقط)
@@ -11223,6 +11227,9 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     window._appReady = true;
     window._cloudLoadDone = true;
     migrateSFields();
+    // ── أخفي مؤشر التحميل فوراً ──
+    var _si = document.getElementById('sync-indicator');
+    if(_si) { clearTimeout(_si._t); _si.style.opacity = '0'; }
     if(S._admin_updated && S._admin_name) {
       S.settings = S.settings || {};
       S.settings.name   = S._admin_name;
@@ -11334,8 +11341,8 @@ async function loginWithSupaSession(supaUser, session, userMeta){
   if(S && S._trial_start && !localStorage.getItem(_trialKey)){
     localStorage.setItem(_trialKey, S._trial_start);
   } else if(!localStorage.getItem(_trialKey) && !_userSubscription){
-    // مستخدم قديم بدون تجربة مسجّلة — فعّلها في الخلفية بدون انتظار
-    _activateTrial(supaUser.id);
+    // مستخدم جديد — فعّل التجربة وانتظر تنتهي قبل الـ welcome popup
+    await _activateTrial(supaUser.id);
   }
 
   // ── حمّل الثيم من السحابة ──
@@ -11353,7 +11360,7 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     _updateNavLocks && _updateNavLocks();
     updateDash();
     _renderDashGrid && _renderDashGrid();
-  }, 500);
+  }, 800);
   // شغّل مراقب حماية البيانات بعد تحميل كامل
   setTimeout(_startDataWatchdog, 5000);
   // ── شغّل الحفظ التلقائي كل 5 ثواني ──
@@ -11398,7 +11405,8 @@ async function loginWithSupaSession(supaUser, session, userMeta){
   var _newUserKey = 'ordo_welcome_shown_' + supaUser.id;
   if(!localStorage.getItem(_newUserKey)){
     localStorage.setItem(_newUserKey, '1');
-    setTimeout(function(){ _showWelcomePopup(supaUser.id, userObj); }, 1200);
+    // انتظر 1.5 ثانية بعد التأكد من تفعيل التجربة
+    setTimeout(function(){ _showWelcomePopup(supaUser.id, userObj); }, 1500);
   }
 }
 
