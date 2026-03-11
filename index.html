@@ -493,8 +493,15 @@ async function _doCloudSave(data, force) {
       ...(_un ? { username_index: _un.toLowerCase() } : {})
     };
 
-    // ── الحفظ الأساسي في studio_data (backup) ──
-    const { error } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
+    // ── الحفظ الأساسي في studio_data مع retry تلقائي ──
+    let error = null;
+    for (let _attempt = 0; _attempt < 3; _attempt++) {
+      const { error: _err } = await supa.from('studio_data').upsert(payload, { onConflict: 'user_id' });
+      error = _err;
+      if (!error) break;
+      // retry بعد تأخير تدريجي (800ms, 1600ms)
+      await new Promise(r => setTimeout(r, 800 * (_attempt + 1)));
+    }
 
     // ── الحفظ الموازي في الجداول الجديدة (non-blocking) ──
     setTimeout(() => _smartEntitySave(), 0);
@@ -502,7 +509,7 @@ async function _doCloudSave(data, force) {
     // ── حفظ الإعدادات دايماً ──
     if (_safe.settings) {
       setTimeout(() => {
-        (async()=>{ try{ await supa.from('user_settings').upsert({ user_id: _supaUserId, data: _safe.settings, updated_at: _safe._savedAt }, { onConflict: 'user_id' }); }catch(e){} })();
+        (async()=>{try{await supa.from('user_settings').upsert({user_id:_supaUserId,data:_safe.settings,updated_at:_safe._savedAt},{onConflict:'user_id'});}catch(e){}})();
       }, 0);
     }
 
@@ -672,6 +679,7 @@ function _mergeUiSettingsIntoS(){
     if(!S.statements)          S.statements=[];
     if(!S.timeEntries)         S.timeEntries=[];
     if(!S.contracts)           S.contracts=[];
+    if(!S.proposals)           S.proposals=[];
   }catch(e){}
 }
 
@@ -1344,7 +1352,7 @@ body.pub-page #app-body {
 ═══════════════════════════════════════════════════ */
 .app-shell {
   display: flex;
-  flex-direction: row-reverse;   /* RTL: sidebar on the right */
+  flex-direction: column;
   height: 100vh;
   width: 100%;
   overflow: hidden;
@@ -1542,23 +1550,23 @@ body.pub-page #app-body {
   overflow-x: hidden;
   overflow-y: auto;
   height: 100vh;
-  /* لا margin هنا — بنضيفه على الديسكتوب فقط في media query */
-  transition: margin-right 0.3s ease;
+  transition: padding-right 0.3s ease;
 }
 
 /* على الديسكتوب: نحرك المحتوى بجانب الـ sidebar الثابت */
 @media (min-width: 1025px) {
   .app-body {
-    margin-right: 240px;
+    padding-right: 240px;
+    margin-right: 0;
   }
   body.sidebar-collapsed .app-body {
+    padding-right: 0 !important;
     margin-right: 0 !important;
   }
 }
 .main {
   flex: 1;
   padding: var(--space-xl);
-  max-width: 1600px;
   width: 100%;
   min-width: 0;
   overflow-x: hidden;
@@ -1572,7 +1580,7 @@ body.pub-page #app-body {
 /* ═══════════════════════════════════════════════════
    PAGES
 ═══════════════════════════════════════════════════ */
-.page { display: none; }
+.page { display: none; width: 100%; }
 .page.active {
   display: block;
   animation: pageIn .25s ease both;
@@ -1997,6 +2005,7 @@ body.sidebar-collapsed .sidebar {
 }
 body.sidebar-collapsed .app-body {
   margin-right: 0 !important;
+  padding-right: 0 !important;
 }
 body.sidebar-collapsed .sidebar-overlay {
   display: none !important;
@@ -2033,14 +2042,14 @@ body.sidebar-collapsed .sidebar-overlay {
   .grid-2 { grid-template-columns: 1fr; }
   .bottom-nav { display: block; }
   .page-header { margin-bottom: var(--space-md); }
-  .app-body { margin-right: 0 !important; }
+  .app-body { margin-right: 0 !important; padding-right: 0 !important; }
 }
 
 /* ── Mobile ── */
 @media (max-width: 540px) {
   html, body { overflow-x: hidden; }
   .app-shell { overflow-x: hidden; }
-  .app-body  { margin-right: 0 !important; width: 100% !important; max-width: 100vw; }
+  .app-body  { margin-right: 0 !important; padding-right: 0 !important; width: 100% !important; max-width: 100vw; }
   .main {
     padding: var(--space-sm);
     padding-bottom: 84px;
@@ -2543,7 +2552,7 @@ window._showApp = function(){
   document.body.style.visibility = 'visible';
   // لو صفحة متجر عام - لا تضيف overflow:hidden
   var _pp = new URLSearchParams(window.location.search);
-  var isPublic = _pp.get('svcorder') || _pp.get('u') || (_pp.get('portal') && _pp.get('uid')) || (_pp.get('clientportal') && _pp.get('cid')) || (_pp.get('uid') && _pp.get('cid'));
+  var isPublic = _pp.get('svcorder') || _pp.get('u') || (_pp.get('portal') && _pp.get('uid'));
   if(isPublic) {
     // Public page: ensure scroll works
     document.documentElement.classList.remove('app-loaded');
@@ -2719,6 +2728,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
   <div class="nav-item" onclick="showPage(&#39;clients&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="nav-label" data-ar="قاعدة العملاء" data-i18n="nav_clients">قاعدة العملاء</span></div>
   <div class="nav-item" onclick="showPage(&#39;finance&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><span class="nav-label" data-ar="المالية" data-i18n="nav_finance">المالية</span></div>
   <div class="nav-item" onclick="showPage(&#39;invoices&#39;,this)"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span><span class="nav-label" data-ar="الفواتير والعقود" data-i18n="nav_invoices">الفواتير والعقود</span></div>
+  <div class="nav-item" onclick="showPage('proposals',this)" id="nav-proposals"><span class="nav-icon"><i class="fa-solid fa-file-contract"></i></span><span class="nav-label">عروض الأسعار</span><span class="nav-badge" id="proposals-nav-badge" style="display:none;background:#f7c948;color:#1a1a2e;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:900"></span></div>
   <div class="nav-section-label" data-i18n="sec_services">خدماتي</div>
   <div class="nav-item" onclick="showPage('services',this)" id="nav-services">
     <span class="nav-icon"><i class="fa-solid fa-bag-shopping"></i></span>
@@ -2797,6 +2807,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
   <div class="bn-more-item" onclick="showPage(&#39;team&#39;);closeBnMore()" id="bnm-team"><span><i class="fa-solid fa-people-group"></i></span><span data-i18n="nav_team">فريق العمل</span></div>
   <div class="bn-more-item" onclick="showPage(&#39;finance&#39;);closeBnMore()" id="bnm-finance"><span><i class="fa-solid fa-coins"></i></span><span data-i18n="nav_finance">المالية</span></div>
   <div class="bn-more-item" onclick="showPage(&#39;invoices&#39;);closeBnMore()" id="bnm-invoices"><span><i class="fa-solid fa-file-invoice-dollar"></i></span><span data-i18n="nav_invoices">الفواتير والعقود</span></div>
+  <div class="bn-more-item" onclick="showPage('proposals');closeBnMore()" id="bnm-proposals"><span><i class="fa-solid fa-file-contract"></i></span><span>عروض الأسعار</span></div>
   <div class="bn-more-item" onclick="showPage('freelancer-goals');switchFgTab('courses');closeBnMore()" id="bnm-learning"><span><i class="fa-solid fa-graduation-cap"></i></span><span data-i18n="nav_goals">التعلم والأهداف</span></div>
   <div class="bn-more-item" onclick="showPage(&#39;meetings&#39;);closeBnMore()" id="bnm-meetings"><span><i class="fa-solid fa-calendar-check"></i></span><span data-i18n="nav_meetings">الميتنج</span></div>
   <div class="bn-more-item" onclick="showPage(&#39;schedule&#39;);closeBnMore()" id="bnm-schedule"><span><i class="fa-solid fa-clock"></i></span><span data-i18n="nav_schedule">تنظيم اليوم</span></div>
@@ -3173,6 +3184,30 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     <div class="form-group">
       <label class="form-label">أعضاء الفريق</label>
       <div id="proj-members-select" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--surface2);border-radius:8px;min-height:40px"></div>
+    </div>
+    <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="form-group">
+        <label class="form-label"><i class="fa-solid fa-coins" style="color:#f7c948"></i> ميزانية المشروع</label>
+        <input class="form-input" type="number" id="proj-budget" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">العملة</label>
+        <select class="form-input" id="proj-budget-currency">
+          <option value="ج.م">ج.م</option>
+          <option value="USD">USD</option>
+          <option value="SAR">SAR</option>
+          <option value="AED">AED</option>
+          <option value="EUR">EUR</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">نوع التسعير</label>
+        <select class="form-input" id="proj-pricing-type">
+          <option value="fixed">سعر ثابت</option>
+          <option value="hourly">بالساعة</option>
+          <option value="milestone">مراحل</option>
+        </select>
+      </div>
     </div>
     <div class="form-group">
       <label class="form-label"><i class="fa-solid fa-palette" style="color:var(--accent)"></i> لون المشروع</label>
@@ -3948,128 +3983,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
 
 </div><!-- end page-finance -->
 
-<!-- LOAN MODAL -->
-<div class="modal-overlay" id="modal-loan">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="loan-modal-ttl"><i class="fa-solid fa-handshake"></i> قرض / دين جديد</div>
-      <button class="close-btn" onclick="closeM('modal-loan')"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <input type="hidden" id="loan-eid">
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">نوع القرض *</label>
-        <select class="form-select" id="loan-direction" onchange="updateLoanDirection()">
-          <option value="lent">💰 سلّفت للغير (فلوس ليا)</option>
-          <option value="borrowed">↩ استلفت من حد (فلوس عليا)</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">المبلغ (ج.م) *</label>
-        <input class="form-input" type="number" id="loan-amount" placeholder="0" min="0">
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label" id="loan-person-label">اسم الشخص اللي سلّفته *</label>
-      <input class="form-input" id="loan-person" placeholder="اسم الشخص أو الجهة">
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">تاريخ القرض</label>
-        <input class="form-input" type="date" id="loan-date">
-      </div>
-      <div class="form-group">
-        <label class="form-label">تاريخ السداد المتوقع</label>
-        <input class="form-input" type="date" id="loan-due">
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">ملاحظات</label>
-      <textarea class="form-textarea" id="loan-notes" placeholder="تفاصيل القرض..." style="min-height:60px"></textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label">الحالة</label>
-      <select class="form-select" id="loan-status">
-        <option value="pending">⏳ لسه مترددتش</option>
-        <option value="partial">🟡 مترددت جزء</option>
-        <option value="settled">✅ اترد بالكامل</option>
-      </select>
-    </div>
-    <div class="form-group" id="loan-settled-amount-wrap" style="display:none">
-      <label class="form-label">المبلغ اللي اترد</label>
-      <input class="form-input" type="number" id="loan-settled-amount" placeholder="0">
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeM('modal-loan')">إلغاء</button>
-      <button class="btn btn-primary" onclick="saveLoan()"><i class="fa-solid fa-floppy-disk" style="margin-left:4px"></i> حفظ</button>
-    </div>
-  </div>
-</div>
 
-<!-- BUDGET MODAL -->
-<div class="modal-overlay" id="modal-budget">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="budget-modal-ttl"><i class="fa-solid fa-bullseye-arrow"></i> ميزانية جديدة</div>
-      <button class="close-btn" onclick="closeM('modal-budget')"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <input type="hidden" id="budget-eid">
-    <div class="form-group">
-      <label class="form-label">اسم الميزانية *</label>
-      <input class="form-input" id="budget-name" placeholder="مثال: شراء لابتوب، تطوير السيت آب...">
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">المبلغ المستهدف (ج.م) *</label>
-        <input class="form-input" type="number" id="budget-target" placeholder="0" min="0">
-      </div>
-      <div class="form-group">
-        <label class="form-label">المبلغ المدّخر حتى الآن</label>
-        <input class="form-input" type="number" id="budget-saved" placeholder="0" min="0">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">الفئة</label>
-        <select class="form-select" id="budget-cat">
-          <option value="equipment">💻 معدات وأجهزة</option>
-          <option value="software">🔧 برامج واشتراكات</option>
-          <option value="setup">🏠 تطوير السيت آب</option>
-          <option value="marketing">📢 تسويق</option>
-          <option value="education">📚 تعليم وكورسات</option>
-          <option value="emergency">🛡 طوارئ</option>
-          <option value="other">📦 أخرى</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">الأولوية</label>
-        <select class="form-select" id="budget-priority">
-          <option value="high">🔴 عالية</option>
-          <option value="medium">🟡 متوسطة</option>
-          <option value="low">🟢 منخفضة</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">تاريخ البدء</label>
-        <input class="form-input" type="date" id="budget-start">
-      </div>
-      <div class="form-group">
-        <label class="form-label">تاريخ الهدف</label>
-        <input class="form-input" type="date" id="budget-deadline">
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">ملاحظات</label>
-      <textarea class="form-textarea" id="budget-notes" placeholder="لماذا تحتاج هذه الميزانية..." style="min-height:55px"></textarea>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeM('modal-budget')">إلغاء</button>
-      <button class="btn btn-primary" onclick="saveBudget()"><i class="fa-solid fa-floppy-disk" style="margin-left:4px"></i> حفظ</button>
-    </div>
-  </div>
-</div>
 
 <!-- VAULT PAGE -->
 <div class="page" id="page-vault">
@@ -4257,6 +4171,53 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       </div>
     </div>
   </div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- PROPOSALS PAGE                                      -->
+<!-- ══════════════════════════════════════════════════ -->
+</div><!-- end page-invoices -->
+<div class="page" id="page-proposals">
+  <div class="page-header">
+    <div>
+      <div class="page-title">📋 <span>عروض</span> <span style="color:var(--accent)">الأسعار</span></div>
+      <div class="page-subtitle">أرسل عروض احترافية — العميل يوافق أو يرفض مباشرة من رابط خاص</div>
+    </div>
+    <button class="btn btn-primary" onclick="openProposalModal()">
+      <i class="fa-solid fa-plus" style="margin-left:4px"></i> عرض جديد
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+    <div class="card" style="padding:16px;text-align:center;border-right:3px solid var(--accent)">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">إجمالي العروض</div>
+      <div style="font-size:26px;font-weight:900;color:var(--text)" id="prop-stat-all">0</div>
+    </div>
+    <div class="card" style="padding:16px;text-align:center;border-right:3px solid #f7c948">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">⏳ في الانتظار</div>
+      <div style="font-size:26px;font-weight:900;color:#f7c948" id="prop-stat-pending">0</div>
+    </div>
+    <div class="card" style="padding:16px;text-align:center;border-right:3px solid var(--accent3)">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">✅ مقبولة</div>
+      <div style="font-size:26px;font-weight:900;color:var(--accent3)" id="prop-stat-accepted">0</div>
+    </div>
+    <div class="card" style="padding:16px;text-align:center;border-right:3px solid var(--accent4)">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">❌ مرفوضة</div>
+      <div style="font-size:26px;font-weight:900;color:var(--accent4)" id="prop-stat-rejected">0</div>
+    </div>
+  </div>
+
+  <!-- List -->
+  <div id="proposals-list-wrap">
+    <div class="card" style="text-align:center;padding:48px 20px;color:var(--text3)">
+      <div style="font-size:48px;margin-bottom:12px">📋</div>
+      <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--text)">لا توجد عروض أسعار</div>
+      <div style="font-size:13px;margin-bottom:18px">أنشئ عرضك الأول وأرسله للعميل الآن</div>
+      <button class="btn btn-primary" onclick="openProposalModal()"><i class="fa-solid fa-plus" style="margin-left:4px"></i> عرض جديد</button>
+    </div>
+  </div>
+</div>
+
 </div>
 
 <!-- LEARNING -->
@@ -5132,6 +5093,129 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
 
 </main><!-- end main -->
 
+<!-- LOAN MODAL -->
+<div class="modal-overlay" id="modal-loan">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="loan-modal-ttl"><i class="fa-solid fa-handshake"></i> قرض / دين جديد</div>
+      <button class="close-btn" onclick="closeM('modal-loan')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="loan-eid">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">نوع القرض *</label>
+        <select class="form-select" id="loan-direction" onchange="updateLoanDirection()">
+          <option value="lent">💰 سلّفت للغير (فلوس ليا)</option>
+          <option value="borrowed">↩ استلفت من حد (فلوس عليا)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">المبلغ (ج.م) *</label>
+        <input class="form-input" type="number" id="loan-amount" placeholder="0" min="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" id="loan-person-label">اسم الشخص اللي سلّفته *</label>
+      <input class="form-input" id="loan-person" placeholder="اسم الشخص أو الجهة">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">تاريخ القرض</label>
+        <input class="form-input" type="date" id="loan-date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">تاريخ السداد المتوقع</label>
+        <input class="form-input" type="date" id="loan-due">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ملاحظات</label>
+      <textarea class="form-textarea" id="loan-notes" placeholder="تفاصيل القرض..." style="min-height:60px"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">الحالة</label>
+      <select class="form-select" id="loan-status">
+        <option value="pending">⏳ لسه مترددتش</option>
+        <option value="partial">🟡 مترددت جزء</option>
+        <option value="settled">✅ اترد بالكامل</option>
+      </select>
+    </div>
+    <div class="form-group" id="loan-settled-amount-wrap" style="display:none">
+      <label class="form-label">المبلغ اللي اترد</label>
+      <input class="form-input" type="number" id="loan-settled-amount" placeholder="0">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeM('modal-loan')">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveLoan()"><i class="fa-solid fa-floppy-disk" style="margin-left:4px"></i> حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- BUDGET MODAL -->
+<div class="modal-overlay" id="modal-budget">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="budget-modal-ttl"><i class="fa-solid fa-bullseye-arrow"></i> ميزانية جديدة</div>
+      <button class="close-btn" onclick="closeM('modal-budget')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="budget-eid">
+    <div class="form-group">
+      <label class="form-label">اسم الميزانية *</label>
+      <input class="form-input" id="budget-name" placeholder="مثال: شراء لابتوب، تطوير السيت آب...">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">المبلغ المستهدف (ج.م) *</label>
+        <input class="form-input" type="number" id="budget-target" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">المبلغ المدّخر حتى الآن</label>
+        <input class="form-input" type="number" id="budget-saved" placeholder="0" min="0">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">الفئة</label>
+        <select class="form-select" id="budget-cat">
+          <option value="equipment">💻 معدات وأجهزة</option>
+          <option value="software">🔧 برامج واشتراكات</option>
+          <option value="setup">🏠 تطوير السيت آب</option>
+          <option value="marketing">📢 تسويق</option>
+          <option value="education">📚 تعليم وكورسات</option>
+          <option value="emergency">🛡 طوارئ</option>
+          <option value="other">📦 أخرى</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">الأولوية</label>
+        <select class="form-select" id="budget-priority">
+          <option value="high">🔴 عالية</option>
+          <option value="medium">🟡 متوسطة</option>
+          <option value="low">🟢 منخفضة</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">تاريخ البدء</label>
+        <input class="form-input" type="date" id="budget-start">
+      </div>
+      <div class="form-group">
+        <label class="form-label">تاريخ الهدف</label>
+        <input class="form-input" type="date" id="budget-deadline">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ملاحظات</label>
+      <textarea class="form-textarea" id="budget-notes" placeholder="لماذا تحتاج هذه الميزانية..." style="min-height:55px"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeM('modal-budget')">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveBudget()"><i class="fa-solid fa-floppy-disk" style="margin-left:4px"></i> حفظ</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODAL: ADD/EDIT SERVICE ══ -->
 <div class="modal-overlay" id="modal-svc">
   <div class="modal" style="width:min(600px,96vw);max-height:92vh;overflow-y:auto">
@@ -5801,7 +5885,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">نوع الدفعة</label>
-        <select class="form-select" id="in-payment-type" onchange="_toggleIncomeLoanFields()">
+        <select class="form-select" id="in-payment-type" onchange="document.getElementById('in-loan-fields').style.display=this.value==='loan_received'?'block':'none'">
           <option value="full"><i class="fa-solid fa-coins"></i> دفعة كاملة</option>
           <option value="deposit">🔰 عربون</option>
           <option value="partial"><i class="fa-solid fa-credit-card"></i> دفعة جزئية</option>
@@ -5818,23 +5902,13 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
         </select>
       </div>
     </div>
-    <!-- حقول القرض المستلم — تظهر فقط لو اختار "قرض مستلم" -->
     <div id="in-loan-fields" style="display:none;background:var(--surface2);border:1px solid var(--accent2);border-radius:var(--radius);padding:12px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:800;color:var(--accent2);margin-bottom:10px"><i class="fa-solid fa-handshake"></i> بيانات المُقرض — هيتسجل تلقائياً في القروض</div>
+      <div style="font-size:12px;font-weight:800;color:var(--accent2);margin-bottom:10px"><i class="fa-solid fa-handshake"></i> بيانات المُقرض</div>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">اسم المُقرض *</label>
-          <input class="form-input" id="in-loan-person" placeholder="اسم الشخص أو الجهة">
-        </div>
-        <div class="form-group">
-          <label class="form-label">رقم التليفون (اختياري)</label>
-          <input class="form-input" id="in-loan-phone" placeholder="01xxxxxxxxx" type="tel">
-        </div>
+        <div class="form-group"><label class="form-label">اسم المُقرض *</label><input class="form-input" id="in-loan-person" placeholder="اسم الشخص أو الجهة"></div>
+        <div class="form-group"><label class="form-label">رقم التليفون</label><input class="form-input" id="in-loan-phone" placeholder="01xxxxxxxxx" type="tel"></div>
       </div>
-      <div class="form-group">
-        <label class="form-label">تاريخ السداد المتوقع (اختياري)</label>
-        <input class="form-input" type="date" id="in-loan-due">
-      </div>
+      <div class="form-group"><label class="form-label">تاريخ السداد (اختياري)</label><input class="form-input" type="date" id="in-loan-due"></div>
     </div>
     <div class="form-group"><label class="form-label">وصف</label><input class="form-input" id="in-desc" placeholder="مثال: دفعة أولى مشروع لوجو"></div>
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px">
@@ -5913,7 +5987,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">الفئة</label>
-        <select class="form-select" id="ex-cat" onchange="_toggleExpenseLoanFields()">
+        <select class="form-select" id="ex-cat" onchange="document.getElementById('ex-loan-fields').style.display=this.value==='سلفة للغير'?'block':'none'">
           <option value="برامج واشتراكات"><i class="fa-solid fa-laptop"></i> برامج واشتراكات</option>
           <option value="معدات وأجهزة"><i class="fa-solid fa-desktop"></i> معدات وأجهزة</option>
           <option value="تسويق"><i class="fa-solid fa-bullhorn"></i> تسويق</option>
@@ -5935,23 +6009,13 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
         </select>
       </div>
     </div>
-    <!-- حقول السلفة — تظهر فقط لو اختار "سلفة للغير" -->
     <div id="ex-loan-fields" style="display:none;background:var(--surface2);border:1px solid var(--accent3);border-radius:var(--radius);padding:12px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:800;color:var(--accent3);margin-bottom:10px"><i class="fa-solid fa-handshake"></i> بيانات المستلف — هيتسجل تلقائياً في القروض</div>
+      <div style="font-size:12px;font-weight:800;color:var(--accent3);margin-bottom:10px"><i class="fa-solid fa-handshake"></i> بيانات المستلف</div>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">اسم المستلف *</label>
-          <input class="form-input" id="ex-loan-person" placeholder="اسم الشخص">
-        </div>
-        <div class="form-group">
-          <label class="form-label">رقم التليفون (اختياري)</label>
-          <input class="form-input" id="ex-loan-phone" placeholder="01xxxxxxxxx" type="tel">
-        </div>
+        <div class="form-group"><label class="form-label">اسم المستلف *</label><input class="form-input" id="ex-loan-person" placeholder="اسم الشخص"></div>
+        <div class="form-group"><label class="form-label">رقم التليفون</label><input class="form-input" id="ex-loan-phone" placeholder="01xxxxxxxxx" type="tel"></div>
       </div>
-      <div class="form-group">
-        <label class="form-label">تاريخ الرد المتوقع (اختياري)</label>
-        <input class="form-input" type="date" id="ex-loan-due">
-      </div>
+      <div class="form-group"><label class="form-label">تاريخ الرد (اختياري)</label><input class="form-input" type="date" id="ex-loan-due"></div>
     </div>
     <div class="form-group"><label class="form-label">وصف</label><input class="form-input" id="ex-desc" placeholder="مثال: اشتراك Adobe CC"></div>
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px">
@@ -6650,7 +6714,7 @@ function renderReviewsPage() {
             <span style="font-size:11px;font-weight:800;padding:2px 10px;border-radius:10px;background:${+r.stars>=4?'rgba(247,201,72,.15)':+r.stars===3?'rgba(168,156,255,.15)':'rgba(255,107,107,.12)'};color:${+r.stars>=4?'#f7c948':+r.stars===3?'var(--accent2)':'var(--accent4)'}">${['','سيء 😞','مقبول 😐','جيد 🙂','رائع 😊','ممتاز 🤩'][+r.stars]||''}</span>
           </div>
         </div>
-        ${r.comment?`<div style="font-size:13px;color:var(--text2);line-height:1.8;padding:12px 14px;background:var(--surface2);border-radius:10px;margin-bottom:10px;font-style:italic border-right:2px solid #f7c948">"${escapeHtml(r.comment)}"</div>`:''}
+        ${r.comment?`<div style="font-size:13px;color:var(--text2);line-height:1.8;padding:12px 14px;background:var(--surface2);border-radius:10px;margin-bottom:10px;font-style:italic;border-right:3px solid #f7c948">"${escapeHtml(r.comment)}"</div>`:''}
         ${taskObj||r.task_title?`<div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px"><i class="fa-solid fa-clipboard-list" style="color:var(--accent)"></i> الطلب: <span style="font-weight:700;color:var(--text2)">${escapeHtml(r.task_title||taskObj?.title||'طلب')}</span></div>`:''}
       </div>`;
     }).join('') : `<div style="text-align:center;padding:40px;color:var(--text3)"><i class="fa-solid fa-star" style="font-size:32px;opacity:.3;display:block;margin-bottom:10px"></i>لا توجد تقييمات بهذا التصنيف</div>`}
@@ -6660,16 +6724,12 @@ function renderReviewsPage() {
 function _copyReviewLink() {
   const uid = _supaUserId;
   const un = S.settings?.username;
-  // بناء المسار الصح بناءً على الـ URL الحالي (يشتغل مع GitHub Pages وغيره)
-  var _parts = window.location.pathname.split('/').filter(function(p){return p!=='';});
-  if(_parts.length && _parts[_parts.length-1].endsWith('.html')) _parts.pop();
-  var _basePath = _parts.length ? '/' + _parts.join('/') + '/' : '/';
-  var _portalBase = window.location.origin + _basePath + 'client-portal.html';
-  const base = un
-    ? `${_portalBase}?u=${encodeURIComponent(un)}`
-    : `${_portalBase}?uid=${uid}`;
-  const link = base + `&tab=reviews`;
-  navigator.clipboard?.writeText(link).then(() => toast('✅ تم نسخ رابط التقييمات'));
+  var _rparts = window.location.pathname.split('/').filter(function(p){return p!=='';});
+  if(_rparts.length && _rparts[_rparts.length-1].endsWith('.html')) _rparts.pop();
+  var _rbase = _rparts.length ? '/' + _rparts.join('/') + '/' : '/';
+  var _reviewPage = window.location.origin + _rbase + 'review.html';
+  const link = un ? `${_reviewPage}?u=${encodeURIComponent(un)}` : `${_reviewPage}?uid=${uid}`;
+  navigator.clipboard?.writeText(link).then(() => toast('✅ تم نسخ رابط فورم التقييم'));
 }
 
 function _exportReviews() {
@@ -8791,9 +8851,9 @@ function _renderProfileTab(tab, id){
   const monthStr=`${curY}-${String(curM).padStart(2,'0')}`;
   const _taskDate=t=>t.isoDate||t.createdAt||t.doneAt||'';
   const monthTasks=cTasks.filter(t=>_taskDate(t).startsWith(monthStr));
-  const monthIncome=cTrans.filter(t=>t.type==='income'&&(t.isoDate||t.date||'').startsWith(monthStr)).reduce((s,t)=>s+t.amount,0);
+  const monthIncome=cTrans.filter(t=>t.type==='income'&&!t.isLoan&&(t.isoDate||t.date||'').startsWith(monthStr)).reduce((s,t)=>s+t.amount,0);
   const pendingInv=cInvs.filter(i=>i.status==='pending');
-  const totalInc=cTrans.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const totalInc=cTrans.filter(t=>t.type==='income'&&!t.isLoan).reduce((s,t)=>s+t.amount,0);
 
   const statusBadge={new:'<span class="badge badge-gray">جديد</span>',progress:'<span class="badge badge-yellow">جاري</span>',review:'<span class="badge badge-purple">مراجعة</span>',done:'<span class="badge badge-green">مكتمل</span>'};
   const body=document.getElementById('profile-body');
@@ -9895,7 +9955,6 @@ function openIncomeModal(id, prefillTaskId){
     const ptEl=document.getElementById('in-payment-type'); if(ptEl) ptEl.value='full';
     const pmEl=document.getElementById('in-pay-method');  if(pmEl) pmEl.value='cash';
   }
-  _toggleIncomeLoanFields();
   openM('modal-income');
 }
 function openExpenseModal(id){
@@ -9914,7 +9973,6 @@ function openExpenseModal(id){
     document.getElementById('ex-date').value=new Date().toISOString().split('T')[0];
     const pmEl=document.getElementById('ex-pay-method'); if(pmEl) pmEl.value='cash';
   }
-  _toggleExpenseLoanFields();
   openM('modal-expense');
 }
 function saveTrans(type){
@@ -9937,6 +9995,7 @@ function saveTrans(type){
     if(lt) finalSource = lt.client||lt.title;
   }
   const incRcpt = isInc ? (window._incReceiptData||null) : null;
+  const isLoanTrans = isInc && paymentType==='loan_received';
   const d={type,amount,source:finalSource,desc:v(isInc?'in-desc':'ex-desc'),
     date:new Date(isoDate+'T00:00:00').toLocaleDateString('ar-EG'), isoDate,
     payMethod,
@@ -9944,42 +10003,37 @@ function saveTrans(type){
     ...(paymentType  ? {paymentType}  : {}),
     ...(expCat       ? {expCat}       : {}),
     ...(expImpact    ? {expImpact}    : {}),
-    ...(incRcpt      ? {receiptImage:incRcpt} : {})};
+    ...(incRcpt      ? {receiptImage:incRcpt} : {}),
+    ...(isLoanTrans  ? {isLoan:true}  : {})};
   if(eid){const i=S.transactions.findIndex(t=>t.id==eid);if(i>-1){d.id=+eid;if(!incRcpt&&S.transactions[i].receiptImage)d.receiptImage=S.transactions[i].receiptImage;S.transactions[i]=d;}}
   else{d.id=Date.now();S.transactions.push(d);}
   if(isInc) window._incReceiptData=null;
-
-  // ══ تسجيل تلقائي في القروض ══
+  // تسجيل تلقائي في القروض
   if(isInc && paymentType==='loan_received'){
-    // قرض مستلم → "استلفت من حد" = borrowed
     const lPerson=(document.getElementById('in-loan-person')?.value||'').trim();
     if(lPerson){
       if(!S.loans) S.loans=[];
-      const lDue=document.getElementById('in-loan-due')?.value||'';
-      const lPhone=document.getElementById('in-loan-phone')?.value||'';
-      const lNotes=lPhone?('تليفون: '+lPhone):'';
-      S.loans.push({id:'ln_'+Date.now(),direction:'borrowed',amount,person:lPerson,phone:lPhone,
-        date:isoDate,due:lDue,notes:lNotes,status:'pending',settledAmount:0,
-        createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),linkedTransId:d.id});
-      toast('🤝 تم تسجيل القرض تلقائياً في صفحة القروض');
+      S.loans.push({id:'ln_'+Date.now(),direction:'borrowed',amount,
+        person:lPerson,phone:document.getElementById('in-loan-phone')?.value||'',
+        date:isoDate,due:document.getElementById('in-loan-due')?.value||'',
+        notes:'',status:'pending',settledAmount:0,
+        createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+      toast('🤝 تم تسجيل القرض في صفحة القروض');
     }
   }
   if(!isInc && expCat==='سلفة للغير'){
-    // سلفة للغير → "سلّفت للغير" = lent
     const lPerson=(document.getElementById('ex-loan-person')?.value||'').trim();
     if(lPerson){
       if(!S.loans) S.loans=[];
-      const lDue=document.getElementById('ex-loan-due')?.value||'';
-      const lPhone=document.getElementById('ex-loan-phone')?.value||'';
-      const lNotes=lPhone?('تليفون: '+lPhone):'';
-      S.loans.push({id:'ln_'+Date.now(),direction:'lent',amount,person:lPerson,phone:lPhone,
-        date:isoDate,due:lDue,notes:lNotes,status:'pending',settledAmount:0,
-        createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),linkedTransId:d.id});
-      toast('🤝 تم تسجيل السلفة تلقائياً في صفحة القروض');
+      S.loans.push({id:'ln_'+Date.now(),direction:'lent',amount,
+        person:lPerson,phone:document.getElementById('ex-loan-phone')?.value||'',
+        date:isoDate,due:document.getElementById('ex-loan-due')?.value||'',
+        notes:'',status:'pending',settledAmount:0,
+        createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+      toast('🤝 تم تسجيل السلفة في صفحة القروض');
     }
   }
-
-  lsSave();cloudSave(S);closeM(isInc?'modal-income':'modal-expense');renderAll();
+  lsSave();closeM(isInc?'modal-income':'modal-expense');renderAll();
   // Auto-print receipt for income transactions
   if(isInc){
     const savedId = eid ? +eid : S.transactions[S.transactions.length-1]?.id;
@@ -10075,8 +10129,8 @@ function renderFinance(){
     lbl.innerHTML = parts.length ? '<i class="fa-solid fa-calendar-days"></i> '+parts.join(' ') : '';
   }
 
-  const inc = filtered.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
-  const exp = filtered.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  const inc = filtered.filter(t=>t.type==='income'&&!t.isLoan).reduce((s,t)=>s+t.amount,0);
+  const exp = filtered.filter(t=>t.type==='expense'&&t.expCat!=='سلفة للغير').reduce((s,t)=>s+t.amount,0);
   const net = inc-exp, margin = inc?Math.round(net/inc*100):0;
   
   // Category breakdown
@@ -11261,6 +11315,12 @@ function renderAll(){
   if(document.getElementById('page-reviews')?.classList.contains('active')){
     renderReviewsPage();
   }
+  if(document.getElementById('page-proposals')?.classList.contains('active')){
+    renderProposals();
+  }
+  // تحديث badge العروض
+  const _pb = document.getElementById('proposals-nav-badge');
+  if(_pb){ const _pc=(S.proposals||[]).filter(p=>p.status==='pending').length; _pb.textContent=_pc; _pb.style.display=_pc?'inline-flex':'none'; }
   // تحديث badge التقييمات
   const _rb = document.getElementById('reviews-badge');
   if(_rb){ const _rc=(S.reviews||[]).length; _rb.textContent=_rc; _rb.style.display=_rc?'inline-flex':'none'; }
@@ -11613,12 +11673,25 @@ async function loginWithSupaSession(supaUser, session, userMeta){
     if(cacheScore > cloudScore || (cacheScore === cloudScore && cacheTime > cloudTime)) {
       console.log('⚡ Cache is newer than cloud | cache:', cacheScore, 'cloud:', cloudScore, '— using cache and re-saving');
       _bestData = _cachedData;
-      // أعد الحفظ للسحابة فوراً لمزامنتها
-      setTimeout(async () => {
-        const _rp = { user_id: supaUser.id, data: JSON.stringify(_cachedData), updated_at: _cachedData._savedAt || new Date().toISOString() };
-        await supa.from('studio_data').upsert(_rp, { onConflict: 'user_id' });
-        console.log('✅ Re-synced cache to cloud');
-      }, 500);
+      // أعد الحفظ للسحابة فوراً لمزامنتها — لكن فقط لو السحابة فعلاً فاضية (مش مجرد connection error)
+      if (_cloudScore === 0) {
+        setTimeout(async () => {
+          // تحقق مجدداً إن السحابة فاضية فعلاً قبل الكتابة
+          try {
+            const _verify = await supa.from('studio_data').select('updated_at').eq('user_id', supaUser.id).maybeSingle();
+            const _cloudUpdated = _verify?.data?.updated_at ? new Date(_verify.data.updated_at).getTime() : 0;
+            const _cacheUpdated = _cachedData._savedAt ? new Date(_cachedData._savedAt).getTime() : 0;
+            // لا تكتب فوق بيانات السحابة لو هي أحدث
+            if (_cloudUpdated <= _cacheUpdated) {
+              const _rp = { user_id: supaUser.id, data: JSON.stringify(_cachedData), updated_at: _cachedData._savedAt || new Date().toISOString() };
+              await supa.from('studio_data').upsert(_rp, { onConflict: 'user_id' });
+              console.log('✅ Re-synced cache to cloud');
+            } else {
+              console.log('⚠️ Cloud is newer — skipping re-sync to avoid overwrite');
+            }
+          } catch(e) { console.warn('Re-sync check failed:', e); }
+        }, 500);
+      }
     }
   }
 
@@ -13974,16 +14047,16 @@ async function saveTeam(){
       let targetUserId = m.linkedUserId || null;
       if(!targetUserId){
         try{
-          const rpcRes = await supa.rpc('get_user_id_by_email', { p_email: email });
-          if(rpcRes?.data) targetUserId = rpcRes.data;
+          const { data: rpcId } = await supa.rpc('get_user_id_by_email', { p_email: email }).catch(()=>({data:null}));
+          if(rpcId) targetUserId = rpcId;
         }catch(e){}
       }
 
       // Method 2: scan auth_users via admin (may not work with anon key — fallback only)
       if(!targetUserId){
         try{
-          const prRes = await supa.from('profiles').select('id').eq('email', email).maybeSingle();
-          if(prRes?.data) targetUserId = prRes.data.id;
+          const { data: pr } = await supa.from('profiles').select('id').eq('email', email).maybeSingle().catch(()=>({data:null}));
+          if(pr) targetUserId = pr.id;
         }catch(e){}
       }
 
@@ -14003,22 +14076,20 @@ async function saveTeam(){
         created_at : new Date().toISOString()
       };
 
-      let notifErr = null;
-      try{ const r = await supa.from('user_notifications').insert([notifRow]); notifErr = r.error; }catch(e){ notifErr = e; }
+      const { error: notifErr } = await supa.from('user_notifications').insert([notifRow]).catch(e=>({error:e}));
 
       if(notifErr){
         // Fallback: write to studio_data if we somehow have access
         console.warn('user_notifications insert failed:', notifErr.message, '— trying studio_data fallback');
         try{
-          const tgtRes = await supa.from('studio_data').select('data').eq('user_id',targetUserId).maybeSingle();
-          const tgtRow = tgtRes?.data;
+          const { data: tgtRow } = await supa.from('studio_data').select('data').eq('user_id',targetUserId).maybeSingle().catch(()=>({data:null}));
           if(tgtRow && tgtRow.data){
             let ud2 = typeof tgtRow.data==='string' ? JSON.parse(tgtRow.data) : tgtRow.data;
             ud2._pending_notifications = ud2._pending_notifications||[];
             const alreadyEx = ud2._pending_notifications.find(n=>n.type==='team_added'&&String(n.teamId)===String(d.id));
             if(!alreadyEx){
               ud2._pending_notifications.push({ id:Date.now()+'_ta', title:'تمت إضافتك لفريق!', body:notifRow.body, type:'team_added', teamId:d.id, teamName:name, created_at:notifRow.created_at, read:false });
-              try{ await supa.from('studio_data').update({data:JSON.stringify(ud2),updated_at:new Date().toISOString()}).eq('user_id',targetUserId); }catch(e2){}
+              await supa.from('studio_data').update({data:JSON.stringify(ud2),updated_at:new Date().toISOString()}).eq('user_id',targetUserId).catch(()=>null);
             }
           }
         }catch(e2){}
@@ -14507,9 +14578,9 @@ async function _sendMemberMessage(memberName){
       if(rows){for(var row of rows){try{var ud2=typeof row.data==='string'?JSON.parse(row.data):row.data;var se2=(ud2?.settings?.email||ud2?._user_email||'').toLowerCase().trim();if(se2&&se2===memberEmail){targetUserId=row.user_id;break;}}catch(e){}}}
     }catch(e){}
     if(targetUserId){
-      var tgtRow=null; try{ var r14=await supa.from('studio_data').select('data').eq('user_id',targetUserId).single(); tgtRow=r14?.data||null; }catch(e){}
+      var {data:tgt}=await supa.from('studio_data').select('data').eq('user_id',targetUserId).single().catch(()=>({data:null}));
       var ud=null;
-      if(tgtRow){try{ud=typeof tgtRow.data==='string'?JSON.parse(tgtRow.data):tgtRow.data;}catch(e){}}
+      if(tgt){try{ud=typeof tgt.data==='string'?JSON.parse(tgt.data):tgt.data;}catch(e){}}
       if(!ud)ud={};
       ud._pending_notifications=ud._pending_notifications||[];
       ud._messages=ud._messages||[];
@@ -14950,6 +15021,45 @@ function renderFinLoansSummary(){
 }
 
 function renderWalletsTab() {
+  var methods = getAllPayMethods();
+  var transactions = S.transactions || [];
+  var grid = document.getElementById('fin-wallets-grid');
+  if(!grid) return;
+  var manualSel = document.getElementById('fin-manual-wallet');
+  if(manualSel) {
+    manualSel.innerHTML = methods.map(function(m) {
+      return '<option value="'+m.id+'">'+m.label+'</option>';
+    }).join('');
+  }
+  var walletColors = {cash:'#4fd1a5',instapay:'#7c6ff7',vodafone:'#e53935',etisalat:'#1565c0'};
+  var walletIcons  = {cash:'<i class="fa-solid fa-money-bill-wave"></i>',instapay:'<i class="fa-solid fa-mobile"></i>',vodafone:'<i class="fa-brands fa-vimeo" style="color:#e53935"></i>',etisalat:'<i class="fa-solid fa-phone"></i>'};
+  grid.innerHTML = methods.map(function(m) {
+    var mTrans = transactions.filter(function(t){ return t.payMethod===m.id || t.method===m.id; });
+    var income  = mTrans.filter(function(t){ return t.type==='income'; }).reduce(function(s,t){ return s+(t.amount||0); }, 0);
+    var expense = mTrans.filter(function(t){ return t.type==='expense'; }).reduce(function(s,t){ return s+(t.amount||0); }, 0);
+    var balance = income - expense;
+    var color   = m.color || walletColors[m.id] || '#7c6ff7';
+    var icon    = m.icon  || walletIcons[m.id]  || '<i class="fa-solid fa-wallet"></i>';
+    var pct     = (income+expense) > 0 ? Math.round(income/(income+expense)*100) : 0;
+    return '<div class="card" style="cursor:pointer;border:1.5px solid '+color+'33;position:relative;overflow:hidden" data-wid="'+m.id+'" onclick="showWalletDetail(this.dataset.wid)">'+
+      '<div style="position:absolute;top:0;right:0;width:100%;height:3px;background:'+color+'"></div>'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
+        '<div style="width:38px;height:38px;border-radius:10px;background:'+color+'22;display:flex;align-items:center;justify-content:center;color:'+color+';font-size:18px">'+icon+'</div>'+
+        '<div><div style="font-weight:800;font-size:14px">'+m.label+'</div>'+
+        '<div style="font-size:11px;color:var(--text3)">'+mTrans.length+' معاملة</div></div>'+
+      '</div>'+
+      '<div style="font-size:20px;font-weight:900;color:'+(balance>=0?'var(--accent3)':'var(--accent4)')+'">'+balance.toLocaleString('ar-EG')+' ج</div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px">'+
+        '<span style="color:var(--accent3)">↑ '+income.toLocaleString('ar-EG')+'</span>'+
+        '<span style="color:var(--accent4)">↓ '+expense.toLocaleString('ar-EG')+'</span>'+
+      '</div>'+
+      '<div style="margin-top:8px;height:4px;background:var(--surface2);border-radius:4px;overflow:hidden">'+
+        '<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:4px;transition:width .5s"></div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
 // ══════════════════════════════════════════════════
 // BUDGETS
 // ══════════════════════════════════════════════════
@@ -15059,22 +15169,6 @@ function updateLoanDirection(){
   var lbl=document.getElementById('loan-person-label');
   if(lbl) lbl.textContent = dir==='lent' ? 'اسم الشخص اللي سلّفته *' : 'اسم الشخص اللي استلفت منه *';
 }
-function _toggleIncomeLoanFields(){
-  var pt=document.getElementById('in-payment-type')?.value;
-  var f=document.getElementById('in-loan-fields');
-  if(f) f.style.display = pt==='loan_received' ? 'block' : 'none';
-  if(pt!=='loan_received'){
-    ['in-loan-person','in-loan-phone','in-loan-due'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
-  }
-}
-function _toggleExpenseLoanFields(){
-  var cat=document.getElementById('ex-cat')?.value;
-  var f=document.getElementById('ex-loan-fields');
-  if(f) f.style.display = cat==='سلفة للغير' ? 'block' : 'none';
-  if(cat!=='سلفة للغير'){
-    ['ex-loan-person','ex-loan-phone','ex-loan-due'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
-  }
-}
 function openLoanModal(id){
   document.getElementById('loan-modal-ttl').innerHTML = id ? '<i class="fa-solid fa-handshake"></i> تعديل القرض' : '<i class="fa-solid fa-handshake"></i> قرض / دين جديد';
   document.getElementById('loan-eid').value=id||'';
@@ -15179,49 +15273,6 @@ function renderLoans(){
       +'</div>'
       +'</div>';
   }).join('')+'</div>';
-}
-
-
-  var methods = getAllPayMethods();
-  var transactions = S.transactions || [];
-  var grid = document.getElementById('fin-wallets-grid');
-  if(!grid) return;
-
-  // Fill manual wallet select
-  var manualSel = document.getElementById('fin-manual-wallet');
-  if(manualSel) {
-    manualSel.innerHTML = methods.map(function(m) {
-      return '<option value="'+m.id+'">'+m.label+'</option>';
-    }).join('');
-  }
-
-  var walletColors = {cash:'#4fd1a5',instapay:'#7c6ff7',vodafone:'#e53935',etisalat:'#1565c0'};
-  var walletIcons  = {cash:'<i class="fa-solid fa-money-bill-wave"></i>',instapay:'<i class="fa-solid fa-mobile"></i>',vodafone:'<i class="fa-brands fa-vimeo" style="color:#e53935"></i>',etisalat:'<i class="fa-solid fa-phone"></i>'};
-
-  grid.innerHTML = methods.map(function(m) {
-    var mTrans = transactions.filter(function(t){ return t.payMethod===m.id || t.method===m.id; });
-    var income  = mTrans.filter(function(t){ return t.type==='income'; }).reduce(function(s,t){ return s+(t.amount||0); }, 0);
-    var expense = mTrans.filter(function(t){ return t.type==='expense'; }).reduce(function(s,t){ return s+(t.amount||0); }, 0);
-    var balance = income - expense;
-    var color   = m.color || walletColors[m.id] || '#7c6ff7';
-    var icon    = m.icon  || walletIcons[m.id]  || '<i class="fa-solid fa-wallet"></i>';
-    var pct     = (income+expense) > 0 ? Math.round(income/(income+expense)*100) : 0;
-    return '<div class="card" style="cursor:pointer;border:1.5px solid '+color+'33;position:relative;overflow:hidden" data-wid="'+m.id+'" onclick="showWalletDetail(this.dataset.wid)">'+
-      '<div style="position:absolute;top:0;right:0;width:100%;height:3px;background:'+color+'"></div>'+
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
-        '<div style="width:42px;height:42px;border-radius:12px;background:'+color+'22;display:flex;align-items:center;justify-content:center;font-size:20px;color:'+color+'">'+icon+'</div>'+
-        '<div><div style="font-size:13px;font-weight:800">'+m.label+'</div><div style="font-size:10px;color:var(--text3)">'+mTrans.length+' معاملة</div></div>'+
-      '</div>'+
-      '<div style="font-size:22px;font-weight:900;color:'+(balance>=0?'var(--accent3)':'var(--accent4)')+'">'+balance.toLocaleString('ar-EG')+' <span style="font-size:12px;font-weight:400">ج</span></div>'+
-      '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--text3)">'+
-        '<span style="color:var(--accent3)">↑ '+income.toLocaleString('ar-EG')+'</span>'+
-        '<span style="color:var(--accent4)">↓ '+expense.toLocaleString('ar-EG')+'</span>'+
-      '</div>'+
-      '<div style="margin-top:8px;height:4px;background:var(--surface2);border-radius:4px;overflow:hidden">'+
-        '<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:4px;transition:width .5s"></div>'+
-      '</div>'+
-    '</div>';
-  }).join('');
 }
 
 function showWalletDetail(methodId) {
@@ -17168,7 +17219,7 @@ let _authProcessingUserId = null;
 supa.auth.onAuthStateChange(async (event, session) => {
   // ── Public service/portal pages: skip all auth handling ──
   var _pup = new URLSearchParams(window.location.search);
-  if(_pup.get('svcorder') || (_pup.get('portal') && _pup.get('uid')) || (_pup.get('clientportal') && _pup.get('cid')) || (_pup.get('uid') && _pup.get('cid'))){ if(window._showApp) window._showApp(); return; }
+  if(_pup.get('svcorder') || (_pup.get('portal') && _pup.get('uid')) || (_pup.get('clientportal') && _pup.get('cid'))){ if(window._showApp) window._showApp(); return; }
 
   console.log('Auth event:', event, session?.user?.email);
 
@@ -17250,7 +17301,7 @@ supa.auth.onAuthStateChange(async (event, session) => {
 async function initAuthFallback(){
   // ── Public pages: skip all auth/dashboard init entirely ──
   var _pu = new URLSearchParams(window.location.search);
-  if(_pu.get('svcorder') || (_pu.get('portal') && _pu.get('uid')) || (_pu.get('clientportal') && _pu.get('cid')) || (_pu.get('uid') && _pu.get('cid'))){ return; }
+  if(_pu.get('svcorder') || (_pu.get('portal') && _pu.get('uid')) || (_pu.get('clientportal') && _pu.get('cid'))){ return; }
 
   loadThemePreferences();
   renderAll();
@@ -17805,7 +17856,7 @@ function ctShare(id){
   try{ localStorage.setItem('ct_sign_'+c.token, JSON.stringify(c)); }catch(e){}
   // Also save to Supabase if available
   if(typeof supa !== 'undefined' && _supaUserId){
-    (async()=>{ try{ await supa.from('shared_contracts').upsert([{token:c.token, data:JSON.stringify(c), user_id:_supaUserId, updated_at:new Date().toISOString()}]); }catch(e){} })();
+    (async()=>{try{await supa.from('shared_contracts').upsert([{token:c.token,data:JSON.stringify(c),user_id:_supaUserId,updated_at:new Date().toISOString()}]);}catch(e){}})();
   }
   const arr=ctContracts();const i=arr.findIndex(x=>x.id===id);
   if(i>-1){arr[i].token=c.token;if(arr[i].status==='draft'){arr[i].status='sent';}ctSave(arr);renderContractsList();}
@@ -18077,7 +18128,7 @@ function buildPortalHTML(d){
     // CONTRACTS
     (hasCt?'<div class="tab-panel" id="tab-ct"><div class="con"><div class="card"><div class="ct"><i class="fa-solid fa-pen-to-square"></i> العقود</div><table><thead><tr><th>العقد</th><th>القيمة</th><th>الحالة</th></tr></thead><tbody>'+ctRows+'</tbody></table></div></div></div>':'')+
     '<div class="ftr">'+d.studio+' · آخر تحديث: '+d.generated+'</div>'+
-    '<script>'+
+    '<scr'+'ipt>'+
     'function sw(n){'+
     'document.querySelectorAll(".tab").forEach(function(t,i){var ns=["ov","tk","fn","ct"];t.classList.toggle("active",ns[i]===n);});'+
     'document.querySelectorAll(".tab-panel").forEach(function(p){p.classList.toggle("active",p.id==="tab-"+n);});'+
@@ -18230,7 +18281,7 @@ window._inboxAcceptInvite = function(idx){
     }
     // Update team_invites table
     if(typeof supa !== 'undefined' && inv.id) {
-      (async()=>{ try{ await supa.from('team_invites').update({status:'accepted'}).eq('id', String(inv.id).replace('pn_','')); }catch(e){} })();
+      (async()=>{try{await supa.from('team_invites').update({status:'accepted'}).eq('id',String(inv.id).replace('pn_',''));}catch(e){}})();
     }
   }
   // Re-check membership
@@ -18689,7 +18740,7 @@ window.openMyMemberTeamProfile = function(ownerId){
       showMiniNotif('🎉 انضممت لفريق "'+invite.teamName+'" — '+invite.ownerName);
       // Update team_invites table
       if(typeof supa!=='undefined' && invite.id){
-        (async()=>{ try{ await supa.from('team_invites').update({status:'accepted'}).eq('id', invite.id.replace('pn_','')); }catch(e){} })();
+        (async()=>{try{await supa.from('team_invites').update({status:'accepted'}).eq('id',invite.id.replace('pn_',''));}catch(e){}})();
       }
       var em = null;
       try{ var _s=JSON.parse(localStorage.getItem('studioOS_auth_v1')||'{}'); em=_s&&_s.email?_s.email:null; }catch(e){}
@@ -18697,7 +18748,7 @@ window.openMyMemberTeamProfile = function(ownerId){
     } else {
       showMiniNotif('تم رفض دعوة "'+invite.teamName+'"');
       if(typeof supa!=='undefined' && invite.id){
-        (async()=>{ try{ await supa.from('team_invites').update({status:'declined'}).eq('id', invite.id.replace('pn_','')); }catch(e){} })();
+        (async()=>{try{await supa.from('team_invites').update({status:'declined'}).eq('id',invite.id.replace('pn_',''));}catch(e){}})();
       }
       // حفظ الرفض محلياً لتجنب إعادة العرض
       var decKey = '_declined_team_invites_'+(_supaUserId||'');
@@ -20873,7 +20924,7 @@ function _checkSvcOrderUrl(){
   // Handle username-based URL: ?u=username
   var _uname=params.get('u');
   // Inject scroll-unlock CSS immediately at start — before any DOM changes
-  if(uid || _uname || params.get('portal') || params.get('clientportal') || (params.get('uid') && params.get('cid') && !params.get('portal'))){
+  if(uid || _uname || params.get('portal') || params.get('clientportal')){
     var _earlyStyle = document.getElementById('_pub-early-style') || document.createElement('style');
     _earlyStyle.id = '_pub-early-style';
     _earlyStyle.textContent = 'html,body{overflow:auto!important;overflow-y:scroll!important;height:auto!important;min-height:100vh!important;position:static!important;}';
@@ -20983,9 +21034,8 @@ function _checkSvcOrderUrl(){
   }
   var portalId=params.get('portal');
   if(portalId && params.get('uid')) { _buildClientPortalPage(params.get('uid'), portalId); return; }
-  // ── Full Client Portal (by client ID) — both ?clientportal=&cid= and ?uid=&cid= formats ──
-  var cpUid=params.get('clientportal') || (!params.get('portal') && !params.get('svcorder') ? params.get('uid') : null);
-  var cpCid=params.get('cid');
+  // ── Full Client Portal (by client ID) ──
+  var cpUid=params.get('clientportal'); var cpCid=params.get('cid');
   if(cpUid && cpCid) { window._fullCPBuilt=true; _buildFullClientPortal(cpUid, cpCid); return; }
   if(!uid) return;
   // Show body (was hidden) then replace content
@@ -20997,8 +21047,7 @@ function _checkSvcOrderUrl(){
 // Run ASAP — before DOMContentLoaded if possible
 (function(){
   var p=new URLSearchParams(window.location.search);
-  var _isClientPortal = (p.get('uid')&&p.get('cid')&&!p.get('portal')&&!p.get('svcorder'));
-  if(p.get('svcorder')||( p.get('portal')&&p.get('uid') )||p.get('u')||( p.get('clientportal')&&p.get('cid') )||_isClientPortal){
+  if(p.get('svcorder')||( p.get('portal')&&p.get('uid') )||p.get('u')||( p.get('clientportal')&&p.get('cid') )){
     // Mark as public page — auth functions check this flag
     window._isPublicPage = true;
     // Inject scroll-unlock style as FIRST child of head — overrides everything
@@ -21011,15 +21060,7 @@ function _checkSvcOrderUrl(){
     document.addEventListener('DOMContentLoaded',function(){
       document.documentElement.classList.add('pub-page');
       document.body.classList.add('pub-page');
-      // لو رابط ?uid=xxx&cid=yyy — افتح بوابة العميل الكاملة مباشرة
-      if(_isClientPortal && !window._fullCPBuilt){
-        window._fullCPBuilt = true;
-        if(typeof _buildFullClientPortal==='function'){
-          _buildFullClientPortal(p.get('uid'), p.get('cid'));
-        }
-      } else {
-        _checkSvcOrderUrl();
-      }
+      _checkSvcOrderUrl();
     });
   }
 })();
@@ -22381,19 +22422,12 @@ window.addEventListener('load', function(){
     document.body.classList.add('pub-page');
     _buildProjectPortalPage(p.get('uid'),p.get('pid'));
   }
-  // Full client portal — ?clientportal=&cid= format
+  // Full client portal
   if(p.get('clientportal')&&p.get('cid')&&!window._fullCPBuilt){
     window._fullCPBuilt=true;
     document.documentElement.classList.add('pub-page');
     document.body.classList.add('pub-page');
     _buildFullClientPortal(p.get('clientportal'),p.get('cid'));
-  }
-  // Full client portal — ?uid=&cid= format (links generated from index.html)
-  if(p.get('uid')&&p.get('cid')&&!p.get('portal')&&!p.get('svcorder')&&!window._fullCPBuilt){
-    window._fullCPBuilt=true;
-    document.documentElement.classList.add('pub-page');
-    document.body.classList.add('pub-page');
-    _buildFullClientPortal(p.get('uid'),p.get('cid'));
   }
 });
 
@@ -23542,29 +23576,24 @@ window.addEventListener('load', function(){
   setInterval(_loadServerNotifications, 30000);
 });
 
-// ══ polling التقييمات من السحابة كل 45 ثانية ══
 async function _pollReviews(){
-  if(!_supaUserId || !db) return;
+  if(!_supaUserId||!supa)return;
   try{
-    const {data:row} = await db.from('studio_data').select('data').eq('user_id',_supaUserId).maybeSingle();
-    if(!row?.data) return;
-    let fresh = row.data;
-    if(typeof fresh==='string') fresh=JSON.parse(fresh);
-    if(fresh?.data && typeof fresh.tasks==='undefined') fresh = typeof fresh.data==='string'?JSON.parse(fresh.data):fresh.data;
-    const newRevs = fresh?.reviews||[];
-    const oldCount = (S.reviews||[]).length;
-    if(newRevs.length > oldCount){
-      S.reviews = newRevs;
-      lsSave();
-      const _rb = document.getElementById('reviews-badge');
-      if(_rb){ _rb.textContent=newRevs.length; _rb.style.display=newRevs.length?'inline-flex':'none'; }
-      if(document.getElementById('page-reviews')?.classList.contains('active')) renderReviewsPage();
+    const {data:row}=await supa.from('studio_data').select('data').eq('user_id',_supaUserId).maybeSingle();
+    if(!row?.data)return;
+    let fresh=row.data; if(typeof fresh==='string')fresh=JSON.parse(fresh);
+    if(fresh?.data&&typeof fresh.tasks==='undefined')fresh=typeof fresh.data==='string'?JSON.parse(fresh.data):fresh.data;
+    const newRevs=fresh?.reviews||[];
+    if(newRevs.length>(S.reviews||[]).length){
+      S.reviews=newRevs; lsSave();
+      const _rb=document.getElementById('reviews-badge');
+      if(_rb){_rb.textContent=newRevs.length;_rb.style.display=newRevs.length?'inline-flex':'none';}
+      if(document.getElementById('page-reviews')?.classList.contains('active'))renderReviewsPage();
       toast('⭐ وصل تقييم جديد!');
     }
   }catch(e){}
 }
-setInterval(_pollReviews, 45000);
-setTimeout(_pollReviews, 5000);
+setInterval(_pollReviews,45000); setTimeout(_pollReviews,5000);
 document.addEventListener('visibilitychange', function(){
   if(!document.hidden) {
     _loadServerNotifications();
@@ -24695,6 +24724,7 @@ function renderProjCard(p){
         <span class="proj-status-badge" style="color:${st.color};background:${st.bg}">${st.label}</span>
       </div>
       <div class="proj-card-client">${client?'<i class="fa-solid fa-user"></i> '+escapeHtml(client.name):'<i class="fa-solid fa-circle-minus"></i> بدون عميل'}</div>
+      ${p.budget>0?`<div style="font-size:10px;color:var(--text3);margin-top:3px"><i class="fa-solid fa-coins" style="color:#f7c948;margin-left:4px"></i><span style="color:#f7c948;font-weight:700">${p.budget.toLocaleString()} ${p.budgetCurrency||'ج.م'}</span> ميزانية</div>`:''}
       <div class="proj-progress-bar"><div class="proj-progress-fill" style="width:${prog}%;background:${clr}"></div></div>
       <div class="proj-progress-label"><span>${prog}% مكتمل</span><span>${tasks.filter(t=>t.status==='done').length}/${tasks.length} مهمة</span></div>
       ${p.deadline?`<div style="font-size:10px;margin-top:6px;color:${isOverdue?'var(--accent4)':'var(--text3)'}"><i class="fa-solid fa-calendar${isOverdue?' fa-shake':''}"></i> ${p.deadline}${isOverdue?' — متأخر!':''}</div>`:''}
@@ -24757,6 +24787,12 @@ function openProjectModal(id){
   document.getElementById('proj-start').value=proj?proj.start||'':'';
   document.getElementById('proj-deadline').value=proj?proj.deadline||'':'';
   pickProjColor(proj?proj.color||'#7c6ff7':'#7c6ff7');
+  var budInp=document.getElementById('proj-budget');
+  var budCur=document.getElementById('proj-budget-currency');
+  var budType=document.getElementById('proj-pricing-type');
+  if(budInp) budInp.value=proj?proj.budget||'':'';
+  if(budCur) budCur.value=proj?proj.budgetCurrency||'ج.م':'ج.م';
+  if(budType) budType.value=proj?proj.pricingType||'fixed':'fixed';
   // Client select
   var csel=document.getElementById('proj-client');
   csel.innerHTML='<option value="">— بدون عميل —</option>'+(S.clients||[]).map(c=>`<option value="${c.id}"${proj&&String(proj.client_id)===String(c.id)?' selected':''}>${escapeHtml(c.name)}</option>`).join('');
@@ -24881,6 +24917,9 @@ function saveProject(){
     color:document.getElementById('proj-color').value||'#7c6ff7',
     members,
     team_group_id:(tsel?tsel.value:'')||'',
+    budget:+(document.getElementById('proj-budget')?.value||0)||0,
+    budgetCurrency:document.getElementById('proj-budget-currency')?.value||'ج.م',
+    pricingType:document.getElementById('proj-pricing-type')?.value||'fixed',
     createdAt:new Date().toISOString()
   };
   if(eid){
@@ -24930,7 +24969,7 @@ function renderProjectDetail(){
   var client=(S.clients||[]).find(c=>String(c.id)===String(proj.client_id));
   var clr=proj.color||'var(--accent)';
 
-  var tabs={overview:'نظرة عامة',tasks:'المهام',kanban:'كانبان',team:'الفريق',files:'الملفات'};
+  var tabs={overview:'نظرة عامة',tasks:'المهام',kanban:'كانبان',finance:'💰 المالية',team:'الفريق',files:'الملفات'};
   var tabsHtml=Object.keys(tabs).map(k=>`<button class="proj-tab${_currentProjTab===k?' active':''}" onclick="switchProjTab('${k}')">${tabs[k]}</button>`).join('');
 
   var inner=document.getElementById('proj-detail-inner'); if(!inner) return;
@@ -24977,6 +25016,7 @@ function renderProjTabContent(tab, proj, tasks, client, clr){
   if(tab==='overview') return renderProjOverview(proj,tasks,client,clr);
   if(tab==='tasks')    return renderProjTasksList(proj,tasks,clr);
   if(tab==='kanban')   return renderProjKanban(proj,tasks,clr);
+  if(tab==='finance')  return renderProjFinanceTab(proj,tasks,clr);
   if(tab==='team')     return renderProjTeam(proj,clr);
   if(tab==='files')    return renderProjFiles(proj,clr);
   return '';
@@ -25064,35 +25104,185 @@ function renderProjTasksList(proj,tasks,clr){
     </div>`:''}`;
 }
 
+// ══════════════════════════════════════
+// PROJECT FINANCE TAB
+// ══════════════════════════════════════
+function renderProjFinanceTab(proj, tasks, clr) {
+  var cur = proj.budgetCurrency || 'ج.م';
+  var budget = proj.budget || 0;
+  
+  // Calculate from tasks
+  var totalCost   = tasks.reduce(function(s,t){ return s + (t.value||0); }, 0);
+  var collected   = tasks.filter(function(t){ return t.paymentCollected||t.paymentStatus==='collected'; })
+                         .reduce(function(s,t){ return s + (t.value||0); }, 0);
+  var deposits    = tasks.filter(function(t){ return t.paymentStatus==='deposit'||t.deposit>0; })
+                         .reduce(function(s,t){ return s + (t.deposit||0); }, 0);
+  var pending     = totalCost - collected;
+  var profit      = budget > 0 ? (budget - totalCost) : 0;
+  var spent_pct   = budget > 0 ? Math.min(100, Math.round(totalCost/budget*100)) : 0;
+  
+  // Project transactions from global S.transactions linked to this project
+  var projTrans   = (S.transactions||[]).filter(function(tr){
+    return tr.project_id === String(proj.id) || tr.linkedProjId === String(proj.id) ||
+           (tr.desc && tr.desc.indexOf(proj.name) >= 0) ||
+           tasks.some(function(t){ return tr.linkedProjTaskId === String(t.id) || String(tr.linkedProjTaskId) === String(t.id); });
+  });
+
+  var budgetColor = profit >= 0 ? '#4fd1a5' : '#f76f7c';
+  
+  return '<div>' +
+  // ── Summary Cards ──
+  '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px">' +
+    _projFinCard('الميزانية الكلية', budget>0?(budget.toLocaleString()+' '+cur):('لم تُحدد'), clr, 'fa-bullseye') +
+    _projFinCard('إجمالي التكاليف', totalCost.toLocaleString()+' '+cur, '#f7c948', 'fa-coins') +
+    _projFinCard('المحصّل', collected.toLocaleString()+' '+cur, '#4fd1a5', 'fa-circle-check') +
+    _projFinCard('المتبقي', pending.toLocaleString()+' '+cur, '#f97316', 'fa-clock') +
+    (budget>0 ? _projFinCard('الربح/الخسارة', (profit>=0?'+':'')+profit.toLocaleString()+' '+cur, budgetColor, 'fa-chart-line') : '') +
+    (deposits>0 ? _projFinCard('عربونات مدفوعة', deposits.toLocaleString()+' '+cur, '#a78bfa', 'fa-hand-holding-dollar') : '') +
+  '</div>' +
+  
+  // ── Budget Progress ──
+  (budget>0 ? '<div class="card" style="padding:16px;margin-bottom:16px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+      '<div style="font-size:13px;font-weight:800"><i class="fa-solid fa-chart-bar" style="color:'+clr+'"></i> استهلاك الميزانية</div>' +
+      '<div style="font-size:12px;font-weight:700;color:'+(spent_pct>90?'#f76f7c':spent_pct>70?'#f7c948':'#4fd1a5')+'">'+spent_pct+'%</div>' +
+    '</div>' +
+    '<div style="height:12px;background:var(--surface3);border-radius:6px;overflow:hidden;margin-bottom:8px">' +
+      '<div style="height:100%;width:'+spent_pct+'%;background:'+(spent_pct>90?'#f76f7c':spent_pct>70?'#f7c948':clr)+';border-radius:6px;transition:.5s"></div>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)">' +
+      '<span>المصروف: <strong style="color:var(--text)">'+totalCost.toLocaleString()+' '+cur+'</strong></span>' +
+      '<span>الميزانية: <strong style="color:var(--text)">'+budget.toLocaleString()+' '+cur+'</strong></span>' +
+    '</div>' +
+  '</div>' : '') +
+  
+  // ── Tasks Financial Breakdown ──
+  '<div class="card" style="padding:16px;margin-bottom:16px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+      '<div style="font-size:13px;font-weight:800"><i class="fa-solid fa-list-check" style="color:'+clr+'"></i> مالية المهام</div>' +
+      '<button class="btn btn-primary btn-sm" onclick="openProjTaskModal('+proj.id+')"><i class="fa-solid fa-plus"></i> مهمة جديدة</button>' +
+    '</div>' +
+    (tasks.filter(function(t){return t.value>0;}).length === 0 ?
+      '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px"><i class="fa-solid fa-coins" style="font-size:28px;opacity:.3;display:block;margin-bottom:8px"></i>لا توجد مهام بقيمة مالية بعد</div>' :
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
+    '<thead><tr style="border-bottom:1px solid var(--border)">' +
+      '<th style="text-align:right;padding:8px 6px;color:var(--text3);font-weight:700">المهمة</th>' +
+      '<th style="text-align:right;padding:8px 6px;color:var(--text3);font-weight:700">المسؤول</th>' +
+      '<th style="text-align:center;padding:8px 6px;color:var(--text3);font-weight:700">القيمة</th>' +
+      '<th style="text-align:center;padding:8px 6px;color:var(--text3);font-weight:700">العربون</th>' +
+      '<th style="text-align:center;padding:8px 6px;color:var(--text3);font-weight:700">الحالة</th>' +
+      '<th style="text-align:center;padding:8px 6px;color:var(--text3);font-weight:700">الدفع</th>' +
+    '</tr></thead>' +
+    '<tbody>' +
+    tasks.filter(function(t){return t.value>0;}).map(function(t){
+      var st = _getTaskStatusInfo(t.status||'todo');
+      var payColor = (t.paymentCollected||t.paymentStatus==='collected') ? '#4fd1a5' : (t.paymentStatus==='deposit'||t.deposit>0) ? '#a78bfa' : '#f7c948';
+      var payLabel = (t.paymentCollected||t.paymentStatus==='collected') ? '✅ محصّل' : (t.paymentStatus==='deposit'||t.deposit>0) ? ('🟣 عربون: '+(t.deposit||0)) : '⏳ معلق';
+      return '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="openProjTaskDetail('+t.id+','+proj.id+')">'+
+        '<td style="padding:10px 6px;font-weight:700">'+escapeHtml(t.title)+'</td>'+
+        '<td style="padding:10px 6px;color:var(--text3)">'+escapeHtml(t.assignee_name||'—')+'</td>'+
+        '<td style="padding:10px 6px;text-align:center;font-weight:800;color:#f7c948">'+t.value.toLocaleString()+' '+(t.currency||cur)+'</td>'+
+        '<td style="padding:10px 6px;text-align:center;color:#a78bfa">'+((t.deposit>0)?t.deposit.toLocaleString()+' '+(t.currency||cur):'—')+'</td>'+
+        '<td style="padding:10px 6px;text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:'+st.bg+';color:'+st.color+'">'+st.label+'</span></td>'+
+        '<td style="padding:10px 6px;text-align:center">'+
+          '<span style="font-size:10px;font-weight:700;color:'+payColor+'">'+payLabel+'</span>'+
+          (!t.paymentCollected&&t.status==='done'?' <button data-tid="'+t.id+'" onclick="event.stopPropagation();markTaskPaymentCollected(this.dataset.tid)" class="btn btn-success btn-sm" style="font-size:9px;padding:1px 6px;margin-right:4px">تحصيل</button>':'') +
+        '</td>'+
+      '</tr>';
+    }).join('') +
+    '</tbody></table>' +
+    '<div style="padding:10px 6px;border-top:2px solid var(--border);display:flex;gap:24px;font-size:12px;font-weight:800">' +
+      '<span style="color:var(--text3)">الإجمالي: <span style="color:#f7c948">'+totalCost.toLocaleString()+' '+cur+'</span></span>' +
+      '<span style="color:var(--text3)">المحصّل: <span style="color:#4fd1a5">'+collected.toLocaleString()+' '+cur+'</span></span>' +
+      '<span style="color:var(--text3)">المتبقي: <span style="color:#f97316">'+pending.toLocaleString()+' '+cur+'</span></span>' +
+    '</div>' +
+    '</div>') +
+  '</div>' +
+  
+  // ── Linked Transactions from Finance ──
+  '<div class="card" style="padding:16px">' +
+    '<div style="font-size:13px;font-weight:800;margin-bottom:12px"><i class="fa-solid fa-arrows-left-right" style="color:'+clr+'"></i> معاملات مالية مرتبطة</div>' +
+    (projTrans.length === 0 ?
+      '<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px"><i class="fa-solid fa-receipt" style="font-size:24px;opacity:.3;display:block;margin-bottom:8px"></i>لا توجد معاملات مرتبطة بهذا المشروع بعد</div>' :
+    '<div style="display:flex;flex-direction:column;gap:8px">' +
+    projTrans.map(function(tr){
+      var isInc = tr.type==='income';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px;border-right:3px solid '+(isInc?'#4fd1a5':'#f76f7c')+'">'+
+        '<div style="width:30px;height:30px;border-radius:50%;background:'+(isInc?'rgba(79,209,165,.15)':'rgba(247,111,124,.15)')+';color:'+(isInc?'#4fd1a5':'#f76f7c')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px">'+
+          '<i class="fa-solid '+(isInc?'fa-arrow-up':'fa-arrow-down')+'"></i></div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(tr.desc||'معاملة')+'</div>'+
+          '<div style="font-size:10px;color:var(--text3)">'+((tr.date||'').slice(0,10))+'</div>'+
+        '</div>'+
+        '<div style="font-size:13px;font-weight:900;color:'+(isInc?'#4fd1a5':'#f76f7c')+';text-align:left">'+
+          (isInc?'+':'-')+((tr.amount||0).toLocaleString())+' '+(tr.currency||cur)+'</div>'+
+      '</div>';
+    }).join('') + '</div>') +
+    '<div style="margin-top:12px;text-align:left">' +
+      '<button class="btn btn-primary btn-sm" onclick="openIncomeModal();document.getElementById(\'inc-desc\').value=\'مشروع: \'+escapeHtml(proj.name)+\'">' +
+        '<i class="fa-solid fa-plus"></i> تسجيل دخل للمشروع</button> '+
+      '<button class="btn btn-ghost btn-sm" onclick="openExpenseModal()" style="margin-right:6px">' +
+        '<i class="fa-solid fa-minus"></i> تسجيل مصروف</button>' +
+    '</div>' +
+  '</div>' +
+  '</div>';
+}
+
+function _projFinCard(label, value, color, icon) {
+  return '<div class="card" style="padding:14px;text-align:center">'+
+    '<div style="font-size:18px;color:'+color+';margin-bottom:6px"><i class="fa-solid '+icon+'"></i></div>'+
+    '<div style="font-size:15px;font-weight:900;color:var(--text);line-height:1">'+value+'</div>'+
+    '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+label+'</div>'+
+  '</div>';
+}
+
 function renderProjTaskRow(t,clr){
   var pri=_getPriorityInfo(t.priority||'normal');
   var st=_getTaskStatusInfo(t.status||'todo');
   var steps=t.steps||[];
   var doneSteps=steps.filter(function(s){return s.done;}).length;
-  return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="openProjTaskDetail(\''+t.id+'\',\''+t.project_id+'\')">'+
-    '<input type="checkbox" '+(t.status==='done'?'checked':'')+' onclick="event.stopPropagation()" onchange="event.stopPropagation();toggleProjTaskDone('+JSON.stringify(String(t.id))+','+JSON.stringify(String(t.project_id))+',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:'+clr+';flex-shrink:0">'+
-    '<div style="flex:1;min-width:0">'+
-      '<div style="font-size:13px;font-weight:700;'+(t.status==='done'?'text-decoration:line-through;color:var(--text3)':'')+'">'+escapeHtml(t.title)+'</div>'+
-      '<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">'+
-        '<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:'+st.bg+';color:'+st.color+'">'+st.label+'</span>'+
-        '<span class="'+pri.cls+'">'+pri.label+'</span>'+
-        (t.deadline?'<span style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-calendar"></i> '+t.deadline+'</span>':'')+
-        (t.assignee_name?'<span style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-user"></i> '+escapeHtml(t.assignee_name)+'</span>':'')+
-        (steps.length?'<span style="font-size:10px;color:var(--text3)">'+doneSteps+'/'+steps.length+' خطوة</span>':'')+
-        (t.value?'<span style="font-size:10px;color:var(--accent3);font-weight:700"><i class="fa-solid fa-coins"></i> '+t.value.toLocaleString()+' '+(t.currency||'ج.م')+
-          (t.paymentCollected||t.paymentStatus==='collected'?' ✅':(t.deposit>0||t.paymentStatus==='deposit'?(' 🟡عربون: '+(t.deposit||0)+' '+(t.currency||'ج.م')):''))+
-        '</span>':'')+
-      '</div>'+
-    '</div>'+
-    '<div style="display:flex;gap:4px;align-items:center;flex-shrink:0" onclick="event.stopPropagation()">'+
-      (t.value>0&&t.status==='done'&&!t.paymentCollected?'<button data-tid="'+t.id+'" onclick="markTaskPaymentCollected(this.dataset.tid)" class="btn btn-success btn-sm" style="padding:2px 7px;font-size:10px">تحصيل</button>':'')+
-      '<button data-tid="'+t.id+'" data-pid="'+t.project_id+'" onclick="openProjTaskModal(this.dataset.pid,this.dataset.tid)" class="btn btn-ghost btn-sm" style="padding:3px 7px"><i class="fa-solid fa-pen"></i></button>'+
-      '<button data-tid="'+t.id+'" data-pid="'+t.project_id+'" onclick="deleteProjTask(this.dataset.tid,this.dataset.pid)" class="btn btn-danger btn-sm" style="padding:3px 7px"><i class="fa-solid fa-trash"></i></button>'+
-    '</div>'+
+  var stepPct=steps.length?Math.round(doneSteps/steps.length*100):(t.status==='done'?100:0);
+  var priColors={high:'#f76f7c',normal:'#f7c948',low:'#4fd1a5'};
+  var priC=priColors[t.priority||'normal']||'#888';
+  var payColor=(t.paymentCollected||t.paymentStatus==='collected')?'#4fd1a5':(t.deposit>0||t.paymentStatus==='deposit')?'#a78bfa':'#f97316';
+  var payLabel=(t.paymentCollected||t.paymentStatus==='collected')?'محصّل':(t.deposit>0||t.paymentStatus==='deposit')?'عربون':'معلق';
+
+  return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden;cursor:pointer;transition:border-color .18s" onclick="openProjTaskDetail('+t.id+','+t.project_id+')">' +
+    '<div style="height:3px;background:'+clr+'"></div>' +
+    '<div style="padding:12px 14px">' +
+      '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">' +
+        '<input type="checkbox" '+(t.status==='done'?'checked':'')+' onclick="event.stopPropagation()" onchange="event.stopPropagation();toggleProjTaskDone('+JSON.stringify(String(t.id))+','+JSON.stringify(String(t.project_id))+',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:'+clr+';flex-shrink:0;margin-top:2px">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:13px;font-weight:800;line-height:1.4;'+(t.status==='done'?'text-decoration:line-through;color:var(--text3)':'')+'">' + escapeHtml(t.title) + '</div>' +
+        '</div>' +
+        '<span style="font-size:9px;font-weight:800;padding:3px 8px;border-radius:8px;background:'+priC+'18;color:'+priC+';border:1px solid '+priC+'33;white-space:nowrap;flex-shrink:0">'+pri.label+'</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:'+(t.value>0||steps.length?'8':'0')+'px">' +
+        '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:'+st.bg+';color:'+st.color+'">'+st.label+'</span>' +
+        (t.assignee_name?'<span style="font-size:10px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:8px;padding:2px 8px;color:var(--text3)"><i class="fa-solid fa-user" style="color:'+clr+';margin-left:4px"></i>'+escapeHtml(t.assignee_name)+'</span>':'') +
+        (t.deadline?'<span style="font-size:10px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:8px;padding:2px 8px;color:var(--text3)"><i class="fa-solid fa-calendar" style="margin-left:4px"></i>'+t.deadline+'</span>':'') +
+        (steps.length?'<span style="font-size:10px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:8px;padding:2px 8px;color:var(--text3)">'+doneSteps+'/'+steps.length+' خطوة</span>':'') +
+      '</div>' +
+      (t.value>0?
+        '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface3);border-radius:8px;margin-bottom:4px">' +
+          '<i class="fa-solid fa-coins" style="color:#f7c948;font-size:12px"></i>' +
+          '<span style="font-size:12px;font-weight:900;color:#f7c948">'+t.value.toLocaleString()+' '+(t.currency||'ج.م')+'</span>' +
+          (t.deposit>0?'<span style="font-size:10px;color:#a78bfa"> · عربون: '+t.deposit.toLocaleString()+'</span>':'') +
+          '<div style="flex:1"></div>' +
+          '<span style="font-size:10px;font-weight:800;color:'+payColor+'">● '+payLabel+'</span>' +
+          (t.value>0&&t.status==='done'&&!t.paymentCollected?'<button data-tid="'+t.id+'" onclick="event.stopPropagation();markTaskPaymentCollected(this.dataset.tid)" class="btn btn-success btn-sm" style="padding:2px 8px;font-size:10px;margin-right:6px">✓ تحصيل</button>':'') +
+        '</div>' : '') +
+      (steps.length?
+        '<div style="margin-top:6px"><div style="height:4px;background:var(--surface3);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+stepPct+'%;background:'+clr+';border-radius:2px;transition:.4s"></div></div></div>' : '') +
+    '</div>' +
+    '<div style="display:flex;gap:4px;padding:6px 14px;border-top:1px solid var(--border);background:rgba(0,0,0,.1)" onclick="event.stopPropagation()">' +
+      '<button data-tid="'+t.id+'" data-pid="'+t.project_id+'" onclick="openProjTaskModal(this.dataset.pid,this.dataset.tid)" class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px"><i class="fa-solid fa-pen"></i> تعديل</button>' +
+      '<button data-tid="'+t.id+'" data-pid="'+t.project_id+'" onclick="deleteProjTask(this.dataset.tid,this.dataset.pid)" class="btn btn-danger btn-sm" style="font-size:10px;padding:3px 8px"><i class="fa-solid fa-trash"></i></button>' +
+    '</div>' +
   '</div>';
 }
 
-// ── Kanban Tab ──
+
 function renderProjKanban(proj,tasks,clr){
   var cols=[
     {id:'todo',     label:'🆕 جديد',          color:'#64b5f6'},
@@ -25506,17 +25696,29 @@ function changeProjStatus(projId,status){
 // ── Client Portal (Share) ──
 function openProjSharePortal(projId){
   var uid=(typeof _supaUserId!=='undefined'&&_supaUserId)?_supaUserId:'';
-  var base=window.location.origin+window.location.pathname;
   var _cppPath=window.location.pathname.split('/').filter(function(x){return x!=='';});
   if(_cppPath.length&&['dashboard','tasks','projects','schedule','meetings','clients','finance','invoices','services','support','team','timetracker','goals','settings','reports'].indexOf(_cppPath[_cppPath.length-1])>=0)_cppPath.pop();
   if(_cppPath.length&&_cppPath[_cppPath.length-1].endsWith('.html'))_cppPath.pop();
-  var _cpBase2=window.location.origin+(_cppPath.length?'/'+_cppPath.join('/')+'/' :'/')+'client-portal.html';
-  var projLink=base+'?portal=project&uid='+uid+'&pid='+projId;
+  var _cpBase=window.location.origin+(_cppPath.length?'/'+_cppPath.join('/')+'/' :'/')+'client-portal.html';
 
   // Try to find client for this project
   var proj=_getProjById(projId);
   var client=proj&&proj.client_id?(S.clients||[]).find(c=>String(c.id)===String(proj.client_id)):null;
-  var clientLink=client?_cpBase2+'?uid='+uid+'&cid='+client.id:'';
+
+  if(!client){
+    // مفيش عميل مرتبط بالمشروع
+    var over2=document.createElement('div');
+    over2.className='modal-overlay'; over2.style.display='flex';
+    over2.innerHTML='<div class="modal" style="max-width:420px;text-align:center"><div class="modal-header"><div class="modal-title"><i class="fa-solid fa-share-nodes"></i> مشاركة مع العميل</div><button class="close-btn" onclick="this.closest(\'.modal-overlay\').remove()"><i class="fa-solid fa-xmark"></i></button></div><div style="padding:24px 20px"><div style="font-size:48px;margin-bottom:12px">⚠️</div><div style="font-size:15px;font-weight:800;margin-bottom:8px">المشروع ليس له عميل محدد</div><div style="font-size:13px;color:var(--text3)">عدّل المشروع وحدد العميل أولاً لإنشاء رابط البوابة</div></div></div>';
+    document.body.appendChild(over2);
+    over2.onclick=e=>{if(e.target===over2)over2.remove();};
+    return;
+  }
+
+  // رابط بوابة العميل مع فتح تاب المشاريع مباشرة
+  var projTabLink = _cpBase+'?uid='+uid+'&cid='+client.id+'&tab=projects&pid='+projId;
+  // رابط البوابة الكاملة
+  var clientLink  = _cpBase+'?uid='+uid+'&cid='+client.id;
 
   var over=document.createElement('div');
   over.className='modal-overlay'; over.style.display='flex';
@@ -25525,25 +25727,24 @@ function openProjSharePortal(projId){
       <div class="modal-title"><i class="fa-solid fa-share-nodes"></i> مشاركة مع العميل</div>
       <button class="close-btn" onclick="this.closest('.modal-overlay').remove()"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <!-- Project link -->
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px"><i class="fa-solid fa-diagram-project" style="color:var(--accent);margin-left:5px"></i> رابط المشروع فقط</div>
-      <div style="font-size:10px;color:var(--text3);font-family:monospace;word-break:break-all;margin-bottom:10px">${projLink}</div>
+      <div style="font-size:13px;font-weight:800;margin-bottom:4px"><i class="fa-solid fa-diagram-project" style="color:var(--accent);margin-left:5px"></i> رابط المشروع فقط</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">يفتح بوابة العميل مباشرةً على تاب المشاريع</div>
+      <div style="font-size:10px;color:var(--accent3);font-family:monospace;word-break:break-all;margin-bottom:10px;background:var(--surface3);padding:8px;border-radius:8px">${projTabLink}</div>
       <div style="display:flex;gap:6px">
-        <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center" onclick="navigator.clipboard.writeText('${projLink}').then(()=>toast('✅ تم نسخ رابط المشروع'))"><i class="fa-solid fa-copy"></i> نسخ</button>
-        <button class="btn btn-ghost btn-sm" onclick="window.open('${projLink}','_blank')"><i class="fa-solid fa-eye"></i> معاينة</button>
+        <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center" onclick="navigator.clipboard.writeText('${projTabLink}').then(()=>toast('✅ تم نسخ رابط المشروع'))"><i class="fa-solid fa-copy"></i> نسخ</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.open('${projTabLink}','_blank')"><i class="fa-solid fa-eye"></i> معاينة</button>
       </div>
     </div>
-    ${clientLink?`<!-- Client portal link -->
     <div style="background:rgba(79,209,165,.08);border:1px solid rgba(79,209,165,.3);border-radius:12px;padding:14px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:#4fd1a5;margin-bottom:4px"><i class="fa-solid fa-id-card" style="margin-left:5px"></i> بوابة العميل الكاملة — ${escapeHtml(client.name)}</div>
+      <div style="font-size:13px;font-weight:800;color:#4fd1a5;margin-bottom:4px"><i class="fa-solid fa-id-card" style="margin-left:5px"></i> بوابة العميل الكاملة — ${escapeHtml(client.name)}</div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:8px">العميل يشوف: كل مشاريعه، فواتيره، طلباته، عقوده</div>
-      <div style="font-size:10px;color:var(--text3);font-family:monospace;word-break:break-all;margin-bottom:10px">${clientLink}</div>
+      <div style="font-size:10px;color:var(--accent3);font-family:monospace;word-break:break-all;margin-bottom:10px;background:var(--surface3);padding:8px;border-radius:8px">${clientLink}</div>
       <div style="display:flex;gap:6px">
-        <button class="btn btn-success btn-sm" style="flex:1;justify-content:center" onclick="navigator.clipboard.writeText('${clientLink}').then(()=>toast('✅ تم نسخ رابط البوابة الكاملة'))"><i class="fa-solid fa-copy"></i> نسخ رابط البوابة</button>
+        <button class="btn btn-success btn-sm" style="flex:1;justify-content:center" onclick="navigator.clipboard.writeText('${clientLink}').then(()=>toast('✅ تم نسخ رابط بوابة ${escapeHtml(client.name)}'))"><i class="fa-solid fa-copy"></i> نسخ رابط البوابة</button>
         <button class="btn btn-ghost btn-sm" onclick="window.open('${clientLink}','_blank')"><i class="fa-solid fa-eye"></i> معاينة</button>
       </div>
-    </div>`:'<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;text-align:center;color:var(--text3);font-size:12px"><i class="fa-solid fa-user-slash" style="margin-left:5px"></i> لم يُحدد عميل لهذا المشروع — عدّل المشروع وحدد العميل لإنشاء بوابة كاملة له</div>'}
+    </div>
     <div style="font-size:11px;color:var(--text3);text-align:center"><i class="fa-solid fa-lock" style="margin-left:4px"></i> العميل يرى بياناته فقط — لا يمكنه التعديل أو الحذف</div>
   </div>`;
   document.body.appendChild(over);
@@ -28346,7 +28547,7 @@ _styleEl.textContent = [
   // Direction-aware flex
   'body.lang-ltr .app-shell{flex-direction:row!important}',
   'body.lang-ltr .sidebar{right:auto!important;left:0!important;border-left:none!important;border-right:1px solid var(--border)!important}',
-  '@media(min-width:1025px){body.lang-ltr .app-body{margin-right:0!important;margin-left:240px!important}}',
+  '@media(min-width:1025px){body.lang-ltr .app-body{padding-right:0!important;margin-right:0!important;padding-left:240px!important;margin-left:0!important}}',
   'body.lang-ltr .app-header{direction:ltr!important}',
   'body.lang-ltr .header-actions{flex-direction:row!important}',
   // Nav items
@@ -28991,5 +29192,494 @@ function _resetVaultLockTimer() {
 }
 document.addEventListener('click', _resetVaultLockTimer);
 document.addEventListener('keydown', _resetVaultLockTimer);
+</script>
+
+<!-- ══ MODAL: NEW/EDIT PROPOSAL ══ -->
+<div class="modal-overlay" id="modal-proposal">
+  <div class="modal" style="max-width:620px;max-height:92vh;overflow-y:auto">
+    <div class="modal-header">
+      <div class="modal-title" id="prop-modal-ttl"><i class="fa-solid fa-file-contract" style="color:var(--accent)"></i> عرض سعر جديد</div>
+      <button class="close-btn" onclick="closeM('modal-proposal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="prop-eid">
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">العميل</label>
+        <select class="form-select" id="prop-client" onchange="_propClientChange()">
+          <option value="">— اختر عميل —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">عنوان العرض *</label>
+        <input class="form-input" id="prop-title" placeholder="مثال: تصميم هوية بصرية كاملة">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">تاريخ العرض</label>
+        <input class="form-input" type="date" id="prop-date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">صالح حتى</label>
+        <input class="form-input" type="date" id="prop-expiry">
+      </div>
+    </div>
+
+    <!-- Items table -->
+    <div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <label class="form-label" style="margin:0;font-weight:800">📦 بنود العرض</label>
+        <button class="btn btn-ghost btn-sm" onclick="_addPropItem()" style="font-size:12px">
+          <i class="fa-solid fa-plus"></i> إضافة بند
+        </button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 64px 88px 30px;gap:5px;margin-bottom:6px">
+        <div style="font-size:11px;color:var(--text3);font-weight:700;padding:0 4px">الوصف</div>
+        <div style="font-size:11px;color:var(--text3);font-weight:700;text-align:center">الكمية</div>
+        <div style="font-size:11px;color:var(--text3);font-weight:700;text-align:center">السعر</div>
+        <div></div>
+      </div>
+      <div id="prop-items-wrap"></div>
+    </div>
+
+    <!-- Totals -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:13px;color:var(--text2)">المجموع الجزئي</span>
+        <span style="font-weight:700;font-size:14px" id="prop-subtotal">0 ج.م</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;color:var(--text2)">خصم</span>
+          <select id="prop-discount-type" onchange="_calcPropTotal()" style="height:28px;padding:0 6px;font-size:11px;border:1px solid var(--border);border-radius:var(--r1);background:var(--surface2);color:var(--text);cursor:pointer">
+            <option value="percent">%</option>
+            <option value="fixed">مبلغ ثابت</option>
+          </select>
+          <input class="form-input" type="number" id="prop-discount" value="0" min="0"
+            style="width:70px;height:28px;padding:0 8px;font-size:12px;text-align:center" oninput="_calcPropTotal()">
+        </div>
+        <span id="prop-discount-val" style="color:var(--accent4);font-weight:700">-0 ج.م</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;color:var(--text2)">ضريبة %</span>
+          <input class="form-input" type="number" id="prop-tax" value="0" min="0" max="100"
+            style="width:60px;height:28px;padding:0 8px;font-size:12px;text-align:center" oninput="_calcPropTotal()">
+        </div>
+        <span id="prop-tax-val" style="color:var(--accent2);font-weight:700">+0 ج.م</span>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:15px;font-weight:900">💰 الإجمالي</span>
+        <span style="font-size:22px;font-weight:900;color:var(--accent3)" id="prop-total">0 ج.م</span>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">شروط الدفع</label>
+        <select class="form-select" id="prop-payment-terms">
+          <option value="full">دفعة كاملة عند البدء</option>
+          <option value="50-50">50% مقدم + 50% عند التسليم</option>
+          <option value="30-70">30% مقدم + 70% عند التسليم</option>
+          <option value="installments">أقساط شهرية</option>
+          <option value="custom">مخصص</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">العملة</label>
+        <select class="form-select" id="prop-currency" onchange="_calcPropTotal()">
+          <option value="ج.م">🇪🇬 جنيه مصري</option>
+          <option value="$">🇺🇸 دولار أمريكي</option>
+          <option value="ر.س">🇸🇦 ريال سعودي</option>
+          <option value="د.إ">🇦🇪 درهم إماراتي</option>
+          <option value="€">🇪🇺 يورو</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">💬 رسالة ترحيب للعميل</label>
+      <textarea class="form-textarea" id="prop-intro" rows="2"
+        placeholder="مثال: أهلاً، يسعدني تقديم هذا العرض. أتطلع للعمل معك!"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📝 ملاحظات وشروط العرض</label>
+      <textarea class="form-textarea" id="prop-notes" rows="2"
+        placeholder="مثال: يشمل 3 جلسات تعديل. الأسعار صالحة لمدة 14 يوم."></textarea>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="closeM('modal-proposal')">إلغاء</button>
+      <button class="btn" style="background:var(--surface2);color:var(--text)" onclick="saveProposal('draft')">
+        <i class="fa-solid fa-floppy-disk"></i> حفظ مسودة
+      </button>
+      <button class="btn btn-primary" onclick="saveProposal('pending')">
+        <i class="fa-solid fa-paper-plane" style="margin-left:4px"></i> حفظ وإنشاء الرابط
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: PROPOSAL LINK SHARE ══ -->
+<div class="modal-overlay" id="modal-prop-link">
+  <div class="modal" style="max-width:460px;text-align:center">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-link" style="color:var(--accent3)"></i> رابط العرض جاهز! 🎉</div>
+      <button class="close-btn" onclick="closeM('modal-prop-link')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="padding:8px 0 16px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px">
+        أرسل الرابط ده للعميل — يقدر يشوف العرض ويوافق أو يرفض مباشرة
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:12px;
+        color:var(--accent3);word-break:break-all;margin-bottom:14px;font-family:monospace;direction:ltr;text-align:left" id="prop-share-link-display"></div>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button class="btn btn-primary" onclick="_doCopyPropLink()">
+          <i class="fa-solid fa-copy" style="margin-left:4px"></i> نسخ الرابط
+        </button>
+        <button class="btn btn-ghost" onclick="_doOpenPropLink()">
+          <i class="fa-solid fa-eye" style="margin-left:4px"></i> معاينة
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+// PROPOSALS (عروض الأسعار) — Full Implementation
+// ══════════════════════════════════════════════════
+
+var _propItemCount = 0;
+var _lastPropLink  = '';
+
+// ── Event delegation: prop item row remove ──
+document.addEventListener('click', function(e){
+  var rmBtn = e.target.closest('[data-rmrow]');
+  if (!rmBtn) return;
+  var row = rmBtn.closest('.prop-item-row');
+  if (row) { row.remove(); _calcPropTotal(); }
+});
+
+// ── Event delegation for proposals list ──
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  var propWrap = document.getElementById('proposals-list-wrap');
+  if (!propWrap || !propWrap.contains(btn)) return;
+  var act   = btn.dataset.act;
+  var token = btn.dataset.token;
+  var id    = btn.dataset.id;
+  if (act === 'share')   _showPropLinkModal(token);
+  if (act === 'edit')    openProposalModal(id);
+  if (act === 'del')     _delProposal(id);
+  if (act === 'preview') {
+    var p = (S.proposals||[]).find(function(x){ return x.token===token; });
+    if (p) window.open(_propUrl(p), '_blank');
+  }
+});
+
+// ── Get proposal page URL ──
+function _propUrl(p) {
+  var parts = window.location.pathname.split('/').filter(function(x){ return x!==''; });
+  if (parts.length && parts[parts.length-1].endsWith('.html')) parts.pop();
+  var base = parts.length ? '/' + parts.join('/') + '/' : '/';
+  return window.location.origin + base + 'proposal.html?token=' + encodeURIComponent(p.token);
+}
+
+function _propCur() {
+  return (document.getElementById('prop-currency')||{value:'ج.م'}).value || 'ج.م';
+}
+
+// ── Render proposals list ──
+function renderProposals() {
+  var wrap = document.getElementById('proposals-list-wrap'); if (!wrap) return;
+  var proposals = S.proposals || [];
+
+  var all = proposals.length;
+  var pending  = proposals.filter(function(p){ return (p.status==='pending'||p.status==='draft'); }).length;
+  var accepted = proposals.filter(function(p){ return p.status==='accepted'; }).length;
+  var rejected = proposals.filter(function(p){ return p.status==='rejected'; }).length;
+  ['all','pending','accepted','rejected'].forEach(function(k,i){
+    var el = document.getElementById('prop-stat-'+k);
+    if (el) el.textContent = [all,pending,accepted,rejected][i];
+  });
+  var badge = document.getElementById('proposals-nav-badge');
+  if (badge) {
+    var pend = proposals.filter(function(p){ return p.status==='pending'; }).length;
+    badge.textContent = pend; badge.style.display = pend ? 'inline-flex' : 'none';
+  }
+
+  if (!proposals.length) {
+    wrap.innerHTML = '<div class="card" style="text-align:center;padding:48px 20px;color:var(--text3)"><div style="font-size:48px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--text)">لا توجد عروض أسعار</div><div style="font-size:13px;margin-bottom:18px">أنشئ أول عرض وأرسله للعميل مباشرة</div><button class="btn btn-primary" onclick="openProposalModal()"><i class="fa-solid fa-plus" style="margin-left:4px"></i> عرض جديد</button></div>';
+    return;
+  }
+
+  var statusLabel = { pending:'⏳ في الانتظار', draft:'📝 مسودة', accepted:'✅ مقبول', rejected:'❌ مرفوض', expired:'🕐 منتهي الصلاحية' };
+  var statusColor = { pending:'#f7c948', draft:'var(--text3)', accepted:'var(--accent3)', rejected:'var(--accent4)', expired:'var(--text3)' };
+  var cur = S.settings && S.settings.currency ? S.settings.currency : 'ج.م';
+
+  wrap.innerHTML = proposals.slice().reverse().map(function(p) {
+    var sk = p.status || 'pending';
+    if (sk === 'pending' && p.expiry && new Date(p.expiry) < new Date()) sk = 'expired';
+    var total = (p.total || 0).toLocaleString();
+    var pcur  = p.currency || cur;
+    var link  = _propUrl(p);
+    var noteHtml = p.clientNote
+      ? '<div style="margin-top:10px;background:rgba(124,111,247,.1);border-right:3px solid var(--accent2);padding:8px 12px;border-radius:8px;font-size:12px;color:var(--text2)"><i class="fa-solid fa-comment" style="color:var(--accent2)"></i> ملاحظة العميل: <em>' + escapeHtml(p.clientNote) + '</em></div>' : '';
+    var respondedHtml = p.respondedAt
+      ? '<div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="fa-solid fa-clock"></i> رد العميل: ' + new Date(p.respondedAt).toLocaleDateString('ar-EG') + '</div>' : '';
+    return '<div class="card" style="margin-bottom:12px;border-right:4px solid '+statusColor[sk]+';transition:.2s">'
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:15px;font-weight:800;margin-bottom:4px">' + escapeHtml(p.title||'بدون عنوان') + '</div>'
+          + '<div style="font-size:12px;color:var(--text2);margin-bottom:8px;display:flex;flex-wrap:wrap;gap:10px">'
+            + (p.clientName ? '<span><i class="fa-solid fa-user" style="color:var(--accent2)"></i> ' + escapeHtml(p.clientName) + '</span>' : '')
+            + '<span><i class="fa-solid fa-calendar" style="color:var(--text3)"></i> ' + escapeHtml(p.date||'—') + '</span>'
+            + (p.expiry ? '<span><i class="fa-solid fa-hourglass-end" style="color:var(--text3)"></i> حتى: ' + escapeHtml(p.expiry) + '</span>' : '')
+            + (p.items ? '<span style="color:var(--text3)">(' + p.items.length + ' بند)</span>' : '')
+          + '</div>'
+          + '<span style="background:'+statusColor[sk]+'22;color:'+statusColor[sk]+';border:1px solid '+statusColor[sk]+'55;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">' + (statusLabel[sk]||sk) + '</span>'
+          + respondedHtml + noteHtml
+        + '</div>'
+        + '<div style="text-align:left;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;gap:8px">'
+          + '<div style="font-size:22px;font-weight:900;color:var(--accent3)">' + total + ' ' + escapeHtml(pcur) + '</div>'
+          + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'
+            + (sk!=='draft' ? '<button class="btn btn-ghost btn-sm" data-act="share" data-token="' + escapeHtml(p.token) + '" title="مشاركة الرابط"><i class="fa-solid fa-share-nodes"></i></button>' : '')
+            + '<button class="btn btn-ghost btn-sm" data-act="edit" data-id="' + escapeHtml(String(p.id)) + '" title="تعديل"><i class="fa-solid fa-pen"></i></button>'
+            + (sk!=='draft' ? '<button class="btn btn-ghost btn-sm" data-act="preview" data-token="' + escapeHtml(p.token) + '" title="معاينة"><i class="fa-solid fa-eye"></i></button>' : '')
+            + '<button class="btn btn-ghost btn-sm" style="color:var(--accent4)" data-act="del" data-id="' + escapeHtml(String(p.id)) + '" title="حذف"><i class="fa-solid fa-trash"></i></button>'
+          + '</div>'
+        + '</div>'
+      + '</div>'
+    + '</div>';
+  }).join('');
+}
+
+// ── Share link modal ──
+function _showPropLinkModal(token) {
+  var p = (S.proposals||[]).find(function(x){ return x.token===token; }); if (!p) return;
+  var link = _propUrl(p);
+  _lastPropLink = link;
+  document.getElementById('prop-share-link-display').textContent = link;
+  openM('modal-prop-link');
+}
+function _doCopyPropLink() {
+  navigator.clipboard && navigator.clipboard.writeText(_lastPropLink).then(function(){
+    toast('✅ تم نسخ الرابط — ابعته للعميل!');
+    closeM('modal-prop-link');
+  });
+}
+function _doOpenPropLink() { window.open(_lastPropLink,'_blank'); }
+
+// ── Delete ──
+function _delProposal(id) {
+  confirmDel('حذف هذا العرض نهائياً؟', function(){
+    S.proposals = (S.proposals||[]).filter(function(p){ return String(p.id)!==String(id); });
+    lsSave(); renderProposals();
+    toast('🗑️ تم حذف العرض');
+  });
+}
+
+// ── Items ──
+function _addPropItem(item) {
+  _propItemCount++;
+  var wrap = document.getElementById('prop-items-wrap'); if (!wrap) return;
+  var el = document.createElement('div');
+  el.className = 'prop-item-row';
+  el.style.cssText = 'display:grid;grid-template-columns:1fr 64px 88px 30px;gap:5px;align-items:center;margin-bottom:6px';
+  el.innerHTML =
+    '<input class="form-input" placeholder="وصف البند" value="' + (item&&item.desc?escapeHtml(item.desc):'') + '" oninput="_calcPropTotal()" style="font-size:13px">'
+    + '<input class="form-input" type="number" placeholder="1" value="' + (item&&item.qty!=null?item.qty:1) + '" min="1" oninput="_calcPropTotal()" style="font-size:13px;text-align:center">'
+    + '<input class="form-input" type="number" placeholder="0" value="' + (item&&item.price!=null?item.price:'') + '" min="0" oninput="_calcPropTotal()" style="font-size:13px;text-align:center">'
+    + '<button class="btn btn-ghost btn-sm" data-rmrow="1" style="padding:4px;color:var(--accent4);min-width:28px;height:32px"><i class="fa-solid fa-xmark"></i></button>';
+  wrap.appendChild(el);
+  _calcPropTotal();
+}
+
+function _getPropItems() {
+  var wrap = document.getElementById('prop-items-wrap'); if (!wrap) return [];
+  var items = [];
+  wrap.querySelectorAll('.prop-item-row').forEach(function(row){
+    var inputs = row.querySelectorAll('input');
+    if (inputs.length >= 3) {
+      var desc  = (inputs[0].value||'').trim();
+      var qty   = +(inputs[1].value)||1;
+      var price = +(inputs[2].value)||0;
+      if (desc || price) items.push({desc:desc, qty:qty, price:price, total:qty*price});
+    }
+  });
+  return items;
+}
+
+function _calcPropTotal() {
+  var items    = _getPropItems();
+  var subtotal = items.reduce(function(s,i){ return s+i.total; }, 0);
+  var discType = (document.getElementById('prop-discount-type')||{value:'percent'}).value || 'percent';
+  var discVal  = Math.max(0, +((document.getElementById('prop-discount')||{value:0}).value||0));
+  var tax      = Math.min(100, Math.max(0, +((document.getElementById('prop-tax')||{value:0}).value||0)));
+  var discAmt  = discType === 'fixed' ? Math.min(discVal, subtotal) : subtotal * Math.min(100, discVal) / 100;
+  var taxAmt   = (subtotal - discAmt) * tax / 100;
+  var total    = subtotal - discAmt + taxAmt;
+  var cur      = _propCur();
+  function setEl(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; }
+  setEl('prop-subtotal', subtotal.toLocaleString() + ' ' + cur);
+  setEl('prop-discount-val', '-' + discAmt.toLocaleString() + ' ' + cur);
+  setEl('prop-tax-val', '+' + taxAmt.toLocaleString() + ' ' + cur);
+  setEl('prop-total', total.toLocaleString() + ' ' + cur);
+  return {subtotal:subtotal, discAmt:discAmt, taxAmt:taxAmt, total:total, discType:discType};
+}
+
+// ── Open modal ──
+function openProposalModal(id) {
+  _propItemCount = 0;
+  var editing = !!id;
+  document.getElementById('prop-modal-ttl').innerHTML = editing
+    ? '<i class="fa-solid fa-pen" style="color:var(--accent)"></i> تعديل العرض'
+    : '<i class="fa-solid fa-file-contract" style="color:var(--accent)"></i> عرض سعر جديد';
+  document.getElementById('prop-eid').value = id || '';
+  document.getElementById('prop-items-wrap').innerHTML = '';
+
+  // Fill clients dropdown
+  var sel = document.getElementById('prop-client');
+  sel.innerHTML = '<option value="">— اختر عميل —</option>';
+  (S.clients||[]).forEach(function(cl){
+    var o = document.createElement('option');
+    o.value = cl.name; o.textContent = cl.name;
+    sel.appendChild(o);
+  });
+
+  var today   = new Date().toISOString().slice(0,10);
+  var expiry14 = new Date(Date.now()+14*864e5).toISOString().slice(0,10);
+
+  if (editing) {
+    var p = (S.proposals||[]).find(function(x){ return String(x.id)===String(id); });
+    if (!p) return;
+    sel.value = p.clientName || '';
+    document.getElementById('prop-title').value         = p.title || '';
+    document.getElementById('prop-date').value          = p.date  || today;
+    document.getElementById('prop-expiry').value        = p.expiry || expiry14;
+    document.getElementById('prop-discount').value      = p.discount || 0;
+    document.getElementById('prop-discount-type').value = p.discountType || 'percent';
+    document.getElementById('prop-tax').value           = p.tax || 0;
+    document.getElementById('prop-payment-terms').value = p.paymentTerms || 'full';
+    document.getElementById('prop-currency').value      = p.currency || 'ج.م';
+    document.getElementById('prop-notes').value         = p.notes || '';
+    document.getElementById('prop-intro').value         = p.intro || '';
+    (p.items||[]).forEach(function(item){ _addPropItem(item); });
+    if (!p.items || !p.items.length) _addPropItem();
+  } else {
+    sel.value = '';
+    ['prop-title','prop-notes','prop-intro'].forEach(function(f){
+      var e=document.getElementById(f); if(e) e.value='';
+    });
+    document.getElementById('prop-date').value          = today;
+    document.getElementById('prop-expiry').value        = expiry14;
+    document.getElementById('prop-discount').value      = 0;
+    document.getElementById('prop-tax').value           = 0;
+    document.getElementById('prop-payment-terms').value = 'full';
+    document.getElementById('prop-currency').value      = 'ج.م';
+    _addPropItem(); _addPropItem(); _addPropItem();
+  }
+  _calcPropTotal();
+  openM('modal-proposal');
+}
+
+function _propClientChange() {
+  var name = (document.getElementById('prop-client')||{value:''}).value;
+  if (!name) return;
+  var titleEl = document.getElementById('prop-title');
+  if (titleEl && !titleEl.value) titleEl.value = 'عرض سعر لـ ' + name;
+}
+
+// ── Save proposal ──
+function saveProposal(saveStatus) {
+  var title = (document.getElementById('prop-title').value||'').trim();
+  if (!title) { toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل عنوان العرض'); return; }
+  var items = _getPropItems();
+  if (!items.length && saveStatus !== 'draft') {
+    toast('<i class="fa-solid fa-triangle-exclamation"></i> أضف بنداً واحداً على الأقل');
+    return;
+  }
+  var eid = document.getElementById('prop-eid').value;
+  var calc = _calcPropTotal();
+  var now  = new Date().toISOString();
+  var today = now.slice(0,10);
+  var existingProp = eid ? (S.proposals||[]).find(function(x){ return String(x.id)===String(eid); }) : null;
+
+  var d = {
+    id:           eid || ('prop_' + Date.now()),
+    token:        existingProp ? existingProp.token : ('prp_' + Date.now() + '_' + Math.random().toString(36).slice(2,8)),
+    clientName:   (document.getElementById('prop-client')||{value:''}).value,
+    title:        title,
+    date:         document.getElementById('prop-date').value || today,
+    expiry:       document.getElementById('prop-expiry').value || '',
+    items:        items,
+    subtotal:     calc.subtotal,
+    discount:     +((document.getElementById('prop-discount')||{value:0}).value||0),
+    discountType: (document.getElementById('prop-discount-type')||{value:'percent'}).value || 'percent',
+    discountAmt:  calc.discAmt,
+    tax:          +((document.getElementById('prop-tax')||{value:0}).value||0),
+    taxAmt:       calc.taxAmt,
+    total:        calc.total,
+    currency:     (document.getElementById('prop-currency')||{value:'ج.م'}).value,
+    paymentTerms: (document.getElementById('prop-payment-terms')||{value:'full'}).value,
+    notes:        (document.getElementById('prop-notes')||{value:''}).value,
+    intro:        (document.getElementById('prop-intro')||{value:''}).value,
+    status:       saveStatus || (existingProp ? existingProp.status : 'pending'),
+    clientNote:   existingProp ? (existingProp.clientNote||'') : '',
+    respondedAt:  existingProp ? (existingProp.respondedAt||'') : '',
+    createdAt:    existingProp ? existingProp.createdAt : now,
+    updatedAt:    now
+  };
+
+  if (!S.proposals) S.proposals = [];
+  if (existingProp) {
+    var idx = S.proposals.findIndex(function(x){ return String(x.id)===String(eid); });
+    if (idx > -1) S.proposals[idx] = d;
+  } else {
+    S.proposals.push(d);
+  }
+
+  lsSave();
+  closeM('modal-proposal');
+  renderProposals();
+
+  if (saveStatus !== 'draft') {
+    setTimeout(function(){ _showPropLinkModal(d.token); }, 300);
+  } else {
+    toast('📝 تم حفظ المسودة');
+  }
+}
+
+// ── Poll for client responses ──
+async function _pollProposalResponses() {
+  if (!window._supaUserId || !window.supa) return;
+  try {
+    var res = await supa.from('studio_data').select('data').eq('user_id', _supaUserId).maybeSingle();
+    if (!res || !res.data) return;
+    var fresh = res.data;
+    if (typeof fresh === 'string') fresh = JSON.parse(fresh);
+    if (fresh && fresh.data && !fresh.tasks) fresh = typeof fresh.data === 'string' ? JSON.parse(fresh.data) : fresh.data;
+    var newProps = fresh && fresh.proposals ? fresh.proposals : [];
+    var changed = false;
+    (S.proposals||[]).forEach(function(op){
+      var np = newProps.find(function(x){ return x.id === op.id; });
+      if (np && np.status !== op.status && (np.status === 'accepted' || np.status === 'rejected')) {
+        op.status      = np.status;
+        op.clientNote  = np.clientNote  || '';
+        op.respondedAt = np.respondedAt || '';
+        changed = true;
+        var lbl = np.status === 'accepted' ? '✅ قبل العرض' : '❌ رفض العرض';
+        toast('📋 ' + lbl + ': ' + escapeHtml(np.title||'عرض سعر'));
+      }
+    });
+    if (changed) { lsSave(); renderProposals(); }
+  } catch(e) {}
+}
+setInterval(_pollProposalResponses, 45000);
+setTimeout(_pollProposalResponses, 8000);
 </script>
 </body></html>
