@@ -2543,7 +2543,7 @@ window._showApp = function(){
   document.body.style.visibility = 'visible';
   // لو صفحة متجر عام - لا تضيف overflow:hidden
   var _pp = new URLSearchParams(window.location.search);
-  var isPublic = _pp.get('svcorder') || _pp.get('u') || (_pp.get('portal') && _pp.get('uid'));
+  var isPublic = _pp.get('svcorder') || _pp.get('u') || (_pp.get('portal') && _pp.get('uid')) || (_pp.get('clientportal') && _pp.get('cid')) || (_pp.get('uid') && _pp.get('cid'));
   if(isPublic) {
     // Public page: ensure scroll works
     document.documentElement.classList.remove('app-loaded');
@@ -17168,7 +17168,7 @@ let _authProcessingUserId = null;
 supa.auth.onAuthStateChange(async (event, session) => {
   // ── Public service/portal pages: skip all auth handling ──
   var _pup = new URLSearchParams(window.location.search);
-  if(_pup.get('svcorder') || (_pup.get('portal') && _pup.get('uid')) || (_pup.get('clientportal') && _pup.get('cid'))){ if(window._showApp) window._showApp(); return; }
+  if(_pup.get('svcorder') || (_pup.get('portal') && _pup.get('uid')) || (_pup.get('clientportal') && _pup.get('cid')) || (_pup.get('uid') && _pup.get('cid'))){ if(window._showApp) window._showApp(); return; }
 
   console.log('Auth event:', event, session?.user?.email);
 
@@ -17250,7 +17250,7 @@ supa.auth.onAuthStateChange(async (event, session) => {
 async function initAuthFallback(){
   // ── Public pages: skip all auth/dashboard init entirely ──
   var _pu = new URLSearchParams(window.location.search);
-  if(_pu.get('svcorder') || (_pu.get('portal') && _pu.get('uid')) || (_pu.get('clientportal') && _pu.get('cid'))){ return; }
+  if(_pu.get('svcorder') || (_pu.get('portal') && _pu.get('uid')) || (_pu.get('clientportal') && _pu.get('cid')) || (_pu.get('uid') && _pu.get('cid'))){ return; }
 
   loadThemePreferences();
   renderAll();
@@ -20873,7 +20873,7 @@ function _checkSvcOrderUrl(){
   // Handle username-based URL: ?u=username
   var _uname=params.get('u');
   // Inject scroll-unlock CSS immediately at start — before any DOM changes
-  if(uid || _uname || params.get('portal') || params.get('clientportal')){
+  if(uid || _uname || params.get('portal') || params.get('clientportal') || (params.get('uid') && params.get('cid') && !params.get('portal'))){
     var _earlyStyle = document.getElementById('_pub-early-style') || document.createElement('style');
     _earlyStyle.id = '_pub-early-style';
     _earlyStyle.textContent = 'html,body{overflow:auto!important;overflow-y:scroll!important;height:auto!important;min-height:100vh!important;position:static!important;}';
@@ -20983,8 +20983,9 @@ function _checkSvcOrderUrl(){
   }
   var portalId=params.get('portal');
   if(portalId && params.get('uid')) { _buildClientPortalPage(params.get('uid'), portalId); return; }
-  // ── Full Client Portal (by client ID) ──
-  var cpUid=params.get('clientportal'); var cpCid=params.get('cid');
+  // ── Full Client Portal (by client ID) — both ?clientportal=&cid= and ?uid=&cid= formats ──
+  var cpUid=params.get('clientportal') || (!params.get('portal') && !params.get('svcorder') ? params.get('uid') : null);
+  var cpCid=params.get('cid');
   if(cpUid && cpCid) { window._fullCPBuilt=true; _buildFullClientPortal(cpUid, cpCid); return; }
   if(!uid) return;
   // Show body (was hidden) then replace content
@@ -20996,7 +20997,8 @@ function _checkSvcOrderUrl(){
 // Run ASAP — before DOMContentLoaded if possible
 (function(){
   var p=new URLSearchParams(window.location.search);
-  if(p.get('svcorder')||( p.get('portal')&&p.get('uid') )||p.get('u')||( p.get('clientportal')&&p.get('cid') )){
+  var _isClientPortal = (p.get('uid')&&p.get('cid')&&!p.get('portal')&&!p.get('svcorder'));
+  if(p.get('svcorder')||( p.get('portal')&&p.get('uid') )||p.get('u')||( p.get('clientportal')&&p.get('cid') )||_isClientPortal){
     // Mark as public page — auth functions check this flag
     window._isPublicPage = true;
     // Inject scroll-unlock style as FIRST child of head — overrides everything
@@ -21009,7 +21011,15 @@ function _checkSvcOrderUrl(){
     document.addEventListener('DOMContentLoaded',function(){
       document.documentElement.classList.add('pub-page');
       document.body.classList.add('pub-page');
-      _checkSvcOrderUrl();
+      // لو رابط ?uid=xxx&cid=yyy — افتح بوابة العميل الكاملة مباشرة
+      if(_isClientPortal && !window._fullCPBuilt){
+        window._fullCPBuilt = true;
+        if(typeof _buildFullClientPortal==='function'){
+          _buildFullClientPortal(p.get('uid'), p.get('cid'));
+        }
+      } else {
+        _checkSvcOrderUrl();
+      }
     });
   }
 })();
@@ -22371,12 +22381,19 @@ window.addEventListener('load', function(){
     document.body.classList.add('pub-page');
     _buildProjectPortalPage(p.get('uid'),p.get('pid'));
   }
-  // Full client portal
+  // Full client portal — ?clientportal=&cid= format
   if(p.get('clientportal')&&p.get('cid')&&!window._fullCPBuilt){
     window._fullCPBuilt=true;
     document.documentElement.classList.add('pub-page');
     document.body.classList.add('pub-page');
     _buildFullClientPortal(p.get('clientportal'),p.get('cid'));
+  }
+  // Full client portal — ?uid=&cid= format (links generated from index.html)
+  if(p.get('uid')&&p.get('cid')&&!p.get('portal')&&!p.get('svcorder')&&!window._fullCPBuilt){
+    window._fullCPBuilt=true;
+    document.documentElement.classList.add('pub-page');
+    document.body.classList.add('pub-page');
+    _buildFullClientPortal(p.get('uid'),p.get('cid'));
   }
 });
 
