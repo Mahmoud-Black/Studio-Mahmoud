@@ -130,7 +130,7 @@ body.lm .sheet{background:var(--s1)}
 <script>
 const SUPA_URL='https://mpfmcjgigpvdxbhgzufo.supabase.co';
 const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM';
-const ORDO_HOME='https://ordo.app';
+const ORDO_HOME='https://ordo-freelance.github.io/Ordo/';
 const STORE_URL='./store.html';
 
 const db=supabase.createClient(SUPA_URL,SUPA_ANON);
@@ -388,19 +388,19 @@ function renderPage(){
 
     <!-- STATS -->
     <div class="stats">
-      <div class="stat"><div class="stat-val" style="color:var(--ac)">${activeTasks}</div><div class="stat-lbl">طلبات نشطة</div></div>
-      <div class="stat"><div class="stat-val" style="color:var(--g)">${doneTasks}</div><div class="stat-lbl">مكتملة</div></div>
-      <div class="stat" style="${totalDueNow>0?'border:1.5px solid rgba(255,107,107,.35)':''}">
+      <div class="stat" style="cursor:pointer" onclick="switchTab('tasks');setTimeout(()=>setTasksFilter('active'),100)"><div class="stat-val" style="color:var(--ac)">${activeTasks}</div><div class="stat-lbl">طلبات نشطة <i class="fa-solid fa-arrow-left" style="font-size:8px;opacity:.5"></i></div></div>
+      <div class="stat" style="cursor:pointer" onclick="_openActiveProjectsPopup()"><div class="stat-val" style="color:var(--g)">${doneTasks}</div><div class="stat-lbl">مكتملة <i class="fa-solid fa-arrow-left" style="font-size:8px;opacity:.5"></i></div></div>
+      <div class="stat" style="cursor:pointer;${totalDueNow>0?'border:1.5px solid rgba(255,107,107,.35)':''}" onclick="_openDueNowPopup()">
         <div class="stat-val" style="color:${totalDueNow>0?'var(--r)':'var(--g)'}">
           ${totalDueNow>0?totalDueNow.toLocaleString()+' ج':'✓'}
         </div>
-        <div class="stat-lbl">مستحق لحد الآن</div>
+        <div class="stat-lbl">مستحق لحد الآن <i class="fa-solid fa-arrow-left" style="font-size:8px;opacity:.5"></i></div>
       </div>
-      <div class="stat" style="${airOnHim>0?'border:1.5px solid rgba(79,209,165,.35)':''}">
+      <div class="stat" style="cursor:pointer;${airOnHim>0?'border:1.5px solid rgba(79,209,165,.35)':''}" onclick="_openHawaPopup()">
         <div class="stat-val" style="color:${airOnHim>0?'var(--g)':'var(--t3)'}">
           ${airOnHim>0?airOnHim.toLocaleString()+' ج':'—'}
         </div>
-        <div class="stat-lbl">الهواء عليه 🎈</div>
+        <div class="stat-lbl">الهواء عليه 🎈 <i class="fa-solid fa-arrow-left" style="font-size:8px;opacity:.5"></i></div>
       </div>
     </div>
 
@@ -408,6 +408,15 @@ function renderPage(){
       <div style="font-weight:800;margin-bottom:3px">${openingType==='receivable'?'💰 رصيد مستحق ليك من قبل':'✅ رصيد مدفوع مسبقاً'}: ${openingBal.toLocaleString()} ج.م</div>
       ${openingNote?`<div style="color:var(--t3)">${xe(openingNote)}</div>`:''}
     </div>`:''}
+
+    <!-- زرار احجز موعد بارز -->
+    <div style="margin-bottom:14px">
+      <button onclick="_openClientBookingForm()" style="width:100%;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border:none;border-radius:14px;padding:14px 20px;font-family:var(--font);font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:.15s;box-shadow:0 4px 20px rgba(124,111,247,.3)" onmouseover="this.style.opacity='.9';this.style.transform='translateY(-1px)'" onmouseout="this.style.opacity='1';this.style.transform=''">
+        <i class="fa-solid fa-calendar-days" style="font-size:16px"></i>
+        احجز موعد ميتنج
+        <i class="fa-solid fa-arrow-left" style="font-size:12px;opacity:.7"></i>
+      </button>
+    </div>
 
     <!-- TABS -->
     <div class="tabs" id="tabs">
@@ -558,83 +567,473 @@ function renderTasks(){
   return kanbanHtml + filterHtml + cardsHtml + paginationHtml;
 }
 
-// ── SERVICES SECTION (خدمات المتجر) ──
+// ══════════════════════════════════════════════
+// ── SERVICES SECTION — خدماتنا وباقاتنا ──
+// ══════════════════════════════════════════════
+let _svcActiveTab = 'all';
+let _svcActiveCat = '';
+
 function renderServices(){
   const svcs = (_ud.services||[]).filter(s=>s&&s.name&&s.active!==false);
   const pkgs = (_ud.standalone_packages||[]).filter(p=>p&&p.name&&p.active!==false);
-  const allSvcs = [...svcs, ...pkgs];
+  if(!svcs.length && !pkgs.length) return '';
+
   const acc = _settings?.accent||_settings?.accentColor||'#7c6ff7';
-  const _storeUn=_settings.username;
-  const _storeLink=_storeUn?(STORE_URL+'?u='+encodeURIComponent(_storeUn)):(STORE_URL+'?uid='+(window._resolvedUid||pUid||''));
+  const un  = _settings?.username||'';
+  const storeLink = un
+    ? (STORE_URL+'?u='+encodeURIComponent(un))
+    : (STORE_URL+'?uid='+(window._resolvedUid||pUid||''));
 
-  if(!allSvcs.length) return '';
+  // ── كاتيجوريز فريدة ──
+  const cats = [...new Set([...svcs,...pkgs].map(s=>s.cat).filter(Boolean))];
 
-  return`
-  <div style="margin-top:32px;padding-top:24px;border-top:1.5px solid var(--bd)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-      <div>
-        <div style="font-size:16px;font-weight:900;color:var(--t1)"><i class="fa-solid fa-store" style="color:${acc};margin-left:7px"></i>خدماتنا المتاحة</div>
-        <div style="font-size:12px;color:var(--t3);margin-top:3px">اختر خدمة وأرسل طلبك مباشرة</div>
+  // ── فلتر حسب التاب والكاتيجوري ──
+  let shown = _svcActiveTab==='svc' ? [...svcs]
+            : _svcActiveTab==='pkg' ? [...pkgs]
+            : [...svcs,...pkgs];
+  if(_svcActiveCat) shown = shown.filter(s=>s.cat===_svcActiveCat);
+
+  // ── بناء كرت واحد ──
+  function buildCard(s){
+    const isPkg  = pkgs.includes(s);
+    const srcArr = isPkg ? pkgs : svcs;
+    const idx    = srcArr.indexOf(s);
+    const type   = isPkg ? 'pkg' : 'svc';
+    const price  = +s.price||+s.startingPrice||+s.basePrice||0;
+    const dur    = s.deliveryDays||s.duration||s.delivery||'';
+    const revs   = s.revisions||s.revisionCount||'';
+    const img    = s.image||s.img||s.thumb||s.photo||s.logo||'';
+    const items  = s.items||s.features||[];
+    const badgeBg = isPkg ? 'linear-gradient(135deg,#4fd1a5,#38b28a)' : acc;
+
+    return `
+    <div onclick="_openSvcDetail('${type}',${idx})"
+      style="background:var(--s1);border:1.5px solid var(--bd);border-radius:18px;overflow:hidden;
+             display:flex;flex-direction:column;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s"
+      onmouseover="this.style.transform='translateY(-4px)';this.style.borderColor='${acc}55';this.style.boxShadow='0 12px 32px ${acc}18'"
+      onmouseout="this.style.transform='';this.style.borderColor='var(--bd)';this.style.boxShadow=''">
+
+      <!-- صورة أو placeholder -->
+      <div style="position:relative">
+        ${img
+          ? `<div style="height:140px;overflow:hidden">
+               <img src="${xe(img)}" style="width:100%;height:100%;object-fit:cover;display:block"
+                 onerror="this.parentElement.innerHTML='<div style=\'height:100px;background:${acc}18;display:flex;align-items:center;justify-content:center;font-size:40px\'>${s.icon||( isPkg?'📦':'🎯')}</div>'">
+             </div>`
+          : `<div style="height:90px;background:linear-gradient(135deg,${acc}22,${acc}08);
+                         display:flex;align-items:center;justify-content:center;font-size:42px">
+               ${s.icon||(isPkg?'📦':'🎯')}
+             </div>`}
+        <div style="position:absolute;top:10px;right:10px;padding:3px 10px;border-radius:20px;
+                    font-size:10px;font-weight:800;color:#fff;background:${badgeBg}">
+          ${isPkg ? 'باقة' : 'خدمة'}
+        </div>
       </div>
-      <a href="${xe(_storeLink)}" target="_blank" style="display:inline-flex;align-items:center;gap:7px;background:${acc}22;color:${acc};border:1.5px solid ${acc}55;border-radius:10px;padding:8px 16px;font-size:12px;font-weight:800;text-decoration:none;transition:.15s">
-        <i class="fa-solid fa-arrow-up-right-from-square"></i> زيارة المتجر الكامل
+
+      <!-- body -->
+      <div style="padding:14px 14px 16px;flex:1;display:flex;flex-direction:column;gap:6px">
+        ${s.cat?`<div style="font-size:10px;font-weight:800;color:${acc};letter-spacing:.5px;text-transform:uppercase">${xe(s.cat)}</div>`:''}
+        <div style="font-size:14px;font-weight:900;color:var(--t1);line-height:1.35">${xe(s.name)}</div>
+
+        ${s.desc||s.description
+          ? `<div style="font-size:11px;color:var(--t3);line-height:1.65;
+                         display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
+               ${xe(s.desc||s.description)}
+             </div>`:''}
+
+        ${items.length
+          ? `<div style="display:flex;flex-direction:column;gap:3px;margin-top:2px">
+               ${items.slice(0,3).map(it=>`
+               <div style="display:flex;align-items:flex-start;gap:6px;font-size:11px;color:var(--t2)">
+                 <i class="fa-solid fa-check" style="color:${acc};font-size:9px;margin-top:3px;flex-shrink:0"></i>
+                 ${xe(String(it))}
+               </div>`).join('')}
+               ${items.length>3?`<div style="font-size:10px;color:var(--t3);margin-right:15px">+${items.length-3} أخرى</div>`:''}
+             </div>`:''}
+
+        <!-- وقت / تعديلات -->
+        ${dur||revs
+          ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+               ${dur?`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--t3);
+                                  background:var(--s2);border:1px solid var(--bd);padding:3px 8px;border-radius:8px">
+                        <i class="fa-solid fa-clock" style="color:${acc}"></i>${xe(String(dur))} يوم
+                      </span>`:''}
+               ${revs?`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--t3);
+                                   background:var(--s2);border:1px solid var(--bd);padding:3px 8px;border-radius:8px">
+                         <i class="fa-solid fa-rotate" style="color:${acc}"></i>${xe(String(revs))} تعديل
+                       </span>`:''}
+             </div>`:''}
+
+        <!-- السعر + زرار -->
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    margin-top:auto;padding-top:12px;border-top:1px solid var(--bd)">
+          ${price
+            ? `<div>
+                 <div style="font-size:19px;font-weight:900;color:${acc};line-height:1">${Number(price).toLocaleString()}</div>
+                 <div style="font-size:10px;color:var(--t3)">ج.م</div>
+               </div>`
+            : `<div style="font-size:12px;color:var(--t3)">تواصل للسعر</div>`}
+          <button onclick="event.stopPropagation();_openSvcOrder('${type}',${idx})"
+            style="background:${acc};color:#fff;border:none;border-radius:10px;
+                   padding:9px 16px;font-family:var(--font);font-size:12px;font-weight:900;
+                   cursor:pointer;display:flex;align-items:center;gap:6px;transition:opacity .15s"
+            onmouseover="this.style.opacity='.82'" onmouseout="this.style.opacity='1'">
+            <i class="fa-solid fa-cart-plus"></i> اطلب
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── تابز ──
+  function tab(key,icon,label,n){
+    const on = _svcActiveTab===key;
+    return `<button onclick="_svcSetTab('${key}')"
+      style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;
+             border:1.5px solid ${on?acc:'var(--bd)'};background:${on?acc+'22':'transparent'};
+             color:${on?acc:'var(--t3)'};font-family:var(--font);font-size:12px;font-weight:800;
+             cursor:pointer;transition:.15s;white-space:nowrap">
+      <i class="fa-solid ${icon}"></i>${label}
+      <span style="background:${on?acc:'var(--s3)'};color:${on?'#fff':'var(--t3)'};
+                   border-radius:20px;padding:1px 7px;font-size:10px">${n}</span>
+    </button>`;
+  }
+
+  const grid = shown.length
+    ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px">
+         ${shown.map(buildCard).join('')}
+       </div>`
+    : `<div style="text-align:center;padding:48px 20px;color:var(--t3)">
+         <i class="fa-solid fa-store" style="font-size:38px;opacity:.25;display:block;margin-bottom:12px"></i>
+         لا توجد خدمات في هذه الفئة
+       </div>`;
+
+  return `
+  <section id="_svc-section" style="margin-top:40px">
+    <!-- divider -->
+    <div style="height:1.5px;background:linear-gradient(90deg,${acc}44,transparent);margin-bottom:28px"></div>
+
+    <!-- Header -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;
+                margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:18px;font-weight:900;color:var(--t1)">
+          <i class="fa-solid fa-store" style="color:${acc};margin-left:8px"></i>خدماتنا وباقاتنا
+        </div>
+        <div style="font-size:12px;color:var(--t3);margin-top:4px">اطلب أي خدمة مباشرة من هنا</div>
+      </div>
+      <a href="${xe(storeLink)}" target="_blank"
+        style="display:inline-flex;align-items:center;gap:7px;background:${acc}18;color:${acc};
+               border:1.5px solid ${acc}44;border-radius:10px;padding:8px 16px;
+               font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap;transition:.15s"
+        onmouseover="this.style.background='${acc}28'" onmouseout="this.style.background='${acc}18'">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i> المتجر الكامل
       </a>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
-      ${allSvcs.slice(0,6).map(s=>{
-        const price=s.price||s.startingPrice||s.basePrice||0;
-        const dur=s.deliveryDays||s.duration||s.delivery||'';
-        const svcImg=s.image||s.logo||s.img||'';
-        return`<div class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px">
-          <div style="display:flex;align-items:center;gap:10px">
-            ${svcImg?`<img src="${xe(svcImg)}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`
-            :`<div style="width:44px;height:44px;border-radius:10px;background:${acc}22;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${s.icon||'🎯'}</div>`}
-            <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:800;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${xe(s.name)}</div>
-              ${dur?`<div style="font-size:10px;color:var(--t3);margin-top:2px"><i class="fa-solid fa-clock"></i> ${xe(String(dur))} يوم</div>`:''}
-            </div>
-          </div>
-          ${s.desc||s.description?`<div style="font-size:11px;color:var(--t3);line-height:1.6;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden">${xe(s.desc||s.description)}</div>`:''}
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:auto">
-            ${price?`<div style="font-size:15px;font-weight:900;color:${acc}">${Number(price).toLocaleString()} <span style="font-size:10px;font-weight:600">ج</span></div>`:`<div style="font-size:12px;color:var(--t3)">تواصل للسعر</div>`}
-            <button onclick="orderService('${xe(String(s.id||s.name))}')" style="background:${acc};color:#fff;border:none;border-radius:8px;padding:7px 14px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;transition:.15s">
-              <i class="fa-solid fa-cart-plus"></i> اطلب الآن
-            </button>
-          </div>
-        </div>`;
-      }).join('')}
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:${cats.length>1?'12':'18'}px" id="_svc-tabs">
+      ${tab('all','fa-border-all','الكل', svcs.length+pkgs.length)}
+      ${svcs.length ? tab('svc','fa-bag-shopping','خدمات', svcs.length) : ''}
+      ${pkgs.length ? tab('pkg','fa-box','باقات', pkgs.length) : ''}
     </div>
-    ${allSvcs.length>6?`<div style="text-align:center;margin-top:12px"><a href="${xe(_storeLink)}" target="_blank" style="font-size:12px;color:${acc};font-weight:700;text-decoration:none"><i class="fa-solid fa-plus-circle"></i> عرض ${allSvcs.length-6} خدمة أخرى</a></div>`:''}
-  </div>`;
+
+    <!-- Cat filters -->
+    ${cats.length>1
+      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px" id="_svc-cats">
+           ${['', ...cats].map(c=>{
+             const on = _svcActiveCat===c;
+             return `<button onclick="_svcSetCat('${xe(c)}')"
+               style="padding:5px 13px;border-radius:14px;border:1px solid ${on?acc:'var(--bd)'};
+                      background:${on?acc+'22':'transparent'};color:${on?acc:'var(--t3)'};
+                      font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;transition:.12s">
+               ${c||'الكل'}
+             </button>`;
+           }).join('')}
+         </div>`
+      : ''}
+
+    <!-- Grid -->
+    ${grid}
+
+    ${(svcs.length+pkgs.length)>6 && !_svcActiveCat && _svcActiveTab==='all'
+      ? `<div style="text-align:center;margin-top:18px">
+           <a href="${xe(storeLink)}" target="_blank"
+             style="display:inline-flex;align-items:center;gap:6px;font-size:12px;
+                    color:${acc};font-weight:800;text-decoration:none">
+             <i class="fa-solid fa-circle-arrow-left"></i>
+             عرض كل الخدمات في المتجر
+           </a>
+         </div>`
+      : ''}
+  </section>`;
 }
 
-function orderService(svcId){
-  const svc = [...(_ud.services||[]),...(_ud.standalone_packages||[])].find(s=>String(s.id||s.name)===String(svcId));
-  if(!svc) return;
-  const acc = _settings?.accent||_settings?.accentColor||'#7c6ff7';
-  const _storeUn=_settings.username;
-  const _storeLink=_storeUn?(STORE_URL+'?u='+encodeURIComponent(_storeUn)+'&svc='+encodeURIComponent(svcId)):(STORE_URL+'?uid='+(window._resolvedUid||pUid||'')+'&svc='+encodeURIComponent(svcId));
+// ── إعادة رسم السيكشن بعد تغيير التاب أو الفلتر ──
+function _svcRender(){
+  const sec = document.getElementById('_svc-section');
+  if(!sec) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = renderServices();
+  const newSec = tmp.firstElementChild;
+  if(newSec) sec.parentElement.replaceChild(newSec, sec);
+}
+function _svcSetTab(t){ _svcActiveTab=t; _svcActiveCat=''; _svcRender(); }
+function _svcSetCat(c){ _svcActiveCat=c; _svcRender(); }
 
-  const ov=document.createElement('div');ov.className='overlay';
-  ov.onclick=ev=>{if(ev.target===ov)ov.remove();};
-  ov.innerHTML=`<div class="sheet" style="max-height:70vh">
+// ── Sheet تفاصيل الخدمة ──
+function _openSvcDetail(type, idx){
+  const list = type==='pkg'
+    ? (_ud.standalone_packages||[]).filter(p=>p&&p.name&&p.active!==false)
+    : (_ud.services||[]).filter(s=>s&&s.name&&s.active!==false);
+  const s = list[idx]; if(!s) return;
+  const acc   = _settings?.accent||_settings?.accentColor||'#7c6ff7';
+  const phone = (_settings?.phone||'').replace(/\D/g,'');
+  const isPkg = type==='pkg';
+  const price = +s.price||0;
+  const dur   = s.deliveryDays||s.duration||s.delivery||'';
+  const revs  = s.revisions||s.revisionCount||'';
+  const items = s.items||s.features||[];
+  const img   = s.image||s.img||s.thumb||s.photo||s.logo||'';
+
+  document.getElementById('_svc-detail-ov')?.remove();
+  const ov = document.createElement('div'); ov.className='overlay'; ov.id='_svc-detail-ov';
+  ov.onclick = ev=>{ if(ev.target===ov) ov.remove(); };
+  ov.innerHTML = `<div class="sheet" style="max-height:92vh">
     <div class="sheet-hdl"></div>
-    <div style="text-align:center;margin-bottom:18px">
-      <div style="font-size:32px;margin-bottom:8px">${svc.icon||'🎯'}</div>
-      <div style="font-size:17px;font-weight:900;color:var(--t1)">${xe(svc.name)}</div>
-      ${svc.price?`<div style="font-size:20px;font-weight:900;color:${acc};margin-top:4px">${Number(svc.price).toLocaleString()} ج</div>`:''}
+
+    ${img?`<div style="margin:-22px -20px 20px;height:200px;overflow:hidden;border-radius:16px 16px 0 0">
+              <img src="${xe(img)}" style="width:100%;height:100%;object-fit:cover"
+                onerror="this.parentElement.remove()">
+           </div>`
+        :`<div style="text-align:center;font-size:56px;margin-bottom:14px">${s.icon||(isPkg?'📦':'🎯')}</div>`}
+
+    <!-- badge + title -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="padding:3px 10px;border-radius:20px;font-size:10px;font-weight:800;color:#fff;
+                   background:${isPkg?'linear-gradient(135deg,#4fd1a5,#38b28a)':acc}">
+        ${isPkg?'باقة':'خدمة'}
+      </span>
+      ${s.cat?`<span style="font-size:11px;font-weight:700;color:${acc}">${xe(s.cat)}</span>`:''}
     </div>
-    ${svc.desc||svc.description?`<div style="font-size:13px;color:var(--t2);line-height:1.8;background:var(--s2);border-radius:12px;padding:14px;margin-bottom:16px">${xe(svc.desc||svc.description)}</div>`:''}
+
+    <div style="font-size:21px;font-weight:900;color:var(--t1);margin-bottom:4px">${xe(s.name)}</div>
+    ${price?`<div style="font-size:28px;font-weight:900;color:${acc};margin-bottom:16px">
+               ${Number(price).toLocaleString()} <span style="font-size:14px;font-weight:700">ج.م</span>
+             </div>`:'<div style="margin-bottom:16px"></div>'}
+
+    ${s.desc||s.description
+      ?`<div style="font-size:13px;color:var(--t2);line-height:1.9;padding:14px;
+                    background:var(--s2);border-radius:12px;border:1px solid var(--bd);margin-bottom:16px">
+           ${xe(s.desc||s.description)}
+         </div>`:''}
+
+    ${items.length?`
+    <div style="background:var(--s2);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:800;color:var(--t3);margin-bottom:10px">
+        <i class="fa-solid fa-list-check" style="color:${acc};margin-left:5px"></i>ما يشمله
+      </div>
+      ${items.map(it=>`
+      <div style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--t2);
+                  padding:7px 0;border-bottom:1px solid var(--bd)">
+        <i class="fa-solid fa-check-circle" style="color:${acc};margin-top:2px;flex-shrink:0"></i>
+        ${xe(String(it))}
+      </div>`).join('')}
+    </div>`:''}
+
+    ${dur||revs?`
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+      ${dur?`<div style="flex:1;min-width:80px;background:var(--s2);border:1px solid var(--bd);
+                         border-radius:12px;padding:14px;text-align:center">
+               <div style="font-size:22px;font-weight:900;color:${acc}">${xe(String(dur))}</div>
+               <div style="font-size:10px;color:var(--t3);margin-top:3px">
+                 <i class="fa-solid fa-clock"></i> يوم تسليم
+               </div>
+             </div>`:''}
+      ${revs?`<div style="flex:1;min-width:80px;background:var(--s2);border:1px solid var(--bd);
+                          border-radius:12px;padding:14px;text-align:center">
+                <div style="font-size:22px;font-weight:900;color:${acc}">${xe(String(revs))}</div>
+                <div style="font-size:10px;color:var(--t3);margin-top:3px">
+                  <i class="fa-solid fa-rotate"></i> تعديلات
+                </div>
+              </div>`:''}
+    </div>`:''}
+
+    <!-- CTAs -->
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <a href="${xe(_storeLink)}" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:${acc};color:#fff;border:none;border-radius:12px;padding:12px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;text-decoration:none">
-        <i class="fa-solid fa-cart-shopping"></i> اطلب من المتجر
-      </a>
-      ${(_settings.phone||'').replace(/\D/g,'')?`<a href="https://wa.me/${(_settings.phone||'').replace(/\D/g,'')}?text=${encodeURIComponent('مرحباً، أريد طلب خدمة: '+svc.name)}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#25D366;color:#fff;border:none;border-radius:12px;padding:12px 16px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;text-decoration:none">
-        <i class="fa-brands fa-whatsapp"></i>
-      </a>`:''}
+      <button onclick="document.getElementById('_svc-detail-ov').remove();_openSvcOrder('${type}',${idx})"
+        style="flex:1;background:linear-gradient(135deg,${acc},${acc}cc);color:#fff;border:none;
+               border-radius:13px;padding:15px;font-family:var(--font);font-size:15px;font-weight:900;
+               cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+        <i class="fa-solid fa-cart-shopping"></i> اطلب الآن
+      </button>
+      ${phone?`<a href="https://wa.me/${phone}?text=${encodeURIComponent('مرحباً، أريد الاستفسار عن: '+s.name)}"
+           target="_blank"
+           style="background:#25D366;color:#fff;border:none;border-radius:13px;padding:15px 18px;
+                  font-size:20px;display:flex;align-items:center;justify-content:center;text-decoration:none">
+           <i class="fa-brands fa-whatsapp"></i>
+         </a>`:''}
     </div>
   </div>`;
   document.body.appendChild(ov);
+}
+
+// ── Sheet طلب خدمة (فورم داخلي) ──
+function _openSvcOrder(type, idx){
+  const list = type==='pkg'
+    ? (_ud.standalone_packages||[]).filter(p=>p&&p.name&&p.active!==false)
+    : (_ud.services||[]).filter(s=>s&&s.name&&s.active!==false);
+  const s = list[idx]; if(!s) return;
+
+  // لو فيه payment_link — روّح له مباشرة
+  if(s.payment_link){ window.open(s.payment_link,'_blank'); return; }
+
+  const acc   = _settings?.accent||_settings?.accentColor||'#7c6ff7';
+  const phone = (_settings?.phone||'').replace(/\D/g,'');
+  const price = +s.price||0;
+  const uid   = window._resolvedUid||pUid||'';
+
+  document.getElementById('_svc-order-ov')?.remove();
+  const ov = document.createElement('div'); ov.className='overlay'; ov.id='_svc-order-ov';
+  ov.onclick = ev=>{ if(ev.target===ov) ov.remove(); };
+  ov.innerHTML = `<div class="sheet" style="max-height:92vh">
+    <div class="sheet-hdl"></div>
+
+    <!-- title row -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div style="font-size:16px;font-weight:900;color:var(--t1)">
+          <i class="fa-solid fa-paper-plane" style="color:${acc};margin-left:6px"></i>طلب: ${xe(s.name)}
+        </div>
+        ${price?`<div style="font-size:14px;font-weight:800;color:${acc};margin-top:3px">
+                   ${Number(price).toLocaleString()} ج.م
+                 </div>`:''}
+      </div>
+      <button onclick="document.getElementById('_svc-order-ov').remove()"
+        style="background:var(--s2);border:1px solid var(--bd);width:36px;height:36px;
+               border-radius:50%;cursor:pointer;font-size:15px;color:var(--t2)">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- inputs -->
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:5px">اسمك *</div>
+      <input id="_so-name" value="${xe(_clientName||'')}" placeholder="الاسم الكامل"
+        style="width:100%;background:var(--s2);border:1.5px solid var(--bd);border-radius:10px;
+               padding:10px 14px;font-family:var(--font);font-size:13px;color:var(--t1);outline:none;
+               transition:.15s" onfocus="this.style.borderColor='${acc}'" onblur="this.style.borderColor='var(--bd)'">
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:5px">واتساب *</div>
+      <input id="_so-phone" value="${xe(_clientPhone||'')}" placeholder="رقم الواتساب" type="tel"
+        style="width:100%;background:var(--s2);border:1.5px solid var(--bd);border-radius:10px;
+               padding:10px 14px;font-family:var(--font);font-size:13px;color:var(--t1);outline:none;
+               direction:ltr;text-align:right;transition:.15s"
+        onfocus="this.style.borderColor='${acc}'" onblur="this.style.borderColor='var(--bd)'">
+    </div>
+    <div style="margin-bottom:18px">
+      <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:5px">تفاصيل الطلب</div>
+      <textarea id="_so-desc" placeholder="اكتب تفاصيل طلبك أو أي ملاحظات..." rows="3"
+        style="width:100%;background:var(--s2);border:1.5px solid var(--bd);border-radius:10px;
+               padding:10px 14px;font-family:var(--font);font-size:13px;color:var(--t1);outline:none;
+               resize:none;transition:.15s"
+        onfocus="this.style.borderColor='${acc}'" onblur="this.style.borderColor='var(--bd)'"></textarea>
+    </div>
+
+    <button id="_so-btn"
+      onclick="_submitSvcOrder('${xe(uid)}','${xe(s.name)}','${type}',${price})"
+      style="width:100%;background:linear-gradient(135deg,${acc},${acc}cc);color:#fff;border:none;
+             border-radius:13px;padding:15px;font-family:var(--font);font-size:15px;font-weight:900;
+             cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s"
+      onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+      <i class="fa-solid fa-paper-plane"></i> إرسال الطلب
+    </button>
+
+    ${phone?`<a href="https://wa.me/${phone}?text=${encodeURIComponent('مرحباً، أريد طلب: '+s.name)}"
+         target="_blank"
+         style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;
+                background:#25D36618;color:#25D366;border:1.5px solid #25D36644;
+                border-radius:13px;padding:13px;font-family:var(--font);font-size:13px;
+                font-weight:800;text-decoration:none">
+         <i class="fa-brands fa-whatsapp"></i> أو تواصل على واتساب
+       </a>`:''}
+  </div>`;
+  document.body.appendChild(ov);
+}
+
+// ── إرسال الطلب لـ Supabase ──
+async function _submitSvcOrder(uid, svcName, svcType, price){
+  const name  = document.getElementById('_so-name')?.value?.trim()||'';
+  const phone = document.getElementById('_so-phone')?.value?.trim()||'';
+  const desc  = document.getElementById('_so-desc')?.value?.trim()||'';
+  if(!name||!phone){
+    const inp = document.getElementById('_so-name');
+    if(inp){ inp.style.borderColor='var(--r)'; setTimeout(()=>inp.style.borderColor='var(--bd)',2000); }
+    return;
+  }
+  const btn = document.getElementById('_so-btn');
+  if(btn){ btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> جاري الإرسال...'; }
+
+  const order = {
+    id: Date.now()+'_so', type:'svc_order',
+    client_name:name, client_phone:phone, client_id:String(_clientId||''),
+    service_name:svcName, pkg_name:svcType==='pkg'?svcName:'',
+    price:+price||0, desc, status:'pending',
+    created_at:new Date().toISOString(), read:false
+  };
+
+  try{
+    const {data:row} = await db.from('studio_data').select('data').eq('user_id',uid).maybeSingle();
+    let fresh = row?.data;
+    if(typeof fresh==='string') fresh=JSON.parse(fresh);
+    if(fresh?.data && !fresh?.tasks) fresh = typeof fresh.data==='string'?JSON.parse(fresh.data):fresh.data;
+
+    (fresh.svc_orders = fresh.svc_orders||[]).push(order);
+    (fresh._pending_notifications = fresh._pending_notifications||[]).push({
+      id:order.id+'_n', title:'طلب خدمة جديد!',
+      body:name+' — '+svcName, type:'svc_order',
+      created_at:new Date().toISOString(), read:false
+    });
+
+    await db.from('studio_data').upsert(
+      {user_id:uid, data:JSON.stringify(fresh), updated_at:new Date().toISOString()},
+      {onConflict:'user_id'}
+    );
+
+    document.getElementById('_svc-order-ov')?.remove();
+
+    // ── رسالة نجاح ──
+    const ok = document.createElement('div'); ok.className='overlay'; ok.onclick=()=>ok.remove();
+    ok.innerHTML=`<div class="sheet" style="max-height:60vh;text-align:center;padding:44px 24px">
+      <div style="font-size:64px;margin-bottom:14px">🎉</div>
+      <div style="font-size:20px;font-weight:900;color:var(--t1);margin-bottom:8px">تم إرسال طلبك!</div>
+      <div style="font-size:13px;color:var(--t3);line-height:1.8;margin-bottom:6px">
+        سيتواصل معك الفريق على واتسابك قريباً
+      </div>
+      <div style="font-size:14px;font-weight:800;color:var(--ac);margin-bottom:22px">${xe(svcName)}</div>
+      <button onclick="this.closest('.overlay').remove()"
+        style="background:var(--ac);color:#fff;border:none;border-radius:11px;padding:12px 32px;
+               font-family:var(--font);font-size:14px;font-weight:900;cursor:pointer">
+        حسناً ✓
+      </button>
+    </div>`;
+    document.body.appendChild(ok);
+
+  }catch(e){
+    console.error('svc order err:',e);
+    if(btn){ btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-paper-plane"></i> إرسال الطلب'; }
+  }
+}
+
+// ── legacy alias ──
+function orderService(svcId){
+  const svcs = (_ud.services||[]).filter(s=>s&&s.name&&s.active!==false);
+  const pkgs = (_ud.standalone_packages||[]).filter(p=>p&&p.name&&p.active!==false);
+  const si = svcs.findIndex(s=>String(s.id||s.name)===String(svcId));
+  if(si>=0){ _openSvcDetail('svc',si); return; }
+  const pi = pkgs.findIndex(p=>String(p.id||p.name)===String(svcId));
+  if(pi>=0) _openSvcDetail('pkg',pi);
 }
 
 // ── PROJECTS (المشاريع الكبيرة) ──
@@ -1414,6 +1813,332 @@ async function _submitProjTaskNote(taskId){
   }
   if(inp){inp.value='';inp.placeholder='تم إرسال الملاحظة ✓';}
   setTimeout(()=>{if(inp)inp.placeholder='اترك ملاحظة على هذه المهمة...';},2500);
+}
+
+// ══════════════════════════════════════════════════════
+// STATS POPUPS — خانات الإحصائيات
+// ══════════════════════════════════════════════════════
+
+function _openHawaPopup(){
+  const acc = _settings?.accent||'#7c6ff7';
+  // حساب الهواء
+  const clientPaidTrans = (_ud.transactions||[]).filter(t=>(t.source===_clientName||t.client===_clientName)&&t.type==='income').reduce((s,t)=>s+(+t.amount||0),0);
+  const totalTasksValue = _clientTasks.reduce((s,t)=>s+(+t.value||0),0);
+  const totalProjTasksValue = (_ud.project_tasks||[]).filter(t=>_clientProjects.some(p=>String(p.id)===String(t.project_id))).reduce((s,t)=>s+(+t.value||0),0);
+  const clientObj=(_ud.clients||[]).find(c=>String(c.id)===String(_clientId));
+  const openingType=clientObj?.openingBalanceType||'receivable';
+  const openingBal=clientObj?.openingBalance||0;
+  const airOnHim = Math.max(0, clientPaidTrans - (totalTasksValue+totalProjTasksValue) + (openingType==='prepaid'?openingBal:0));
+
+  const ov=document.createElement('div');ov.className='overlay';ov.id='hawa-ov';
+  ov.onclick=ev=>{if(ev.target===ov)ov.remove();};
+
+  const activeTasks = _clientTasks.filter(t=>!_isTaskDone(t)&&t.status!=='paused'&&t.status!=='موقوف');
+  const activeProj = _clientProjects.filter(p=>p.status!=='done'&&p.status!=='مكتمل');
+
+  ov.innerHTML=`<div class="sheet" style="max-height:85vh">
+    <div class="sheet-hdl"></div>
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:48px;margin-bottom:8px">🎈</div>
+      <div style="font-size:20px;font-weight:900;color:var(--g)">الهواء عليه</div>
+      <div style="font-size:13px;color:var(--t3);margin-top:4px">مبلغ دفعته زيادة عن قيمة الخدمات</div>
+    </div>
+
+    <div style="background:linear-gradient(135deg,rgba(79,209,165,.15),rgba(79,209,165,.06));border:2px solid rgba(79,209,165,.4);border-radius:16px;padding:20px;text-align:center;margin-bottom:20px">
+      <div style="font-size:36px;font-weight:900;color:var(--g);line-height:1">${airOnHim.toLocaleString()} ج</div>
+      <div style="font-size:12px;color:var(--t3);margin-top:6px">رصيد إيجابي لصالحك 💚</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+      <div style="background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:var(--ac)">${clientPaidTrans.toLocaleString()} ج</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:4px"><i class="fa-solid fa-coins"></i> إجمالي ما دفعته</div>
+      </div>
+      <div style="background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:var(--y)">${(totalTasksValue+totalProjTasksValue).toLocaleString()} ج</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:4px"><i class="fa-solid fa-file-invoice"></i> قيمة الخدمات</div>
+      </div>
+    </div>
+
+    ${activeTasks.length?`
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:800;color:var(--t3);margin-bottom:10px"><i class="fa-solid fa-bolt" style="color:var(--ac)"></i> المهام النشطة حالياً (${activeTasks.length})</div>
+      ${activeTasks.map(t=>`
+      <div style="background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="document.getElementById('hawa-ov').remove();openTask('${xe(String(t.id))}')">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--t1)">${xe(t.title||'مهمة')}</div>
+          <span class="badge ${scMap[t.status||'']||'badge-pend'}">${xe(stMap[t.status||'']||t.status||'جديد')}</span>
+        </div>
+        ${t.value?`<div style="font-size:13px;font-weight:900;color:var(--ac)">${Number(t.value).toLocaleString()} ج</div>`:''}
+      </div>`).join('')}
+    </div>`:''}
+
+    ${activeProj.length?`
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:800;color:var(--t3);margin-bottom:10px"><i class="fa-solid fa-folder-open" style="color:var(--g)"></i> المشاريع النشطة (${activeProj.length})</div>
+      ${activeProj.map(p=>`
+      <div style="background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="document.getElementById('hawa-ov').remove();switchTab('projects')">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--t1)">${xe(p.name||p.title||'مشروع')}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">${p.deadline?'موعد التسليم: '+xe(p.deadline):''}</div>
+        </div>
+        <i class="fa-solid fa-arrow-left" style="color:var(--t3);font-size:12px"></i>
+      </div>`).join('')}
+    </div>`:''}
+
+    <button onclick="document.getElementById('hawa-ov').remove()" style="width:100%;background:var(--s2);color:var(--t2);border:1px solid var(--bd);border-radius:12px;padding:13px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer">إغلاق</button>
+  </div>`;
+  document.body.appendChild(ov);
+}
+
+function _openActiveProjectsPopup(){
+  const activeProjList = _clientProjects.filter(p=>p.status!=='done'&&p.status!=='مكتمل');
+  const doneProjList = _clientProjects.filter(p=>p.status==='done'||p.status==='مكتمل');
+  const doneTasks = _clientTasks.filter(t=>_isTaskDone(t));
+
+  const ov=document.createElement('div');ov.className='overlay';ov.id='proj-stat-ov';
+  ov.onclick=ev=>{if(ev.target===ov)ov.remove();};
+  ov.innerHTML=`<div class="sheet" style="max-height:85vh">
+    <div class="sheet-hdl"></div>
+    <div style="font-size:18px;font-weight:900;margin-bottom:4px"><i class="fa-solid fa-check-circle" style="color:var(--g)"></i> المكتملات</div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:18px">طلبات ومشاريع مكتملة</div>
+
+    ${doneTasks.length?`
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:800;color:var(--t3);margin-bottom:8px"><i class="fa-solid fa-clipboard-check" style="color:var(--g)"></i> الطلبات المكتملة (${doneTasks.length})</div>
+      ${doneTasks.slice(0,8).map(t=>`
+      <div style="background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:11px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="document.getElementById('proj-stat-ov').remove();openTask('${xe(String(t.id))}')">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--t2)">${xe(t.title||'طلب')}</div>
+          <span class="badge badge-done">✅ مكتمل</span>
+        </div>
+        ${t.value?`<div style="font-size:12px;font-weight:800;color:var(--g)">${Number(t.value).toLocaleString()} ج</div>`:''}
+      </div>`).join('')}
+      ${doneTasks.length>8?`<div style="text-align:center;font-size:11px;color:var(--t3);padding:8px">+${doneTasks.length-8} أخرى</div>`:''}
+    </div>`:''}
+
+    ${doneProjList.length?`
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:800;color:var(--t3);margin-bottom:8px"><i class="fa-solid fa-folder-open" style="color:var(--g)"></i> المشاريع المكتملة (${doneProjList.length})</div>
+      ${doneProjList.map(p=>`
+      <div style="background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:11px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="document.getElementById('proj-stat-ov').remove();switchTab('projects')">
+        <div style="font-size:12px;font-weight:700;color:var(--t2)">${xe(p.name||p.title||'مشروع')}</div>
+        <span class="badge badge-done">✅ مكتمل</span>
+      </div>`).join('')}
+    </div>`:''}
+
+    ${!doneTasks.length&&!doneProjList.length?`<div class="empty"><i class="fa-solid fa-hourglass-half"></i><div>لا يوجد مكتمل بعد</div></div>`:''}
+
+    <button onclick="document.getElementById('proj-stat-ov').remove()" style="width:100%;background:var(--s2);color:var(--t2);border:1px solid var(--bd);border-radius:12px;padding:13px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer">إغلاق</button>
+  </div>`;
+  document.body.appendChild(ov);
+}
+
+function _openDueNowPopup(){
+  const clientObj=(_ud.clients||[]).find(c=>String(c.id)===String(_clientId));
+  const openingType=clientObj?.openingBalanceType||'receivable';
+  const openingBal=clientObj?.openingBalance||0;
+
+  const tasksDue = _clientTasks.filter(t=>(t.value||0)>0&&t.pay!=='full');
+  const projTasksDue = (_ud.project_tasks||[]).filter(t=>
+    _clientProjects.some(p=>String(p.id)===String(t.project_id))&&(t.value||0)>0&&!t.paymentCollected&&t.paymentStatus!=='collected'
+  );
+
+  const ov=document.createElement('div');ov.className='overlay';ov.id='due-ov';
+  ov.onclick=ev=>{if(ev.target===ov)ov.remove();};
+  ov.innerHTML=`<div class="sheet" style="max-height:85vh">
+    <div class="sheet-hdl"></div>
+    <div style="font-size:18px;font-weight:900;margin-bottom:4px"><i class="fa-solid fa-coins" style="color:var(--r)"></i> المستحق لحد الآن</div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:18px">تفاصيل المبالغ المستحقة</div>
+
+    ${openingBal>0&&openingType==='receivable'?`
+    <div style="background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);border-radius:10px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:12px;font-weight:800;color:var(--r)">💰 رصيد افتتاحي مستحق</div>
+        ${clientObj?.openingBalanceNote?`<div style="font-size:10px;color:var(--t3)">${xe(clientObj.openingBalanceNote)}</div>`:''}
+      </div>
+      <div style="font-size:16px;font-weight:900;color:var(--r)">${openingBal.toLocaleString()} ج</div>
+    </div>`:''}
+
+    ${tasksDue.length?`
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:800;color:var(--t3);margin-bottom:8px"><i class="fa-solid fa-clipboard-list" style="color:var(--y)"></i> طلبات بها مستحقات (${tasksDue.length})</div>
+      ${tasksDue.map(t=>{
+        const val=+t.value||0;
+        const dep=(t.pay==='deposit')?+(t.deposit||0):0;
+        const due=val-dep;
+        return`<div style="background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:11px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="document.getElementById('due-ov').remove();openTask('${xe(String(t.id))}')">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--t1)">${xe(t.title||'طلب')}</div>
+            <span class="badge ${t.pay==='deposit'?'badge-pend':'badge-stop'}">${t.pay==='deposit'?'عربون جزئي':'غير مدفوع'}</span>
+          </div>
+          <div style="text-align:left">
+            <div style="font-size:14px;font-weight:900;color:var(--r)">${due.toLocaleString()} ج</div>
+            ${dep?`<div style="font-size:10px;color:var(--t3)">من ${val.toLocaleString()} ج</div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`:''}
+
+    ${projTasksDue.length?`
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:800;color:var(--t3);margin-bottom:8px"><i class="fa-solid fa-folder-open" style="color:var(--y)"></i> مهام مشاريع بها مستحقات (${projTasksDue.length})</div>
+      ${projTasksDue.map(t=>{
+        const val=+t.value||0;
+        const dep=(t.paymentStatus==='deposit')?+(t.deposit||0):0;
+        const due=val-dep;
+        return`<div style="background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:11px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--t1)">${xe(t.title||'مهمة')}</div>
+            <span class="badge badge-pend">⏳ مستحق</span>
+          </div>
+          <div style="font-size:14px;font-weight:900;color:var(--r)">${due.toLocaleString()} ج</div>
+        </div>`;
+      }).join('')}
+    </div>`:''}
+
+    ${!tasksDue.length&&!projTasksDue.length&&!(openingBal>0&&openingType==='receivable')?`
+    <div class="empty"><i class="fa-solid fa-circle-check" style="color:var(--g)"></i><div style="color:var(--g);font-weight:800">ما عليك أي مستحقات حالياً 🎉</div></div>`:''}
+
+    <button onclick="document.getElementById('due-ov').remove()" style="width:100%;background:var(--s2);color:var(--t2);border:1px solid var(--bd);border-radius:12px;padding:13px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer">إغلاق</button>
+  </div>`;
+  document.body.appendChild(ov);
+}
+
+// ══════════════════════════════════════════════════════
+// BOOKING FORM — احجز موعد ميتنج (متكامل مع الاندكس)
+// ══════════════════════════════════════════════════════
+function _openClientBookingForm(){
+  const acc = _settings?.accent||_settings?.accentColor||'#7c6ff7';
+  const slots = (_settings?.meeting_slots)||[];
+  const saveUid = window._resolvedUid||pUid;
+  const nm = _settings?.name||'Studio';
+
+  const ov=document.createElement('div');ov.className='overlay';ov.id='book-client-ov';
+  ov.onclick=ev=>{if(ev.target===ov)ov.remove();};
+
+  const slotsHtml = slots.length ? `
+  <div style="margin-bottom:14px">
+    <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px"><i class="fa-solid fa-alarm-clock" style="color:${acc}"></i> الأوقات المتاحة</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px" id="_client-book-slots">
+      ${slots.map((s,i)=>`
+      <button onclick="_clientSelectSlot(this,'${xe(s.day+' '+s.from+' - '+s.to)}')"
+        style="padding:8px 12px;border-radius:8px;border:1.5px solid ${acc}44;background:transparent;color:var(--t1);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;transition:.15s"
+        onmouseover="if(!this.dataset.sel)this.style.background='${acc}18'"
+        onmouseout="if(!this.dataset.sel)this.style.background='transparent'">
+        ${xe(s.day)} · ${xe(s.from)} - ${xe(s.to)}
+      </button>`).join('')}
+    </div>
+  </div>` : '';
+
+  ov.innerHTML=`<div class="sheet" style="max-height:88vh">
+    <div class="sheet-hdl"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-size:19px;font-weight:900;color:var(--t1)"><i class="fa-solid fa-calendar-days" style="color:${acc}"></i> احجز موعد</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:3px">مع فريق ${xe(nm)}</div>
+      </div>
+      <button onclick="document.getElementById('book-client-ov').remove()" style="background:var(--s2);border:1px solid var(--bd);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:16px;color:var(--t2)"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    ${slotsHtml}
+
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:6px">اسمك</div>
+      <input id="_cbook-name" value="${xe(_clientName||'')}" placeholder="الاسم الكامل *" style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:11px 14px;font-family:var(--font);font-size:13px;color:var(--t1);outline:none">
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:6px">رقم الواتساب</div>
+      <input id="_cbook-phone" value="${xe(_clientPhone||'')}" placeholder="رقم الواتساب *" type="tel" style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:11px 14px;font-family:var(--font);font-size:13px;color:var(--t1);outline:none;direction:ltr;text-align:right">
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:6px">الوقت المناسب</div>
+      <input id="_cbook-time" placeholder="${slots.length?'اختر من الأوقات المتاحة فوق':'الوقت المناسب لك (مثال: الأحد 3م)'}" ${slots.length?'readonly':''}
+        style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:11px 14px;font-family:var(--font);font-size:13px;color:var(--t1);outline:none">
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:6px">موضوع الاجتماع</div>
+      <textarea id="_cbook-msg" placeholder="موضوع الموعد أو ما تريد مناقشته..." rows="3"
+        style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:11px 14px;font-family:var(--font);font-size:13px;color:var(--t1);outline:none;resize:none"></textarea>
+    </div>
+    <button id="_cbook-submit-btn" onclick="_submitClientBooking('${xe(String(saveUid||''))}')"
+      style="width:100%;background:linear-gradient(135deg,${acc},${acc}dd);color:#fff;border:none;border-radius:12px;padding:14px;font-family:var(--font);font-size:15px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+      <i class="fa-solid fa-calendar-days"></i> إرسال طلب الموعد
+    </button>
+    <div style="text-align:center;font-size:11px;color:var(--t3);margin-top:10px"><i class="fa-solid fa-bell"></i> سيصل طلبك للفريق فوراً وسيتواصلون معك</div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+
+function _clientSelectSlot(btn, slotLabel){
+  const wrap=document.getElementById('_client-book-slots');
+  if(wrap) wrap.querySelectorAll('button').forEach(b=>{
+    b.style.background='transparent'; b.style.borderColor='rgba(124,111,247,.27)'; delete b.dataset.sel;
+  });
+  const acc=_settings?.accent||'#7c6ff7';
+  btn.style.background=acc+'33'; btn.style.borderColor=acc; btn.dataset.sel='1';
+  const inp=document.getElementById('_cbook-time'); if(inp) inp.value=slotLabel;
+}
+
+async function _submitClientBooking(uid){
+  const name=(document.getElementById('_cbook-name')?.value||'').trim();
+  const phone=(document.getElementById('_cbook-phone')?.value||'').trim();
+  const time=(document.getElementById('_cbook-time')?.value||'').trim();
+  const msg=(document.getElementById('_cbook-msg')?.value||'').trim();
+  if(!name||!phone){alert('الاسم ورقم الواتساب مطلوبان');return;}
+
+  const btn=document.getElementById('_cbook-submit-btn');
+  if(btn){btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> جاري الإرسال...';btn.disabled=true;}
+
+  const meeting={
+    id:Date.now()+'_m',
+    type:'meeting_request',
+    client_name:name,
+    client_phone:phone,
+    client_id:String(_clientId||''),
+    preferred_time:time,
+    message:msg,
+    created_at:new Date().toISOString(),
+    read:false
+  };
+
+  try{
+    const {data:row}=await db.from('studio_data').select('data').eq('user_id',uid).maybeSingle();
+    let fresh=row?.data;
+    if(typeof fresh==='string') fresh=JSON.parse(fresh);
+    if(fresh?.data&&!fresh?.tasks) fresh=typeof fresh.data==='string'?JSON.parse(fresh.data):fresh.data;
+
+    if(!fresh.support_msgs) fresh.support_msgs=[];
+    fresh.support_msgs.push(meeting);
+    if(!fresh._pending_notifications) fresh._pending_notifications=[];
+    fresh._pending_notifications.push({
+      id:meeting.id+'_n',
+      title:'<i class="fa-solid fa-calendar-days"></i> طلب موعد ميتنج!',
+      body:'طلب من '+name+(time?' — '+time:''),
+      type:'meeting',
+      created_at:new Date().toISOString(),
+      read:false
+    });
+
+    await db.from('studio_data').upsert({user_id:uid,data:fresh,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+
+    document.getElementById('book-client-ov')?.remove();
+
+    // رسالة نجاح
+    const ok=document.createElement('div');ok.className='overlay';ok.onclick=()=>ok.remove();
+    ok.innerHTML=`<div class="sheet" style="max-height:55vh;text-align:center;padding:40px 20px">
+      <div style="font-size:60px;margin-bottom:12px">🎉</div>
+      <div style="font-size:20px;font-weight:900;color:var(--t1);margin-bottom:8px">تم إرسال طلب الموعد!</div>
+      <div style="font-size:13px;color:var(--t3);line-height:1.8">سيتواصل معك الفريق قريباً لتأكيد الموعد.</div>
+      ${time?`<div style="margin-top:12px;padding:10px;background:var(--s2);border-radius:10px;font-size:12px;font-weight:700;color:var(--ac)"><i class="fa-solid fa-clock"></i> ${xe(time)}</div>`:''}
+      <button onclick="this.closest('.overlay').remove()" style="margin-top:20px;background:var(--ac);color:#fff;border:none;border-radius:10px;padding:10px 28px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer">حسناً ✓</button>
+    </div>`;
+    document.body.appendChild(ok);
+  }catch(e){
+    console.error('booking error:',e);
+    if(btn){btn.innerHTML='<i class="fa-solid fa-paper-plane"></i> إرسال طلب الموعد';btn.disabled=false;}
+    alert('حدث خطأ، حاول مجدداً');
+  }
 }
 
 document.addEventListener('DOMContentLoaded',boot);
