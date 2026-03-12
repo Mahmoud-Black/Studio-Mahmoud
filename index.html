@@ -8794,11 +8794,52 @@ window._submitMemberComment = async function(ownerId, taskId, textarea, stepIdx,
 
 function changeTaskStatus(id, newStatus){
   const t = S.tasks.find(t=>t.id===id); if(!t) return;
+  const prevDone = t.done || t.status==='done';
   t.status = newStatus;
-  if(newStatus==='done'){ t.done=true; t.doneAt=t.doneAt||new Date().toISOString().split('T')[0]; }
-  else t.done=false;
+  if(newStatus==='done'){ 
+    t.done=true; t.doneAt=t.doneAt||new Date().toISOString().split('T')[0];
+    // اطلب رابط التسليم
+    if(!prevDone){
+      _askRegularTaskProjectLink(id);
+    }
+  } else {
+    t.done=false;
+    if(newStatus==='revision' && prevDone) _notifyClientRevision(t);
+  }
   lsSave(); renderAll();
-  showMiniNotif('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تغيير حالة المهمة إلى: '+{new:'جديد',progress:'قيد التنفيذ',review:'مراجعة',paused:'موقوف مؤقتاً',done:'مكتمل'}[newStatus]);
+  showMiniNotif('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم تغيير حالة المهمة إلى: '+{new:'جديد',progress:'قيد التنفيذ',review:'مراجعة',paused:'موقوف مؤقتاً',done:'مكتمل',revision:'تعديلات'}[newStatus]);
+}
+
+// ── اطلب رابط التسليم للمهام العادية ──
+function _askRegularTaskProjectLink(taskId){
+  var t = S.tasks.find(function(x){ return x.id===taskId; });
+  if(!t) return;
+  var ov=document.createElement('div');
+  ov.className='modal-overlay';
+  ov.style.cssText='display:flex;align-items:center;justify-content:center;z-index:10000';
+  ov.innerHTML='<div class="modal" style="width:min(420px,92vw);border-radius:18px;padding:28px">'
+    +'<div style="font-size:36px;text-align:center;margin-bottom:10px">🔗</div>'
+    +'<div style="font-size:16px;font-weight:900;text-align:center;margin-bottom:6px">رابط تسليم المشروع</div>'
+    +'<div style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:18px">المهمة: <strong>'+escapeHtml(t.title)+'</strong></div>'
+    +'<input id="_rtask-link-input" class="form-input" placeholder="https://drive.google.com/... أو أي رابط للتسليم" value="'+escapeHtml(t.projectLink||t.driveLink||'')+'"/>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">سيظهر هذا الرابط للعميل في بوابته لاستلام المشروع</div>'
+    +'<div style="display:flex;gap:10px;margin-top:18px">'
+      +'<button data-tid="'+taskId+'" onclick="_saveRegularTaskLink(this.dataset.tid);this.closest(\'.modal-overlay\').remove()" class="btn btn-primary" style="flex:1"><i class="fa-solid fa-floppy-disk"></i> حفظ الرابط</button>'
+      +'<button onclick="this.closest(\'.modal-overlay\').remove()" class="btn btn-ghost">تخطي</button>'
+    +'</div>'
+  +'</div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  setTimeout(function(){var inp=document.getElementById('_rtask-link-input');if(inp)inp.focus();},100);
+}
+
+function _saveRegularTaskLink(taskId){
+  var t = S.tasks.find(function(x){ return x.id===taskId; });
+  if(!t) return;
+  var inp=document.getElementById('_rtask-link-input');
+  if(inp){ t.projectLink = inp.value.trim(); t.driveLink = t.projectLink; }
+  lsSave(); cloudSave(S); renderAll();
+  toast('<i class="fa-solid fa-link" style="color:var(--accent3)"></i> تم حفظ رابط المشروع');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -25999,13 +26040,13 @@ function renderProjOverview(proj,tasks,client,clr){
         })()}
       </div>
     </div>
-    <!-- Recent Tasks -->
+    <!-- Recent Tasks Table -->
     <div class="card" style="margin-top:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div class="section-title" style="margin:0">آخر المهام</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="section-title" style="margin:0"><i class="fa-solid fa-clipboard-list" style="color:${clr}"></i> آخر المهام</div>
         <button class="btn btn-primary btn-sm" onclick="openProjTaskModal('${proj.id}')"><i class="fa-solid fa-plus"></i> مهمة</button>
       </div>
-      ${tasks.slice(0,5).map(t=>renderProjTaskRow(t,clr)).join('')||'<div style="text-align:center;color:var(--text3);padding:20px;font-size:13px">لا توجد مهام — أضف مهمة جديدة</div>'}
+      ${tasks.length===0 ? '<div style="text-align:center;color:var(--text3);padding:20px;font-size:13px">لا توجد مهام — أضف مهمة جديدة</div>' : renderProjTasksOverviewTable(tasks.slice(0,5), proj, clr)}
     </div>
     <!-- Project Comments -->
     ${(()=>{
@@ -26167,6 +26208,22 @@ function _changePtaskStatus(taskId, projId, newStatus){
   if(!t) return;
   var prevDone = t.status==='done';
   t.status=newStatus;
+  if(newStatus==='done'){
+    // اطلب رابط المشروع إذا لم يكن موجوداً
+    if(!prevDone){
+      _askProjectLinkForTask(taskId, projId, function(){
+        // بعد الرابط، اسأل التحصيل
+        if(t.value>0 && !t.paymentCollected) _askPtaskPayment(taskId, projId);
+      });
+      lsSave(); cloudSave(S); renderProjectDetail();
+      return;
+    }
+  } else {
+    // إذا رجع من done => خلّي العميل يعرف إن في تعديل
+    if(prevDone && newStatus==='revision'){
+      _notifyClientRevision(t);
+    }
+  }
   // سؤال التحصيل لما يتحول لمكتمل
   if(newStatus==='done' && !prevDone && t.value>0 && !t.paymentCollected){
     _askPtaskPayment(taskId, projId);
@@ -26174,7 +26231,102 @@ function _changePtaskStatus(taskId, projId, newStatus){
   lsSave(); cloudSave(S); renderProjectDetail();
 }
 
-// ── سؤال هل حصلت على الفلوس؟ ──
+// ── اطلب رابط المشروع عند الإكمال ──
+function _askProjectLinkForTask(taskId, projId, afterCb){
+  var t=(S.project_tasks||[]).find(function(x){return String(x.id)===String(taskId);});
+  if(!t) { if(afterCb) afterCb(); return; }
+  var ov=document.createElement('div');
+  ov.className='modal-overlay';
+  ov.style.cssText='display:flex;align-items:center;justify-content:center;z-index:10000';
+  ov.innerHTML='<div class="modal" style="width:min(420px,92vw);border-radius:18px;padding:28px">'
+    +'<div style="font-size:36px;text-align:center;margin-bottom:10px">🔗</div>'
+    +'<div style="font-size:16px;font-weight:900;text-align:center;margin-bottom:6px">رابط تسليم المشروع</div>'
+    +'<div style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:18px">المهمة: <strong>'+escapeHtml(t.title)+'</strong></div>'
+    +'<input id="_proj-link-input" class="form-input" placeholder="https://drive.google.com/... أو أي رابط للتسليم" value="'+escapeHtml(t.projectLink||t.driveLink||'')+'"/>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">سيظهر هذا الرابط للعميل في بوابته لاستلام المشروع</div>'
+    +'<div style="display:flex;gap:10px;margin-top:18px">'
+      +'<button data-tid="'+taskId+'" data-pid="'+(projId||'')+'" onclick="_saveProjectLink(this.dataset.tid,this.dataset.pid);this.closest(\'.modal-overlay\').remove();'+( afterCb ? '(_askProjectLinkCb_'+taskId+')&&(_askProjectLinkCb_'+taskId+')()' : '')+'" class="btn btn-primary" style="flex:1"><i class="fa-solid fa-floppy-disk"></i> حفظ الرابط</button>'
+      +'<button onclick="this.closest(\'.modal-overlay\').remove();'+( afterCb ? '(_askProjectLinkCb_'+taskId+')&&(_askProjectLinkCb_'+taskId+')()' : '')+'" class="btn btn-ghost">تخطي</button>'
+    +'</div>'
+  +'</div>';
+  if(afterCb) window['_askProjectLinkCb_'+taskId] = afterCb;
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov){ ov.remove(); if(afterCb) afterCb(); }});
+  setTimeout(function(){var inp=document.getElementById('_proj-link-input');if(inp)inp.focus();},100);
+}
+
+function _saveProjectLink(taskId, projId){
+  var t=(S.project_tasks||[]).find(function(x){return String(x.id)===String(taskId);});
+  if(!t) return;
+  var inp=document.getElementById('_proj-link-input');
+  if(inp) {
+    t.projectLink = inp.value.trim();
+    t.driveLink   = t.projectLink;
+  }
+  lsSave(); cloudSave(S);
+  if(projId) renderProjectDetail();
+  toast('<i class="fa-solid fa-link" style="color:var(--accent3)"></i> تم حفظ رابط المشروع');
+}
+
+// ── إشعار العميل بتعديل (داخلي - تغيير الحالة للتعديلات) ──
+function _notifyClientRevision(task){
+  // This is handled on the client portal side — just a visual cue
+  toast('<i class="fa-solid fa-pencil" style="color:#f97316"></i> تم تحويل المهمة لحالة تعديلات');
+}
+
+// ── استلام العميل للمشروع من بوابة العميل — يُستدعى من client-portal ──
+// يتم التعامل معها عبر Supabase realtime sync
+function _markTaskClientReceived(taskId, projId){
+  var t=(S.project_tasks||[]).find(function(x){return String(x.id)===String(taskId);});
+  if(!t) return;
+  t.clientReceived = true;
+  t.clientReceivedAt = new Date().toISOString();
+  lsSave(); cloudSave(S);
+  if(projId) renderProjectDetail();
+  showMiniNotif('<i class="fa-solid fa-handshake" style="color:var(--accent3)"></i> العميل استلم المشروع — تم التأكيد!');
+}
+
+// ── طلب تعديل من العميل — تُحوّل المهمة لحالة revision ──
+function _markTaskClientRevision(taskId, projId, revisionNote){
+  var t=(S.project_tasks||[]).find(function(x){return String(x.id)===String(taskId);});
+  if(!t) return;
+  var prevStatus = t.status;
+  t.status = 'revision';
+  t.done   = false;
+  t.clientRevisionNote = revisionNote||'';
+  t.clientRevisionAt   = new Date().toISOString();
+  t.clientReceived     = false;
+  // إذا كان فيه عضو فريق منفذ — نحدّث في بياناته كمان
+  if(t.assignee_id && t.assignee_name){
+    // تحديث حالة التاسك في الفريق
+    _updateTeamMemberTaskStatus(t.assignee_id, taskId, 'revision', revisionNote);
+  }
+  lsSave(); cloudSave(S);
+  showMiniNotif('<i class="fa-solid fa-rotate-left" style="color:#f97316"></i> العميل طلب تعديل على: '+escapeHtml(t.title));
+}
+
+function _updateTeamMemberTaskStatus(assigneeId, taskId, newStatus, note){
+  // تحديث بيانات الفريق إن كان التاسك مرتبط بعضو
+  (S.teams||[]).forEach(function(team){
+    (team.tasks||[]).forEach(function(tt){
+      if(String(tt.id)===String(taskId)||String(tt.linkedTaskId)===String(taskId)){
+        tt.status = newStatus;
+        if(note) tt.revisionNote = note;
+      }
+    });
+    (team.members||[]).forEach(function(mem){
+      (mem.tasks||[]).forEach(function(tt){
+        if(String(tt.id)===String(taskId)||String(tt.linkedTaskId)===String(taskId)||String(mem.id)===String(assigneeId)){
+          if(String(tt.id)===String(taskId)||String(tt.linkedTaskId)===String(taskId)){
+            tt.status = newStatus;
+            if(note) tt.revisionNote = note;
+          }
+        }
+      });
+    });
+  });
+}
+
 function _askPtaskPayment(taskId, projId){
   var t=(S.project_tasks||[]).find(function(x){return String(x.id)===String(taskId);});
   if(!t||t.paymentCollected) return;
@@ -26417,6 +26569,101 @@ function openNewInvoiceForProject(projId) {
       }, 100);
     }
   }, 400);
+}
+
+// ── Overview Table for آخر المهام in project detail overview tab ──
+function renderProjTasksOverviewTable(tasks, proj, clr){
+  var customStatuses = S.customStatuses || [];
+  var baseStatuses = [
+    {id:'todo',     label:'جديد',         color:'#64b5f6'},
+    {id:'progress', label:'قيد التنفيذ',  color:'#f7c948'},
+    {id:'review',   label:'مراجعة',       color:'#a78bfa'},
+    {id:'revision', label:'تعديلات',      color:'#f97316'},
+    {id:'hold',     label:'موقوف',        color:'#888888'},
+    {id:'done',     label:'مكتمل',        color:'#4fd1a5'}
+  ];
+  var allStatuses = [...baseStatuses, ...customStatuses.filter(function(cs){return cs.id&&cs.label;})];
+  var cur = proj.budgetCurrency||'ج.م';
+
+  function stBadge(st){
+    var info = allStatuses.find(function(s){return s.id===st;});
+    if(!info) info={label:st||'—',color:'#888'};
+    return '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;background:'+info.color+'22;color:'+info.color+';border:1px solid '+info.color+'44;white-space:nowrap">'+escapeHtml(info.label)+'</span>';
+  }
+
+  return '<div style="overflow-x:auto;border-radius:12px;border:1px solid var(--border)">'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<thead><tr style="background:var(--surface2)">'
+      +'<th style="padding:9px 12px;text-align:right;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">المهمة</th>'
+      +'<th style="padding:9px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">الحالة</th>'
+      +'<th style="padding:9px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">التاريخ</th>'
+      +'<th style="padding:9px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">الديدلاين</th>'
+      +'<th style="padding:9px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">المبلغ</th>'
+      +'<th style="padding:9px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">المنفذ</th>'
+      +'<th style="padding:9px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">ملاحظة</th>'
+    +'</tr></thead>'
+    +'<tbody>'
+    +tasks.map(function(t, idx){
+      var isDone = t.status==='done';
+      var isLate = t.deadline && new Date(t.deadline)<new Date() && !isDone;
+      var rowBg = idx%2===0?'var(--surface)':'var(--surface2)';
+      var projLink = t.projectLink||t.driveLink||'';
+      return '<tr style="background:'+rowBg+';cursor:pointer;transition:background .15s" onclick="openProjTaskDetail('+t.id+','+proj.id+')">'
+        +'<td style="padding:10px 12px;font-weight:700;border-bottom:1px solid var(--border);max-width:180px">'
+          +'<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(isDone?'text-decoration:line-through;color:var(--text3)':'')+'">'+escapeHtml(t.title)+'</div>'
+          +(t.clientReceived?'<div style="font-size:9px;color:#4fd1a5;font-weight:700;margin-top:1px"><i class="fa-solid fa-handshake"></i> استلم العميل</div>':'')
+          +(t.clientRevisionNote?'<div style="font-size:9px;color:#f97316;font-weight:700;margin-top:1px"><i class="fa-solid fa-rotate-left"></i> طلب تعديل</div>':'')
+          +(t.desc?'<div style="font-size:10px;color:var(--text3);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px">'+escapeHtml(t.desc)+'</div>':'')
+        +'</td>'
+        +'<td style="padding:10px 8px;text-align:center;border-bottom:1px solid var(--border)">'+stBadge(t.status)+'</td>'
+        +'<td style="padding:10px 8px;text-align:center;color:var(--text3);border-bottom:1px solid var(--border);font-size:11px;font-family:var(--mono)">'+(t.orderDate||t.createdAt&&t.createdAt.slice(0,10)||'—')+'</td>'
+        +'<td style="padding:10px 8px;text-align:center;border-bottom:1px solid var(--border);font-size:11px;font-family:var(--mono);color:'+(isLate?'#f76f7c':'var(--text3)')+'"><span title="'+(isLate?'متأخرة':'')+'">'+(t.deadline||'—')+'</span></td>'
+        +'<td style="padding:10px 8px;text-align:center;border-bottom:1px solid var(--border)">'
+          +(t.value>0?'<span style="font-weight:900;color:#f7c948">'+t.value.toLocaleString()+' '+(t.currency||cur)+'</span>':'<span style="color:var(--text3)">—</span>')
+        +'</td>'
+        +'<td style="padding:10px 8px;text-align:center;color:var(--text3);border-bottom:1px solid var(--border);font-size:11px">'
+          +(t.assignee_name?'<span style="display:flex;align-items:center;gap:4px;justify-content:center"><i class="fa-solid fa-user" style="color:'+clr+';font-size:10px"></i>'+escapeHtml(t.assignee_name)+'</span>':'—')
+        +'</td>'
+        +'<td style="padding:10px 8px;text-align:center;border-bottom:1px solid var(--border)" onclick="event.stopPropagation()">'
+          +'<button data-tid="'+t.id+'" data-pid="'+proj.id+'" onclick="_openTaskNotePopup(this.dataset.tid,this.dataset.pid)" class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--accent)" title="أضف ملاحظة">'
+            +(t.taskNote?'<i class="fa-solid fa-comment-dots" style="color:var(--accent)"></i>':'<i class="fa-regular fa-comment"></i>')
+          +'</button>'
+          +(isDone&&projLink?'<a href="'+escapeHtml(projLink)+'" target="_blank" onclick="event.stopPropagation()" title="رابط المشروع" style="font-size:10px;padding:3px 8px;color:var(--accent3);display:inline-flex;align-items:center;gap:3px"><i class="fa-solid fa-link"></i></a>':'')
+        +'</td>'
+      +'</tr>';
+    }).join('')
+    +'</tbody>'
+    +'</table></div>';
+}
+
+// ── Task Note Popup ──
+function _openTaskNotePopup(taskId, projId){
+  var t=(S.project_tasks||[]).find(function(x){return String(x.id)===String(taskId);});
+  if(!t) return;
+  var ov=document.createElement('div');
+  ov.className='modal-overlay';
+  ov.style.cssText='display:flex;align-items:center;justify-content:center;z-index:10000';
+  ov.innerHTML='<div class="modal" style="width:min(420px,92vw);border-radius:18px;padding:24px">'
+    +'<div style="font-size:15px;font-weight:800;margin-bottom:4px"><i class="fa-solid fa-comment" style="color:var(--accent)"></i> ملاحظة على المهمة</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">'+escapeHtml(t.title)+'</div>'
+    +'<textarea id="_task-note-ta" rows="4" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text);resize:none;font-family:var(--font);box-sizing:border-box" placeholder="أضف ملاحظتك هنا...">'+escapeHtml(t.taskNote||'')+'</textarea>'
+    +'<div style="display:flex;gap:10px;margin-top:14px">'
+      +'<button data-tid="'+taskId+'" data-pid="'+projId+'" onclick="_saveTaskNote(this.dataset.tid,this.dataset.pid);this.closest(\'.modal-overlay\').remove()" class="btn btn-primary" style="flex:1"><i class="fa-solid fa-floppy-disk"></i> حفظ</button>'
+      +'<button onclick="this.closest(\'.modal-overlay\').remove()" class="btn btn-ghost">إلغاء</button>'
+    +'</div>'
+  +'</div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  setTimeout(function(){var ta=document.getElementById('_task-note-ta');if(ta)ta.focus();},100);
+}
+
+function _saveTaskNote(taskId, projId){
+  var t=(S.project_tasks||[]).find(function(x){return String(x.id)===String(taskId);});
+  if(!t) return;
+  var ta=document.getElementById('_task-note-ta');
+  if(ta) t.taskNote = ta.value.trim();
+  lsSave(); cloudSave(S); renderProjectDetail();
+  toast('<i class="fa-solid fa-check" style="color:var(--accent3)"></i> تم حفظ الملاحظة');
 }
 
 function renderProjTaskRow(t,clr){
@@ -26863,7 +27110,37 @@ function toggleProjTaskDone(taskId,projId,done){
   if(!S.project_tasks) return;
   var t=S.project_tasks.find(function(x){return String(x.id)===String(taskId);});
   if(!t) return;
+  var prevDone = t.status==='done';
   t.status=done?'done':'todo';
+  // Ask for project link when newly marked done
+  if(done && !prevDone){
+    _askProjectLinkForTask(taskId, projId, function(){
+      // Auto-record income when task marked done and has value
+      if(t.value>0 && !t.paymentCollected){
+        var proj=_getProjById(projId);
+        if(!S.transactions) S.transactions=[];
+        S.transactions.push({
+          id:Date.now()+Math.random(),
+          type:'income',
+          amount:t.value,
+          currency:t.currency||'ج.م',
+          desc:'إتمام مهمة: '+(t.title||'')+(proj?' — مشروع: '+proj.name:''),
+          date:new Date().toISOString().slice(0,10),
+          isoDate:new Date().toISOString().slice(0,10),
+          linkedProjTaskId:t.id,
+          project_id: proj ? String(proj.id) : '',
+          project_name: proj ? proj.name : '',
+          source:'project_task',
+          createdAt:new Date().toISOString()
+        });
+        t.paymentCollected=true;
+        if(typeof renderFinance==='function') setTimeout(renderFinance,200);
+      }
+      lsSave(); cloudSave(S); renderProjectDetail();
+    });
+    lsSave(); cloudSave(S); renderProjectDetail();
+    return;
+  }
   // Auto-record income when task marked done and has value
   if(done && t.value>0 && !t.paymentCollected){
     var proj=_getProjById(projId);
