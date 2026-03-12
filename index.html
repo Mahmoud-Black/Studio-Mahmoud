@@ -25182,47 +25182,68 @@ function toggleProjMember(el){
 }
 
 function saveProject(){
-  var eid=document.getElementById('proj-eid').value;
-  var name=document.getElementById('proj-name').value.trim();
-  if(!name){toast('<i class="fa-solid fa-triangle-exclamation"></i> اسم المشروع مطلوب');return;}
-  if(!S.projects) S.projects=[];
-  // Collect selected members
-  var members=[...document.querySelectorAll('#proj-members-select .selected')].map(el=>({id:el.dataset.mid,name:el.dataset.mname}));
-  var tsel=document.getElementById('proj-team-select');
-  var d={
-    name,
-    desc:document.getElementById('proj-desc').value.trim(),
-    client_id:document.getElementById('proj-client').value||'',
-    status:document.getElementById('proj-status').value||'active',
-    start:document.getElementById('proj-start').value||'',
-    deadline:document.getElementById('proj-deadline').value||'',
-    color:document.getElementById('proj-color').value||'#7c6ff7',
-    projectType:(document.getElementById('proj-type-team')&&document.getElementById('proj-type-team').checked)?'team':'tasks',
-    members,
-    team_group_id:(tsel?tsel.value:'')||'',
-    budget:+(document.getElementById('proj-budget')?.value||0)||0,
-    budgetCurrency:document.getElementById('proj-budget-currency')?.value||'ج.م',
-    pricingType:document.getElementById('proj-pricing-type')?.value||'fixed',
-    createdAt:new Date().toISOString()
-  };
-  if(eid){
-    var i=S.projects.findIndex(p=>String(p.id)===String(eid));
-    if(i>-1){d.id=+eid;d.createdAt=S.projects[i].createdAt||d.createdAt;S.projects[i]=d;}
-  } else {
-    d.id=Date.now(); S.projects.push(d);
-  }
-  // ✅ FIX: تأكد من الحفظ حتى لو _appReady مش جاهز بعد
-  if (window._appReady && window._cloudLoadDone) {
-    lsSave(); cloudSave(S);
-  } else {
-    // حفظ طارئ مباشر
+  try {
+    var eid = (document.getElementById('proj-eid')||{}).value || '';
+    var nameEl = document.getElementById('proj-name');
+    var name = nameEl ? nameEl.value.trim() : '';
+    if(!name){ toast('<i class="fa-solid fa-triangle-exclamation"></i> اسم المشروع مطلوب'); return; }
+    if(!S.projects) S.projects = [];
+
+    // ── Collect selected members safely ──
+    var members = [];
     try {
-      if (typeof _doCloudSave === 'function') _doCloudSave(S, true);
-      else { window._appReady = true; window._cloudLoadDone = true; lsSave(); cloudSave(S); }
-    } catch(e) { window._appReady = true; window._cloudLoadDone = true; lsSave(); }
+      var selEls = document.querySelectorAll('#proj-members-select .selected');
+      for(var mi=0; mi<selEls.length; mi++){
+        var mel = selEls[mi];
+        members.push({ id: mel.dataset.mid||'', name: mel.dataset.mname||'' });
+      }
+    } catch(me) { members = []; }
+
+    var _g = function(id){ return document.getElementById(id); };
+    var _v = function(id, def){ var e=_g(id); return e ? (e.value||def||'') : (def||''); };
+
+    var tsel = _g('proj-team-select');
+    var d = {
+      name        : name,
+      desc        : _v('proj-desc',''),
+      client_id   : _v('proj-client',''),
+      status      : _v('proj-status','active'),
+      start       : _v('proj-start',''),
+      deadline    : _v('proj-deadline',''),
+      color       : _v('proj-color','#7c6ff7'),
+      projectType : (_g('proj-type-team') && _g('proj-type-team').checked) ? 'team' : 'tasks',
+      members     : members,
+      team_group_id: tsel ? (tsel.value||'') : '',
+      budget      : +((_g('proj-budget')||{}).value||0) || 0,
+      budgetCurrency: ((_g('proj-budget-currency')||{}).value||'ج.م'),
+      pricingType : ((_g('proj-pricing-type')||{}).value||'fixed'),
+      createdAt   : new Date().toISOString()
+    };
+
+    if(eid){
+      var idx = S.projects.findIndex(function(p){ return String(p.id)===String(eid); });
+      if(idx > -1){ d.id = +eid; d.createdAt = S.projects[idx].createdAt||d.createdAt; S.projects[idx] = d; }
+      else { d.id = Date.now(); S.projects.push(d); }
+    } else {
+      d.id = Date.now(); S.projects.push(d);
+    }
+
+    // ── Force save regardless of _appReady state ──
+    window._appReady = true;
+    window._cloudLoadDone = true;
+    try { lsSave(); } catch(e){}
+    try { cloudSave(S); } catch(e){}
+    // Also trigger direct cloud save as backup
+    setTimeout(function(){ try{ _doCloudSave(S, true); }catch(e){} }, 100);
+
+    closeM('modal-project');
+    renderProjects();
+    toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ المشروع: ' + name);
+
+  } catch(err) {
+    console.error('saveProject error:', err);
+    toast('<i class="fa-solid fa-triangle-exclamation" style="color:orange"></i> حدث خطأ: ' + (err.message||'unknown'));
   }
-  closeM('modal-project'); renderProjects();
-  toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ المشروع');
 }
 
 function deleteProject(id){
