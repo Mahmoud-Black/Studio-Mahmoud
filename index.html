@@ -8971,6 +8971,7 @@ function _renderMemberTasksSection(){
       +'onmouseleave="this.style.transform=&apos;&apos;;this.style.boxShadow=&apos;&apos;" '
       +'data-oid="'+mem.ownerId+'" onclick="openMyMemberTeamProfile(this.dataset.oid)">'  
       +'<div style="font-size:10px;color:var(--accent3);font-weight:700;margin-bottom:6px"><i class="fa-solid fa-users"></i> '+escapeHtml(mem.ownerName)+' — '+escapeHtml(mem.teamName)+'</div>'
+      +(t.isProjectTask?'<div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:5px;display:inline-flex;align-items:center;gap:4px;background:rgba(124,111,247,.1);padding:2px 8px;border-radius:6px"><i class="fa-solid fa-folder-open"></i> '+escapeHtml(t.projectName||'مشروع')+'</div><br>':'')
       +'<div style="font-size:14px;font-weight:700;margin-bottom:6px">'+escapeHtml(t.title)+'</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-bottom:8px">'
         +'<span style="color:'+stColors[curSt]+'">'+stLabels[curSt]+'</span>'
@@ -19130,8 +19131,12 @@ window.openMyMemberTeamProfile = function(ownerId){
         if(!ownerRow) return;
         var od = typeof ownerRow.data==='string' ? JSON.parse(ownerRow.data) : ownerRow.data;
         if(od.data && !od.tasks) od = typeof od.data==='string' ? JSON.parse(od.data) : od.data;
+        // Update in regular tasks
         var ot = (od.tasks||[]).find(function(t){ return String(t.id)===String(taskId); });
         if(ot){ ot.status=newStatus; ot.done=isDone; }
+        // Also update in project_tasks (مهام المشاريع)
+        var opt = (od.project_tasks||[]).find(function(t){ return String(t.id)===String(taskId); });
+        if(opt){ opt.status=newStatus; if(isDone){ opt.done=true; } else { opt.done=false; } }
         await supa.from('studio_data').update({data:JSON.stringify(od),updated_at:new Date().toISOString()}).eq('user_id',ownerId);
         if(typeof showMiniNotif==='function') showMiniNotif('✅ تم تحديث حالة المهمة');
       } catch(e){ console.warn('task update err:', e); }
@@ -19149,8 +19154,12 @@ window.openMyMemberTeamProfile = function(ownerId){
         if(!ownerRow) return;
         var od = typeof ownerRow.data==='string' ? JSON.parse(ownerRow.data) : ownerRow.data;
         if(od.data && !od.tasks) od = typeof od.data==='string' ? JSON.parse(od.data) : od.data;
+        // Update steps in regular tasks
         var ot = (od.tasks||[]).find(function(t){ return String(t.id)===String(taskId); });
         if(ot && ot.steps && ot.steps[stepIdx]) ot.steps[stepIdx].done = isDone;
+        // Also update steps in project_tasks
+        var opt = (od.project_tasks||[]).find(function(t){ return String(t.id)===String(taskId); });
+        if(opt && opt.steps && opt.steps[stepIdx]) opt.steps[stepIdx].done = isDone;
         await supa.from('studio_data').update({data:JSON.stringify(od),updated_at:new Date().toISOString()}).eq('user_id',ownerId);
       } catch(e){ console.warn('step update err:', e); }
     };
@@ -19584,6 +19593,41 @@ window.openMyMemberTeamProfile = function(ownerId){
                   };
 
                   if(t.done || t.status === 'done') {
+                    mem.doneTasks.push(taskEntry);
+                  } else {
+                    mem.tasks.push(taskEntry);
+                  }
+                });
+
+                // ── تحميل مهام المشاريع (project_tasks) المعينة لهذا العضو ──
+                (rd.project_tasks||[]).forEach(function(t) {
+                  var assignedTo = (t.assignee_name||t.workerMember||'').trim();
+                  var isMyTask = assignedTo === myName || assignedTo.toLowerCase() === myEmail;
+                  if(!isMyTask) return;
+
+                  var mem = memberships.find(function(x){ return x.ownerId === row.user_id; });
+                  if(!mem) return;
+
+                  // Find parent project name
+                  var proj = (rd.projects||[]).find(function(p){ return String(p.id)===String(t.project_id); });
+                  var projName = proj ? (proj.name||'مشروع') : 'مشروع';
+
+                  var taskEntry = {
+                    id          : t.id,
+                    title       : t.title||'مهمة',
+                    status      : t.status||'todo',
+                    done        : t.status==='done',
+                    deadline    : t.deadline||'',
+                    client      : proj ? (proj.client_name||'') : '',
+                    steps       : t.steps||[],
+                    workerAmount: t.value||0,
+                    ownerId     : row.user_id,
+                    isProjectTask: true,
+                    projectName : projName,
+                    projectId   : t.project_id
+                  };
+
+                  if(t.status==='done') {
                     mem.doneTasks.push(taskEntry);
                   } else {
                     mem.tasks.push(taskEntry);
