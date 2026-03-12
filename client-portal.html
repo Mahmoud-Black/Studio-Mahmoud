@@ -309,6 +309,31 @@ function renderPage(){
   // حساب الرصيد الكلي: مدفوع + رصيد افتتاحي (مستحقات)
   const totalReceivable = unpaid + (openingType==='receivable'?openingBal:0);
 
+  // ── الخانات المالية الجديدة ──
+  // مستحق لحد الآن: قيمة المهام اللي مدفعتش كاملة
+  // مهام عادية: مستحق لو pay !== 'full' وعندها value
+  const tasksDue = _clientTasks
+    .filter(t=>(t.value||0)>0 && t.pay!=='full')
+    .reduce((s,t)=>{
+      const val=+t.value||0;
+      const dep=(t.pay==='deposit')?+(t.deposit||0):0;
+      return s+(val-dep);
+    },0);
+  // مهام المشاريع: مستحق لو مش collected
+  const projTasksDue = (_ud.project_tasks||[])
+    .filter(t=>_clientProjects.some(p=>String(p.id)===String(t.project_id))&&(t.value||0)>0&&!t.paymentCollected&&t.paymentStatus!=='collected')
+    .reduce((s,t)=>{
+      const val=+t.value||0;
+      const dep=(t.paymentStatus==='deposit')?+(t.deposit||0):0;
+      return s+(val-dep);
+    },0);
+  const totalDueNow = tasksDue + projTasksDue + (openingType==='receivable'?openingBal:0);
+  // الهواء عليه: المدفوعات الزيادة عن قيمة الخدمات
+  const clientPaidTrans = (_ud.transactions||[]).filter(t=>(t.source===_clientName||t.client===_clientName)&&t.type==='income').reduce((s,t)=>s+(+t.amount||0),0);
+  const totalTasksValue = _clientTasks.reduce((s,t)=>s+(+t.value||0),0);
+  const totalProjTasksValue = (_ud.project_tasks||[]).filter(t=>_clientProjects.some(p=>String(p.id)===String(t.project_id))).reduce((s,t)=>s+(+t.value||0),0);
+  const airOnHim = Math.max(0, clientPaidTrans - (totalTasksValue+totalProjTasksValue) + (openingType==='prepaid'?openingBal:0));
+
   // ── بناء رابط المتجر بالـ username لو متاح ──
   const _storeUn=_settings.username;
   const _storeLink=_storeUn ? (STORE_URL+'?u='+encodeURIComponent(_storeUn)) : (STORE_URL+'?uid='+(window._resolvedUid||pUid||''));
@@ -365,8 +390,18 @@ function renderPage(){
     <div class="stats">
       <div class="stat"><div class="stat-val" style="color:var(--ac)">${activeTasks}</div><div class="stat-lbl">طلبات نشطة</div></div>
       <div class="stat"><div class="stat-val" style="color:var(--g)">${doneTasks}</div><div class="stat-lbl">مكتملة</div></div>
-      <div class="stat"><div class="stat-val" style="color:var(--y)">${totalInv?totalInv.toLocaleString()+' ج':'—'}</div><div class="stat-lbl">إجمالي الفواتير</div></div>
-      <div class="stat"><div class="stat-val" style="color:${totalReceivable>0?'var(--r)':'var(--g)'}">${totalReceivable?totalReceivable.toLocaleString()+' ج':'✓'}</div><div class="stat-lbl">مستحق</div></div>
+      <div class="stat" style="${totalDueNow>0?'border:1.5px solid rgba(255,107,107,.35)':''}">
+        <div class="stat-val" style="color:${totalDueNow>0?'var(--r)':'var(--g)'}">
+          ${totalDueNow>0?totalDueNow.toLocaleString()+' ج':'✓'}
+        </div>
+        <div class="stat-lbl">مستحق لحد الآن</div>
+      </div>
+      <div class="stat" style="${airOnHim>0?'border:1.5px solid rgba(79,209,165,.35)':''}">
+        <div class="stat-val" style="color:${airOnHim>0?'var(--g)':'var(--t3)'}">
+          ${airOnHim>0?airOnHim.toLocaleString()+' ج':'—'}
+        </div>
+        <div class="stat-lbl">الهواء عليه 🎈</div>
+      </div>
     </div>
 
     ${openingBal>0?`<div style="margin:0 0 14px;padding:10px 14px;background:${openingType==='receivable'?'rgba(247,107,92,.1)':'rgba(79,209,165,.1)'};border-radius:10px;border-right:3px solid ${openingType==='receivable'?'var(--r)':'var(--g)'};font-size:12px">
@@ -614,6 +649,10 @@ function renderProjects(){
     const stC=stColors[p.status]||'var(--ac)';
     const stL=stLabels[p.status]||p.status||'نشط';
     const clr=p.color||'var(--ac)';
+    // حساب التكلفة الكلية للمشروع
+    const projBudget = p.budget||p.value||0;
+    const tasksTotalCost = ptasks.reduce((s,t)=>s+(+t.value||0),0);
+    const displayCost = projBudget || tasksTotalCost;
     return`<div class="card" id="proj-card-${xe(String(p.id))}" onclick="openProjectDetail('${xe(String(p.id))}')" style="cursor:pointer;border-right:3px solid ${clr};transition:transform .15s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px">
         <div>
@@ -628,7 +667,10 @@ function renderProjects(){
       <div class="prog-bar"><div class="prog-fill" style="width:${prog}%;background:${clr}"></div></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
         ${p.deadline?`<span style="font-size:11px;color:var(--t3)"><i class="fa-solid fa-calendar-days"></i> ${xe(p.deadline)}</span>`:'<span></span>'}
-        <span style="font-size:11px;color:var(--ac);font-weight:700">التفاصيل ←</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${displayCost?`<span style="font-size:12px;font-weight:800;color:${clr}"><i class="fa-solid fa-coins"></i> ${Number(displayCost).toLocaleString()} ج</span>`:''}
+          <span style="font-size:11px;color:var(--ac);font-weight:700">التفاصيل ←</span>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -654,11 +696,15 @@ function openProjectDetail(projId){
     const tL=tStLabelMap[t.status]||t.status||'';
     const isDone=t.status==='done';
     const link=t.projectLink||t.driveLink||'';
+    const taskCost=+t.value||0;
     return`<div style="border:1px solid var(--bd);border-radius:14px;overflow:hidden;margin-bottom:10px">
       <div style="padding:12px 14px;background:var(--s2)">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
           <div style="font-size:13px;font-weight:700;flex:1">${xe(t.title||'')}</div>
-          <span style="font-size:10px;font-weight:800;padding:2px 10px;border-radius:20px;background:${tC}22;color:${tC};white-space:nowrap">${tL}</span>
+          <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+            ${taskCost?`<span style="font-size:11px;font-weight:800;color:${clr};background:${clr}22;padding:2px 8px;border-radius:10px"><i class="fa-solid fa-coins"></i> ${taskCost.toLocaleString()} ج</span>`:''}
+            <span style="font-size:10px;font-weight:800;padding:2px 10px;border-radius:20px;background:${tC}22;color:${tC};white-space:nowrap">${tL}</span>
+          </div>
         </div>
         ${t.assignee_name?`<div style="font-size:11px;color:var(--t3)"><i class="fa-solid fa-user" style="color:${clr}"></i> ${xe(t.assignee_name)}</div>`:''}
         ${t.desc?`<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5">${xe(t.desc)}</div>`:''}
@@ -706,6 +752,25 @@ function openProjectDetail(projId){
       <div style="font-size:11px;color:var(--t3);margin-top:6px">${doneT} من ${ptasks.length} مهمة مكتملة</div>
     </div>
     ${p.desc?`<div style="font-size:13px;color:var(--t2);margin-bottom:14px;line-height:1.7;padding:10px 12px;background:var(--s2);border-radius:10px;border-right:3px solid ${clr}">${xe(p.desc)}</div>`:''}
+    <!-- ملخص مالي للمشروع -->
+    ${(()=>{
+      const projBudget=p.budget||p.value||0;
+      const tasksTotalVal=ptasks.reduce((s,t)=>s+(+t.value||0),0);
+      const doneTasksVal=ptasks.filter(t=>t.status==='done').reduce((s,t)=>s+(+t.value||0),0);
+      const collectedVal=ptasks.filter(t=>t.paymentCollected).reduce((s,t)=>s+(+t.value||0),0);
+      const dueVal=doneTasksVal-collectedVal;
+      if(!projBudget&&!tasksTotalVal) return '';
+      return`<div style="background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:800;color:var(--t3);margin-bottom:8px"><i class="fa-solid fa-coins" style="color:${clr}"></i> الملخص المالي</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px">
+          ${projBudget?`<div style="text-align:center;padding:8px;background:var(--s3);border-radius:8px"><div style="font-size:14px;font-weight:900;color:${clr}">${projBudget.toLocaleString()} ج</div><div style="font-size:9px;color:var(--t3);margin-top:2px">ميزانية المشروع</div></div>`:''}
+          ${tasksTotalVal&&!projBudget?`<div style="text-align:center;padding:8px;background:var(--s3);border-radius:8px"><div style="font-size:14px;font-weight:900;color:${clr}">${tasksTotalVal.toLocaleString()} ج</div><div style="font-size:9px;color:var(--t3);margin-top:2px">إجمالي المهام</div></div>`:''}
+          ${doneTasksVal?`<div style="text-align:center;padding:8px;background:var(--s3);border-radius:8px"><div style="font-size:14px;font-weight:900;color:var(--g)">${doneTasksVal.toLocaleString()} ج</div><div style="font-size:9px;color:var(--t3);margin-top:2px">مكتملة</div></div>`:''}
+          ${dueVal>0?`<div style="text-align:center;padding:8px;background:rgba(255,107,107,.1);border-radius:8px;border:1px solid rgba(255,107,107,.3)"><div style="font-size:14px;font-weight:900;color:var(--r)">${dueVal.toLocaleString()} ج</div><div style="font-size:9px;color:var(--t3);margin-top:2px">مستحق</div></div>`:''}
+          ${collectedVal?`<div style="text-align:center;padding:8px;background:rgba(79,209,165,.1);border-radius:8px"><div style="font-size:14px;font-weight:900;color:var(--g)">${collectedVal.toLocaleString()} ج</div><div style="font-size:9px;color:var(--t3);margin-top:2px">محصّل</div></div>`:''}
+        </div>
+      </div>`;
+    })()}
     <!-- Tasks -->
     <div style="font-size:12px;font-weight:800;color:var(--t3);margin-bottom:10px"><i class="fa-solid fa-list-check"></i> مهام المشروع</div>
     ${tasksHtml}
