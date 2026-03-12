@@ -491,13 +491,28 @@ async function boot(){
   try {
     // Search all studio_data for a proposal with this token
     // We query by data->>proposals containing the token
-    var { data: rows, error } = await db
-      .from('studio_data')
-      .select('user_id, data')
-      .like('data::text', '%' + token + '%')
-      .limit(5);
+    // ✅ FIX: try multiple query strategies for robustness
+    var rows = null, error = null;
 
-    if (error || !rows || !rows.length) {
+    // Strategy 1: text cast (works if column is JSONB)
+    var r1 = await db.from('studio_data').select('user_id, data')
+      .like('data::text', '%' + token + '%').limit(10);
+    if (!r1.error && r1.data && r1.data.length) {
+      rows = r1.data;
+    }
+
+    // Strategy 2: if strategy 1 failed, fetch all and filter in JS (fallback)
+    if (!rows || !rows.length) {
+      var r2 = await db.from('studio_data').select('user_id, data').limit(200);
+      if (!r2.error && r2.data && r2.data.length) {
+        rows = r2.data.filter(function(row) {
+          var txt = typeof row.data === 'string' ? row.data : JSON.stringify(row.data||'');
+          return txt.indexOf(token) > -1;
+        });
+      }
+    }
+
+    if (!rows || !rows.length) {
       showErr('لم يتم العثور على العرض', 'تأكد من صحة الرابط أو تواصل مع الفريلانسر');
       return;
     }
@@ -512,7 +527,12 @@ async function boot(){
       if (p) { found = p; foundUid = rows[i].user_id; _fullData = raw; break; }
     }
 
-    if (!found) { showErr('لم يتم العثور على العرض', 'الرابط قد يكون منتهياً أو غير صحيح'); return; }
+    if (!found) {
+      // ✅ FIX: show how many rows were scanned for debugging
+      var rowCount = rows ? rows.length : 0;
+      showErr('لم يتم العثور على العرض', 'تم فحص ' + rowCount + ' سجل — الرابط قد يكون منتهياً أو العرض لم يُحفظ بعد');
+      return;
+    }
 
     _proposal    = found;
     _resolvedUid = foundUid;
