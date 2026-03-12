@@ -384,6 +384,11 @@ async function buildPage(userId){
 
     console.log('[Store] FINAL services=',services.length,'packages=',standalonePkgs.length,'portfolio=',pfProjects.length);
 
+    // ── flags مبكرة للـ navbar ──
+    var hasServices=services.length>0;
+    var hasPkgs=standalonePkgs.length>0;
+    var hasPf=pfProjects.length>0;
+
     // ── store globally ──
     window._pubUd=ud; window._pubUserId=userId; window._pubAccent=accent;
     window._pubSettings=settings; window._pubStoreId=_storeId; window._pubColors=C;
@@ -579,14 +584,16 @@ async function buildPage(userId){
     // ══════════════════════════════════
     var navLinks=
       '<button class="_nl active" onclick="_gs(\'_hero\')">الرئيسية</button>'+
-      '<button class="_nl" onclick="_gs(\'_combo\')">الخدمات والباقات</button>'+
-      '<button class="_nl" onclick="_gs(\'_pf\')">أعمالنا</button>'+
+      (hasServices?'<button class="_nl" onclick="_gs(\'_combo\')">خدماتنا</button>':'')+
+      (hasPkgs?'<button class="_nl" onclick="_gs(\'_pkgs\')">باقاتنا</button>':'')+
+      (hasPf?'<button class="_nl" onclick="_gs(\'_pf\')">أعمالنا</button>':'')+
       '<button class="_nl" onclick="_gs(\'_contact\')">تواصل معنا</button>';
 
     var mobLinks=
       '<button class="_ml" onclick="_gs(\'_hero\');_cm()"><i class="fa-solid fa-house"></i>الرئيسية</button>'+
-      '<button class="_ml" onclick="_gs(\'_combo\');_cm()"><i class="fa-solid fa-store"></i>الخدمات والباقات</button>'+
-      '<button class="_ml" onclick="_gs(\'_pf\');_cm()"><i class="fa-solid fa-image"></i>أعمالنا</button>'+
+      (hasServices?'<button class="_ml" onclick="_gs(\'_combo\');_cm()"><i class="fa-solid fa-bag-shopping"></i>خدماتنا</button>':'')+
+      (hasPkgs?'<button class="_ml" onclick="_gs(\'_pkgs\');_cm()"><i class="fa-solid fa-box"></i>باقاتنا</button>':'')+
+      (hasPf?'<button class="_ml" onclick="_gs(\'_pf\');_cm()"><i class="fa-solid fa-image"></i>أعمالنا</button>':'')+
       '<button class="_ml" onclick="_gs(\'_contact\');_cm()"><i class="fa-solid fa-phone"></i>تواصل معنا</button>';
 
     var navHtml=
@@ -696,10 +703,9 @@ async function buildPage(userId){
     // ══════════════════════════════════
     // ── COMBINED SERVICES + PACKAGES SECTION ──
     // ══════════════════════════════════
-    var hasPf=pfProjects.length>0;
+    var hasPf=pfProjects.length>0; // مُعرَّفة مسبقاً لكن نتأكد
     var allCats=[];
     services.forEach(function(s){if(s.cat&&!allCats.includes(s.cat))allCats.push(s.cat);});
-    standalonePkgs.forEach(function(p){if(p.cat&&!allCats.includes(p.cat))allCats.push(p.cat);});
 
     var catFiltersHtml='';
     if(allCats.length>1){
@@ -709,19 +715,9 @@ async function buildPage(userId){
       '</div>';
     }
 
-    var hasServices=services.length>0;
-    var hasPkgs=standalonePkgs.length>0;
-
-    // ── تابات: خدمات / باقات / بورتفوليو ──
-    var firstActiveTab = hasServices ? 'svc' : (hasPkgs ? 'pkg' : 'pf');
-    var tabsHtml='';
-    if(hasServices||hasPkgs||hasPf){
-      tabsHtml='<div class="_combo-tabs" id="_combo-tabs">'+
-        (hasServices?'<button class="_ctab'+(firstActiveTab==='svc'?' active':'')+'" id="_ctab-svc" onclick="_switchComboTab(\'svc\')"><i class="fa-solid fa-bag-shopping" style="margin-left:5px"></i>الخدمات'+(services.length?' ('+services.length+')':'')+'</button>':'')+
-        (hasPkgs?'<button class="_ctab'+(firstActiveTab==='pkg'?' active':'')+'" id="_ctab-pkg" onclick="_switchComboTab(\'pkg\')"><i class="fa-solid fa-box" style="margin-left:5px"></i>الباقات'+(standalonePkgs.length?' ('+standalonePkgs.length+')':'')+'</button>':'')+
-        (hasPf?'<button class="_ctab'+(firstActiveTab==='pf'?' active':'')+'" id="_ctab-pf" onclick="_switchComboTab(\'pf\')"><i class="fa-solid fa-images" style="margin-left:5px"></i>أعمالنا'+(pfProjects.length?' ('+pfProjects.length+')':'')+'</button>':'')+
-      '</div>';
-    }
+    // ── تابات combo: خدمات فقط (باقات في سيكشن منفصل، بورتفوليو في سيكشن منفصل) ──
+    var tabsHtml=''; // الخدمات بس في _combo — لا تابات لو خدمات فقط
+    // (يبقى _combo للخدمات، _pkgs للباقات، _pf للبورتفوليو)
 
     // portfolio grid HTML (مشترك)
     var pfGridHtml=pfProjects.length
@@ -798,39 +794,62 @@ async function buildPage(userId){
 
     function buildPkgCard(p,i){ return buildPkgCardTagged(p,i); }
 
-    var allComboCards=services.map(buildSvcCardTagged).join('')+standalonePkgs.map(buildPkgCardTagged).join('');
-
+    // ── سيكشن الخدمات ──
     var comboSectionHtml='';
-    if(hasServices||hasPkgs||hasPf){
-      // محتوى كل تاب
-      var svcsPanel='<div id="_combo-svc-panel" style="display:'+(firstActiveTab==='svc'?'block':'none')+'">'+
-        (hasServices
-          ?catFiltersHtml+'<div class="_svc-grid" id="_combo-grid">'+services.map(buildSvcCardTagged).join('')+'</div>'
-          :'<div class="_empty"><div class="_empty-icon">🛍️</div><div class="_empty-t">لا توجد خدمات حالياً</div></div>')+
-      '</div>';
-
-      var pkgsPanel='<div id="_combo-pkg-panel" style="display:'+(firstActiveTab==='pkg'?'block':'none')+'">'+
-        (hasPkgs
-          ?'<div class="_svc-grid">'+standalonePkgs.map(buildPkgCardTagged).join('')+'</div>'
-          :'<div class="_empty"><div class="_empty-icon">📦</div><div class="_empty-t">لا توجد باقات حالياً</div></div>')+
-      '</div>';
-
-      var pfPanel='<div id="_combo-pf-panel" style="display:'+(firstActiveTab==='pf'?'block':'none')+'">'+pfGridHtml+'</div>';
-
+    if(hasServices){
       comboSectionHtml=
         '<div id="_combo" style="scroll-margin-top:72px" class="_sec">'+
           '<div class="_sec-head">'+
-            '<div class="_sec-title"><i class="fa-solid fa-store"></i> خدماتنا وأعمالنا</div>'+
+            '<div class="_sec-title"><i class="fa-solid fa-bag-shopping"></i> خدماتنا</div>'+
           '</div>'+
-          tabsHtml+
-          svcsPanel+pkgsPanel+pfPanel+
+          catFiltersHtml+
+          '<div class="_svc-grid" id="_combo-grid">'+
+            services.map(buildSvcCardTagged).join('')+
+          '</div>'+
+        '</div>';
+    }
+    window._comboServices=services; window._comboPkgs=standalonePkgs;
+
+    // ── سيكشن الباقات (منفصل، تصميم خاص) ──
+    var pkgsHtml='';
+    if(hasPkgs){
+      pkgsHtml=
+        '<div id="_pkgs" style="scroll-margin-top:72px" class="_sec">'+
+          '<div class="_sec-head">'+
+            '<div class="_sec-title"><i class="fa-solid fa-box"></i> باقاتنا</div>'+
+            (standalonePkgs.length>4?'<button class="_sec-more" onclick="_showAllPkgs()">عرض الكل ('+standalonePkgs.length+')</button>':'')+
+          '</div>'+
+          '<div class="_pkg-grid" id="_pkg-grid">'+
+            standalonePkgs.map(function(p,i){
+              var pr=p.price?Number(p.price).toLocaleString()+' '+(p.currency||'ج.م'):'عند الطلب';
+              var cvr=p.thumb||p.image||p.cover||p.thumbnail||p.img||'';
+              var payBtn=p.payment_link
+                ?'<a href="'+xe(p.payment_link)+'" target="_blank" class="_btn _btn-pay" onclick="event.stopPropagation()"><i class="fa-solid fa-credit-card"></i>ادفع</a>'
+                :'<button class="_btn _btn-pay" onclick="event.stopPropagation();_openOrd(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+',\'\')"><i class="fa-solid fa-credit-card"></i>ادفع</button>';
+              return '<div class="_pc">'+
+                (cvr?'<img class="_pc-thumb" src="'+xe(cvr)+'" alt="" loading="lazy" onclick="_openPkg('+i+')">':
+                     '<div class="_pc-ph" onclick="_openPkg('+i+')">'+(p.icon||'<i class="fa-solid fa-box"></i>')+'</div>')+
+                '<div class="_pc-body">'+
+                  '<div class="_pc-name" onclick="_openPkg('+i+')">'+xe(p.name)+'</div>'+
+                  (p.desc?'<div class="_pc-desc">'+xe(p.desc)+'</div>':'')+
+                  (p.items&&p.items.length?
+                    '<div class="_pc-items">'+p.items.slice(0,4).map(function(it){return '<div class="_pc-item"><i class="fa-solid fa-check"></i>'+xe(it)+'</div>';}).join('')+'</div>':'')+
+                  '<div class="_pc-foot">'+
+                    '<div class="_pc-price">'+pr+'</div>'+
+                    '<div class="_pc-btns">'+
+                      '<button class="_btn _btn-ghost" onclick="event.stopPropagation();_openPkg('+i+')">تفاصيل</button>'+
+                      payBtn+
+                      '<button class="_btn _btn-main" onclick="event.stopPropagation();_openOrd(\'\',\''+encodeURIComponent(p.name)+'\','+(p.price||0)+',\''+encodeURIComponent(p.payment_link||'')+'\')">اطلب ←</button>'+
+                    '</div>'+
+                  '</div>'+
+                '</div>'+
+              '</div>';
+            }).join('')+
+          '</div>'+
         '</div>';
     }
 
-    window._comboServices=services; window._comboPkgs=standalonePkgs;
-
-    var pkgsHtml=''; var svcsHtml='';
-    var pfHtml='';
+    var svcsHtml=''; // مدمجة في comboSectionHtml
     // ══════════════════════════════════
     var pfHtml='<div id="_pf" style="scroll-margin-top:72px" class="_sec">'+
       '<div class="_sec-head">'+
@@ -909,14 +928,14 @@ async function buildPage(userId){
     // ══════════════════════════════════
     var root=document.getElementById('_root');
     root.innerHTML=navHtml+
-      '<div class="_main">'+heroHtml+comboSectionHtml+pfHtml+contactHtml+'</div>'+
+      '<div class="_main">'+heroHtml+comboSectionHtml+pkgsHtml+pfHtml+contactHtml+'</div>'+
       footerHtml;
     root.style.display='block';
     hideLs();
 
     // scroll spy
     window.addEventListener('scroll',function(){
-      var ids=['_hero','_combo','_contact'];
+      var ids=['_hero','_combo','_pkgs','_pf','_contact'];
       var lks=document.querySelectorAll('._nl');
       var cur=0;
       ids.forEach(function(id,i){var el=document.getElementById(id);if(el&&window.scrollY>=el.offsetTop-84)cur=i;});
