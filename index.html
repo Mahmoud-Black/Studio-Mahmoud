@@ -24998,15 +24998,17 @@ function pickProjColor(c){
 }
 
 function openProjectModal(id){
+  try {
   var proj=id?_getProjById(id):null;
-  document.getElementById('proj-eid').value=id||'';
-  document.getElementById('proj-modal-title').innerHTML=id?'<i class="fa-solid fa-pen"></i> تعديل المشروع':'<i class="fa-solid fa-diagram-project"></i> مشروع جديد';
-  document.getElementById('proj-name').value=proj?proj.name:'';
-  document.getElementById('proj-desc').value=proj?proj.desc||'':'';
-  document.getElementById('proj-status').value=proj?proj.status||'active':'active';
-  document.getElementById('proj-start').value=proj?proj.start||'':'';
-  document.getElementById('proj-deadline').value=proj?proj.deadline||'':'';
-  pickProjColor(proj?proj.color||'#7c6ff7':'#7c6ff7');
+  var _e=function(i){return document.getElementById(i);};
+  if(_e('proj-eid')) _e('proj-eid').value=id||'';
+  if(_e('proj-modal-title')) _e('proj-modal-title').innerHTML=id?'<i class="fa-solid fa-pen"></i> تعديل المشروع':'<i class="fa-solid fa-diagram-project"></i> مشروع جديد';
+  if(_e('proj-name')) _e('proj-name').value=proj?proj.name:'';
+  if(_e('proj-desc')) _e('proj-desc').value=proj?proj.desc||'':'';
+  if(_e('proj-status')) _e('proj-status').value=proj?proj.status||'active':'active';
+  if(_e('proj-start')) _e('proj-start').value=proj?proj.start||'':'';
+  if(_e('proj-deadline')) _e('proj-deadline').value=proj?proj.deadline||'':'';
+  if(typeof pickProjColor==='function') pickProjColor(proj?proj.color||'#7c6ff7':'#7c6ff7');
   // Project type
   var pt=proj?proj.projectType||'tasks':'tasks';
   var ptTasks=document.getElementById('proj-type-tasks');
@@ -25034,7 +25036,11 @@ function openProjectModal(id){
   // Team members
   _renderProjMembersSelect(proj?proj.members||[]:[]);
   openM('modal-project');
-  setTimeout(()=>document.getElementById('proj-name').focus(),100);
+  setTimeout(function(){ var n=document.getElementById('proj-name'); if(n) n.focus(); },100);
+  } catch(e) {
+    console.error('openProjectModal error:', e);
+    try { openM('modal-project'); } catch(e2) {}
+  }
 }
 
 function onProjTypeChange(){
@@ -29872,10 +29878,17 @@ document.addEventListener('click', function(e){
 
 // ── Get proposal page URL ──
 function _propUrl(p) {
-  var parts = window.location.pathname.split('/').filter(function(x){ return x!==''; });
-  if (parts.length && parts[parts.length-1].endsWith('.html')) parts.pop();
-  var base = parts.length ? '/' + parts.join('/') + '/' : '/';
-  return window.location.origin + base + 'proposal.html?token=' + encodeURIComponent(p.token);
+  // ✅ FIX: استخدم PROPOSAL_PAGE_URL لو محدد في الإعدادات، وإلا احسبه تلقائياً
+  var customUrl = (S && S.settings && S.settings.proposalPageUrl) ? S.settings.proposalPageUrl.trim() : '';
+  if (customUrl) {
+    // أزل أي token قديم لو فيه
+    customUrl = customUrl.split('?')[0].replace(/\/$/, '');
+    return customUrl + '?token=' + encodeURIComponent(p.token);
+  }
+  // الطريقة التلقائية: نفس المجلد اللي فيه index.html
+  var href = window.location.href.split('?')[0]; // أزل query string
+  var base = href.substring(0, href.lastIndexOf('/') + 1); // المجلد الحالي
+  return base + 'proposal.html?token=' + encodeURIComponent(p.token);
 }
 
 function _propCur() {
