@@ -206,6 +206,7 @@ async function _bootWithData(userId, clientId, ud){
     const accent2=_settings.accent2||_settings.accentColor2||accent;
     if((_settings.displayMode||_settings.display_mode||'dark')==='light')document.body.classList.add('lm');
     document.documentElement.style.setProperty('--ac',accent);
+    document.documentElement.style.setProperty('--ac2',accent2);
     // ── تحديث شاشة اللود بلون ولوجو المستخدم فوراً ──
     (function(){
       var lsEl=document.getElementById('ls');
@@ -612,35 +613,104 @@ function renderProjects(){
     const prog=ptasks.length?Math.round(doneT/ptasks.length*100):0;
     const stC=stColors[p.status]||'var(--ac)';
     const stL=stLabels[p.status]||p.status||'نشط';
-    return`<div class="card" id="proj-card-${xe(String(p.id))}">
+    const clr=p.color||'var(--ac)';
+    return`<div class="card" id="proj-card-${xe(String(p.id))}" onclick="openProjectDetail('${xe(String(p.id))}')" style="cursor:pointer;border-right:3px solid ${clr};transition:transform .15s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px">
         <div>
           <div class="card-ttl">${xe(p.name)}</div>
           ${p.desc?`<div class="card-sub" style="margin-top:4px">${xe(p.desc)}</div>`:''}
         </div>
-        <span class="badge" style="background:${stC}22;color:${stC}">● ${xe(stL)}</span>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+          <span class="badge" style="background:${stC}22;color:${stC}">● ${xe(stL)}</span>
+          <span style="font-size:10px;color:var(--t3)">${ptasks.length} مهمة · ${prog}% مكتمل</span>
+        </div>
       </div>
-      <div class="prog-bar"><div class="prog-fill" style="width:${prog}%;background:${p.color||'var(--ac)'}"></div></div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t3);margin-bottom:${ptasks.length?'10px':'0'}">
-        <span>${prog}% مكتمل · ${ptasks.length} مهمة</span>
-        ${p.deadline?`<span><i class="fa-solid fa-calendar-days"></i> ${xe(p.deadline)}</span>`:''}
+      <div class="prog-bar"><div class="prog-fill" style="width:${prog}%;background:${clr}"></div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        ${p.deadline?`<span style="font-size:11px;color:var(--t3)"><i class="fa-solid fa-calendar-days"></i> ${xe(p.deadline)}</span>`:'<span></span>'}
+        <span style="font-size:11px;color:var(--ac);font-weight:700">التفاصيل ←</span>
       </div>
-      ${ptasks.length?`<div style="display:flex;flex-direction:column;gap:5px">
-        ${ptasks.map(t=>{
-          const tStC=({todo:'#64b5f6',progress:'var(--y)',review:'var(--ac)',revision:'#f97316',done:'var(--g)',hold:'var(--t3)'})[t.status]||'var(--t3)';
-          return`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border-radius:9px;font-size:12px">
-            <div style="width:7px;height:7px;border-radius:50%;background:${tStC};flex-shrink:0"></div>
-            <div style="flex:1;font-weight:600">${xe(t.title||'')}</div>
-            <span style="font-size:10px;font-weight:700;color:${tStC}">${xe(({todo:'جديد',progress:'جاري',review:'مراجعة',revision:'تعديل',done:'✓ تم',hold:'موقوف'})[t.status]||t.status||'')}</span>
-          </div>`;
-        }).join('')}
-      </div>`:''}
-      ${p.files&&p.files.filter(f=>f.url).length?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bd)">
-        <div style="font-size:11px;font-weight:800;color:var(--t3);margin-bottom:6px"><i class="fa-solid fa-link"></i> ملفات وروابط</div>
-        ${p.files.filter(f=>f.url).map(f=>`<a href="${xe(f.url)}" target="_blank" style="display:flex;align-items:center;gap:7px;padding:7px 10px;background:var(--s2);border-radius:9px;text-decoration:none;color:var(--t2);font-size:12px;margin-bottom:4px"><i class="fa-solid fa-arrow-up-right-from-square" style="color:var(--ac);font-size:10px"></i>${xe(f.name||f.url)}</a>`).join('')}
-      </div>`:''}
     </div>`;
   }).join('');
+}
+
+function openProjectDetail(projId){
+  const p=_clientProjects.find(x=>String(x.id)===String(projId));
+  if(!p) return;
+  const ptasks=(_ud.project_tasks||[]).filter(t=>String(t.project_id)===String(projId));
+  const doneT=ptasks.filter(t=>t.status==='done').length;
+  const prog=ptasks.length?Math.round(doneT/ptasks.length*100):0;
+  const stColors={active:'var(--g)',hold:'var(--y)',review:'var(--ac)',done:'var(--t3)'};
+  const stLabels={active:'نشط',hold:'معلق',review:'مراجعة',done:'مكتمل'};
+  const clr=p.color||'var(--ac)';
+  const stC=stColors[p.status]||'var(--ac)';
+  const stL=stLabels[p.status]||p.status||'نشط';
+
+  const tStColorMap={todo:'#64b5f6',progress:'var(--y)',review:'var(--ac)',revision:'#f97316',done:'var(--g)',hold:'var(--t3)'};
+  const tStLabelMap={todo:'جديد',progress:'جارٍ',review:'مراجعة',revision:'تعديلات',done:'✓ مكتمل',hold:'موقوف'};
+
+  const tasksHtml = ptasks.length ? ptasks.map(t=>{
+    const tC=tStColorMap[t.status]||'var(--t3)';
+    const tL=tStLabelMap[t.status]||t.status||'';
+    const isDone=t.status==='done';
+    const link=t.projectLink||t.driveLink||'';
+    return`<div style="border:1px solid var(--bd);border-radius:14px;overflow:hidden;margin-bottom:10px">
+      <div style="padding:12px 14px;background:var(--s2)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+          <div style="font-size:13px;font-weight:700;flex:1">${xe(t.title||'')}</div>
+          <span style="font-size:10px;font-weight:800;padding:2px 10px;border-radius:20px;background:${tC}22;color:${tC};white-space:nowrap">${tL}</span>
+        </div>
+        ${t.assignee_name?`<div style="font-size:11px;color:var(--t3)"><i class="fa-solid fa-user" style="color:${clr}"></i> ${xe(t.assignee_name)}</div>`:''}
+        ${t.desc?`<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5">${xe(t.desc)}</div>`:''}
+      </div>
+      ${isDone?`<div style="padding:10px 14px;border-top:1px solid var(--bd);display:flex;flex-direction:column;gap:8px">
+        ${link?`<a href="${xe(link)}" target="_blank" style="display:flex;align-items:center;gap:6px;background:rgba(79,209,165,.1);color:var(--g);border:1px solid rgba(79,209,165,.3);border-radius:8px;padding:8px 12px;font-family:var(--font);font-size:12px;font-weight:800;text-decoration:none"><i class="fa-solid fa-box-open"></i> فتح رابط التسليم</a>`:''}
+        ${!t.clientReceived?`<button data-tid="${xe(String(t.id))}" onclick="_openReceiveProjectSheet(this.dataset.tid)" style="display:flex;align-items:center;gap:6px;background:rgba(79,209,165,.12);color:var(--g);border:1.5px solid rgba(79,209,165,.35);border-radius:8px;padding:8px 12px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer${link?';animation:pulse-green 2s infinite':''}"><i class="fa-solid fa-handshake"></i> تأكيد الاستلام</button>`
+        :`<div style="font-size:11px;color:var(--g);display:flex;align-items:center;gap:5px;padding:6px 0"><i class="fa-solid fa-circle-check"></i> تم الاستلام</div>`}
+        ${t.clientReceived&&!t.clientRevisionRequested?`<button data-tid="${xe(String(t.id))}" data-ttl="${xe(t.title||'')}" onclick="_openRevisionSheet(this.dataset.tid,this.dataset.ttl)" style="display:flex;align-items:center;gap:6px;background:rgba(249,115,22,.1);color:#f97316;border:1px solid rgba(249,115,22,.3);border-radius:8px;padding:7px 12px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer"><i class="fa-solid fa-rotate-left"></i> طلب تعديل</button>`:''}
+        ${t.clientRevisionRequested?`<div style="font-size:11px;color:#f97316;display:flex;align-items:center;gap:5px;padding:6px 0"><i class="fa-solid fa-rotate-left"></i> تم إرسال طلب التعديل</div>`:''}
+      </div>`:''}
+      <!-- ملاحظة العميل -->
+      <div style="padding:8px 14px;border-top:1px solid var(--bd)">
+        <div style="display:flex;gap:6px">
+          <input id="proj-task-note-${xe(String(t.id))}" type="text" placeholder="اترك ملاحظة على هذه المهمة..." style="flex:1;padding:6px 10px;background:var(--s3);border:1px solid var(--bd);border-radius:7px;font-size:11px;color:var(--t1);font-family:var(--font)"/>
+          <button data-tid="${xe(String(t.id))}" onclick="_submitProjTaskNote(this.dataset.tid)" style="background:var(--ac);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-family:var(--font);font-size:11px;font-weight:800;cursor:pointer"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+        ${t.clientNote?`<div style="margin-top:6px;font-size:11px;color:var(--t3);padding:5px 8px;background:var(--s3);border-radius:6px;border-right:2px solid var(--ac)"><i class="fa-solid fa-comment-dots" style="color:var(--ac)"></i> ${xe(t.clientNote)}</div>`:''}
+      </div>
+    </div>`;
+  }).join('') : `<div style="text-align:center;color:var(--t3);padding:24px;font-size:13px">لا توجد مهام في هذا المشروع</div>`;
+
+  const ov=document.createElement('div');ov.className='overlay';ov.id='proj-detail-ov';
+  ov.onclick=ev=>{if(ev.target===ov)ov.remove();};
+  ov.innerHTML=`<div class="sheet" style="max-height:92vh">
+    <div class="sheet-hdl"></div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px">
+      <div style="flex:1">
+        <div style="font-size:19px;font-weight:900;line-height:1.3;margin-bottom:5px">${xe(p.name)}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <span class="badge" style="background:${stC}22;color:${stC}">● ${xe(stL)}</span>
+          ${p.deadline?`<span style="font-size:11px;color:var(--t3)"><i class="fa-solid fa-calendar"></i> ${xe(p.deadline)}</span>`:''}
+        </div>
+      </div>
+      <button onclick="document.getElementById('proj-detail-ov').remove()" style="background:var(--s2);border:1px solid var(--bd);width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:15px;color:var(--t2);flex-shrink:0"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <!-- Progress -->
+    <div style="background:var(--s2);border-radius:12px;padding:12px 14px;margin-bottom:16px;border:1px solid var(--bd)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:7px;font-size:11px;color:var(--t3)">
+        <span>تقدم المشروع</span><span style="font-weight:900;color:${clr}">${prog}%</span>
+      </div>
+      <div style="height:8px;background:var(--s3);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${prog}%;background:${clr};border-radius:4px;transition:.5s"></div>
+      </div>
+      <div style="font-size:11px;color:var(--t3);margin-top:6px">${doneT} من ${ptasks.length} مهمة مكتملة</div>
+    </div>
+    ${p.desc?`<div style="font-size:13px;color:var(--t2);margin-bottom:14px;line-height:1.7;padding:10px 12px;background:var(--s2);border-radius:10px;border-right:3px solid ${clr}">${xe(p.desc)}</div>`:''}
+    <!-- Tasks -->
+    <div style="font-size:12px;font-weight:800;color:var(--t3);margin-bottom:10px"><i class="fa-solid fa-list-check"></i> مهام المشروع</div>
+    ${tasksHtml}
+  </div>`;
+  document.body.appendChild(ov);
 }
 
 function renderAccounts(){
@@ -1176,28 +1246,59 @@ async function _submitRevisionRequest(taskId){
   if(btn){btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> جاري الإرسال...';btn.disabled=true;}
 
   try{
+    const now=new Date().toISOString();
     // Mark task as revision in local data
     const t=(_ud?.tasks||[]).find(x=>String(x.id)===String(taskId));
     const pt=(_ud?.project_tasks||[]).find(x=>String(x.id)===String(taskId));
     const task=t||pt;
+    const taskTitle=task?.title||'مهمة';
     if(task){
       task.status='revision';
       task.done=false;
       task.clientRevisionNote=note;
-      task.clientRevisionAt=new Date().toISOString();
+      task.clientRevisionAt=now;
       task.clientReceived=false;
       task.clientRevisionRequested=true;
     }
 
-    // Save to Supabase
-    const {data:{session}} = await db.auth.getSession();
-    const uid = window._resolvedUid||session?.user?.id||pUid;
-    if(uid && uid!==pUid){
-      const fresh = JSON.parse(JSON.stringify(_ud));
-      await db.from('studio_data').upsert({user_id:uid, data:fresh, updated_at:new Date().toISOString()},{onConflict:'user_id'});
+    // Push inbox notification to freelancer's data
+    const inboxItem={
+      id:'rev_'+Date.now(),
+      type:'revision',
+      taskId:String(taskId),
+      taskTitle:taskTitle,
+      clientName:_clientName||'عميل',
+      clientId:String(_clientId||''),
+      note:note,
+      createdAt:now,
+      read:false,
+      status:'pending' // pending | accepted | rejected
+    };
+    if(!_ud._inbox) _ud._inbox=[];
+    _ud._inbox.unshift(inboxItem);
+
+    // Also push to _pending_notifications for bell
+    if(!_ud._pending_notifications) _ud._pending_notifications=[];
+    _ud._pending_notifications.unshift({
+      id:'rev_notif_'+Date.now(),
+      type:'revision',
+      title:'طلب تعديل من '+(_clientName||'عميل'),
+      body:'طلب تعديل على: '+taskTitle+(note?' — "'+note.slice(0,60)+'"':''),
+      taskId:String(taskId),
+      clientId:String(_clientId||''),
+      created_at:now,
+      read:false
+    });
+
+    // Save to Supabase — always to freelancer's data
+    const saveUid=window._resolvedUid||pUid;
+    if(saveUid){
+      const fresh=JSON.parse(JSON.stringify(_ud));
+      await db.from('studio_data').upsert({user_id:saveUid,data:fresh,updated_at:now},{onConflict:'user_id'});
     }
 
     document.getElementById('revision-ov')?.remove();
+    document.getElementById('proj-detail-ov')?.remove();
 
     // Show success confirmation
     const ok=document.createElement('div');ok.className='overlay';ok.onclick=()=>{ok.remove();document.getElementById('tp-tasks').innerHTML=renderTasks();};
@@ -1213,6 +1314,41 @@ async function _submitRevisionRequest(taskId){
     console.error('revision error:',e);
     if(btn){btn.innerHTML='حدث خطأ — حاول مجدداً';btn.disabled=false;}
   }
+}
+
+// حفظ ملاحظة العميل على مهمة المشروع
+async function _submitProjTaskNote(taskId){
+  const inp=document.getElementById('proj-task-note-'+taskId);
+  const note=(inp?.value||'').trim();
+  if(!note) return;
+
+  const pt=(_ud?.project_tasks||[]).find(x=>String(x.id)===String(taskId));
+  if(pt){
+    pt.clientNote=note;
+    pt.clientNoteAt=new Date().toISOString();
+    // Also push to inbox
+    if(!_ud._inbox) _ud._inbox=[];
+    _ud._inbox.unshift({
+      id:'note_'+Date.now(),
+      type:'note',
+      taskId:String(taskId),
+      taskTitle:pt.title||'مهمة',
+      clientName:_clientName||'عميل',
+      clientId:String(_clientId||''),
+      note:note,
+      createdAt:new Date().toISOString(),
+      read:false,
+      status:'info'
+    });
+  }
+
+  const saveUid=window._resolvedUid||pUid;
+  if(saveUid){
+    const fresh=JSON.parse(JSON.stringify(_ud));
+    await db.from('studio_data').upsert({user_id:saveUid,data:fresh,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+  }
+  if(inp){inp.value='';inp.placeholder='تم إرسال الملاحظة ✓';}
+  setTimeout(()=>{if(inp)inp.placeholder='اترك ملاحظة على هذه المهمة...';},2500);
 }
 
 document.addEventListener('DOMContentLoaded',boot);
