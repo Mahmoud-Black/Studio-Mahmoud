@@ -8571,25 +8571,83 @@ function saveTask(){
       } catch(e){ console.warn('Task assign notify error:',e); }
     }, 300);
   }
-  // Prompt to register deposit as income for new tasks with deposit
+  // Prompt to register deposit/full payment as income
   const payVal = v('t-pay');
   const depositVal = +(v('t-deposit'))||0;
   if(!eid && payVal==='deposit' && depositVal>0){
-    setTimeout(()=>{
-      if(confirm('تم تسجيل المهمة بعربون '+depositVal.toLocaleString()+' ج - هل تريد تسجيله كدخل الآن؟')){
-        openIncomeModal(null, d.id);
-        const ae=document.getElementById('in-amount');   if(ae) ae.value=depositVal;
-        const se=document.getElementById('in-source');   if(se) se.value=d.client||'';
-        const de=document.getElementById('in-desc');     if(de) de.value='عربون مشروع: '+d.title;
-        const pe=document.getElementById('in-payment-type'); if(pe) pe.value='deposit';
-      }
-    }, 400);
+    setTimeout(()=>_showPaymentIncomePrompt({
+      amount: depositVal,
+      label: 'عربون',
+      desc: 'عربون: '+d.title,
+      client: d.client||'',
+      taskId: d.id,
+      paymentType: 'deposit',
+      onSkip: ()=>{ if(issueInv) setTimeout(()=>openInvoiceFromTask(d),150); }
+    }), 400);
+    return;
+  }
+  if(!eid && payVal==='full' && (d.value||0)>0){
+    setTimeout(()=>_showPaymentIncomePrompt({
+      amount: d.value,
+      label: 'دفعة كاملة',
+      desc: 'دفع كامل: '+d.title,
+      client: d.client||'',
+      taskId: d.id,
+      paymentType: 'full',
+      onSkip: ()=>{ if(issueInv) setTimeout(()=>openInvoiceFromTask(d),150); }
+    }), 400);
     return;
   }
   // إصدار فاتورة تلقائي
   if(issueInv && !eid){
     setTimeout(()=>openInvoiceFromTask(d), 150);
   }
+}
+
+// ── موديال تسجيل الدفعة كدخل ──
+function _showPaymentIncomePrompt(opts){
+  var ex=document.getElementById('_pay-income-modal'); if(ex) ex.remove();
+  var ov=document.createElement('div');
+  ov.id='_pay-income-modal';
+  ov.className='modal-overlay';
+  ov.style.cssText='display:flex;align-items:center;justify-content:center;z-index:10500';
+  ov.innerHTML='<div class="modal" style="width:min(400px,92vw);border-radius:20px;padding:28px;text-align:center">'
+    +'<div style="font-size:40px;margin-bottom:12px">💰</div>'
+    +'<div style="font-size:17px;font-weight:900;margin-bottom:6px">تسجيل '+escapeHtml(opts.label)+' كدخل؟</div>'
+    +'<div style="font-size:13px;color:var(--text3);margin-bottom:6px">'+escapeHtml(opts.desc)+'</div>'
+    +'<div style="font-size:28px;font-weight:900;color:var(--accent3);margin:14px 0">'+Number(opts.amount).toLocaleString()+' ج</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:20px">هل تريد تسجيل هذا المبلغ الآن في سجل المعاملات المالية؟</div>'
+    +'<div style="display:flex;gap:10px">'
+      +'<button id="_pim-yes" class="btn btn-primary" style="flex:1"><i class="fa-solid fa-square-check"></i> نعم، سجّله</button>'
+      +'<button id="_pim-no" class="btn btn-ghost" style="flex:1">تخطي</button>'
+    +'</div>'
+  +'</div>';
+  document.body.appendChild(ov);
+  document.getElementById('_pim-yes').onclick=function(){
+    ov.remove();
+    // تسجيل مباشر في المعاملات بدون فتح موديال
+    var tx={
+      id:Date.now(),type:'income',
+      amount:opts.amount,
+      source:opts.client||'',
+      desc:opts.desc,
+      date:new Date().toISOString().split('T')[0],
+      paymentType:opts.paymentType||'full',
+      linkedTaskId:opts.taskId||null,
+      currency:S.settings?.currency||'EGP'
+    };
+    if(!S.transactions) S.transactions=[];
+    S.transactions.push(tx);
+    lsSave(); cloudSave(S);
+    toast('<i class="fa-solid fa-coins" style="color:var(--accent3)"></i> تم تسجيل '+opts.label+' كدخل — '+Number(opts.amount).toLocaleString()+' ج');
+    if(typeof renderFinance==='function') renderFinance();
+    if(opts.onSkip) opts.onSkip();
+  };
+  document.getElementById('_pim-no').onclick=function(){
+    ov.remove();
+    if(opts.onSkip) opts.onSkip();
+  };
+  ov.addEventListener('click',function(e){if(e.target===ov){ov.remove();if(opts.onSkip)opts.onSkip();}});
 }
 /* فتح فاتورة جديدة مبنية على مهمة */
 function openInvoiceFromTask(task){
@@ -15923,8 +15981,9 @@ function saveLoan(){
   if(!amount){toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل المبلغ');return;}
   var eid=document.getElementById('loan-eid').value;
   var status=document.getElementById('loan-status').value||'pending';
+  var direction=document.getElementById('loan-direction').value||'lent';
   var d={
-    direction:document.getElementById('loan-direction').value||'lent',
+    direction:direction,
     amount:amount, person:person,
     date:document.getElementById('loan-date').value||'',
     due:document.getElementById('loan-due').value||'',
@@ -15933,11 +15992,70 @@ function saveLoan(){
     settledAmount:status==='partial'?+(document.getElementById('loan-settled-amount').value||0):0,
     updatedAt:new Date().toISOString()
   };
+  var isNew=!eid;
   if(!S.loans) S.loans=[];
   if(eid){var i=S.loans.findIndex(function(x){return String(x.id)===String(eid);});if(i>-1){d.id=S.loans[i].id;d.createdAt=S.loans[i].createdAt||d.updatedAt;S.loans[i]=d;}}
   else{d.id='ln_'+Date.now();d.createdAt=d.updatedAt;S.loans.push(d);}
   lsSave();cloudSave(S);closeM('modal-loan');renderLoans();
   toast('<i class="fa-solid fa-square-check" style="color:var(--accent3)"></i> تم حفظ القرض');
+  // ── سؤال تسجيل القرض كمعاملة مالية (للقروض الجديدة فقط) ──
+  if(isNew){
+    setTimeout(function(){
+      _showLoanTransactionPrompt(d);
+    }, 350);
+  }
+}
+
+// ── موديال تسجيل القرض كمعاملة مالية ──
+function _showLoanTransactionPrompt(loan){
+  var ex=document.getElementById('_loan-tx-modal'); if(ex) ex.remove();
+  var isLent=loan.direction==='lent';
+  // لو سلّفت فلوس → خرج منك (مصروف)، لو استلفت → دخل عندك
+  var txType=isLent?'expense':'income';
+  var icon=isLent?'📤':'📥';
+  var label=isLent?'مصروف (فلوس طلعت منك)':'دخل (فلوس دخلت عندك)';
+  var desc=(isLent?'سلفة لـ ':'قرض من ')+loan.person;
+  var ov=document.createElement('div');
+  ov.id='_loan-tx-modal';
+  ov.className='modal-overlay';
+  ov.style.cssText='display:flex;align-items:center;justify-content:center;z-index:10500';
+  ov.innerHTML='<div class="modal" style="width:min(420px,92vw);border-radius:20px;padding:28px;text-align:center">'
+    +'<div style="font-size:40px;margin-bottom:10px">'+icon+'</div>'
+    +'<div style="font-size:17px;font-weight:900;margin-bottom:6px">تسجيل في المالية؟</div>'
+    +'<div style="font-size:13px;color:var(--text3);margin-bottom:4px">'+escapeHtml(desc)+'</div>'
+    +'<div style="font-size:28px;font-weight:900;color:'+(isLent?'var(--accent4)':'var(--accent3)')+';margin:12px 0">'+Number(loan.amount).toLocaleString()+' ج</div>'
+    +'<div style="background:var(--surface2);border-radius:12px;padding:12px;margin-bottom:18px;font-size:12px;color:var(--text3);line-height:1.7">'
+      +(isLent
+        ? '<i class="fa-solid fa-info-circle" style="color:var(--accent2)"></i> لو سجّلته كمصروف، هيظهر إن عندك فلوس طلعت من حسابك (مش موجودة معاك دلوقتي)'
+        : '<i class="fa-solid fa-info-circle" style="color:var(--accent3)"></i> لو سجّلته كدخل، هيظهر إن عندك فلوس دخلت على حسابك (معاك دلوقتي نقدي)')
+    +'</div>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      +'<button id="_ltm-yes" class="btn btn-primary" style="flex:1"><i class="fa-solid fa-coins"></i> نعم سجّله '+label+'</button>'
+      +'<button id="_ltm-no" class="btn btn-ghost">تخطي</button>'
+    +'</div>'
+  +'</div>';
+  document.body.appendChild(ov);
+  document.getElementById('_ltm-yes').onclick=function(){
+    ov.remove();
+    var tx={
+      id:Date.now(),
+      type:txType,
+      amount:loan.amount,
+      source:txType==='income'?loan.person:'',
+      desc:desc,
+      date:loan.date||new Date().toISOString().split('T')[0],
+      paymentType:'cash',
+      loanId:loan.id,
+      currency:S.settings?.currency||'EGP'
+    };
+    if(!S.transactions) S.transactions=[];
+    S.transactions.push(tx);
+    lsSave(); cloudSave(S);
+    if(typeof renderFinance==='function') renderFinance();
+    toast('<i class="fa-solid fa-coins" style="color:var(--accent3)"></i> تم تسجيل القرض في المالية');
+  };
+  document.getElementById('_ltm-no').onclick=function(){ ov.remove(); };
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
 }
 function delLoan(id){
   if(!confirm('حذف هذا القرض؟')) return;
