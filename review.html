@@ -469,70 +469,7 @@ async function submitReview(){
   showSuccessCard(_selectedStars, comment, false);
 }
 
-function _unused_old_try(){
-  try{
-    // ═══ الحل: نكتب في جدول review_queue المنفصل (anon insert مسموح) ═══
-    // لو الجدول مش موجود، نستخدم الـ fallback
-    let saved = false;
 
-    const r1 = await db.from('review_queue').insert({
-      target_user_id: _resolvedUid,
-      review_json: JSON.stringify(review),
-      created_at: new Date().toISOString()
-    });
-
-    if(!r1.error){
-      saved = true;
-    } else {
-      // ═══ Fallback: استخدام Supabase RPC لو موجودة ═══
-      const r2 = await db.rpc('submit_review', {
-        p_user_id: _resolvedUid,
-        p_review: JSON.stringify(review)
-      });
-      if(!r2.error) saved = true;
-    }
-
-    if(!saved){
-      // ═══ Final fallback: محاولة الكتابة المباشرة مع معالجة الـ 401 ═══
-      const headers = {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM',
-        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wZm1jamdpZ3B2ZHhiaGd6dWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2Mjc3MzMsImV4cCI6MjA4ODIwMzczM30.fICNxH_7DEBHripIoyMcUugTnd4JEBx-ypegpPvb6PM',
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      };
-      // محاولة fetch الـ studio_data وتعديله
-      const fetchRes = await fetch('https://mpfmcjgigpvdxbhgzufo.supabase.co/rest/v1/studio_data?user_id=eq.'+encodeURIComponent(_resolvedUid)+'&select=data', {headers});
-      if(fetchRes.ok){
-        const rows = await fetchRes.json();
-        let fresh = rows?.[0]?.data;
-        if(typeof fresh==='string') fresh=JSON.parse(fresh);
-        if(fresh?.data&&!fresh?.tasks) fresh=typeof fresh.data==='string'?JSON.parse(fresh.data):fresh.data;
-        if(fresh){
-          if(!fresh.reviews) fresh.reviews=[];
-          // فحص التكرار
-          const isDup=fresh.reviews.find(r=>(r.client_name||'').trim().toLowerCase()===name.toLowerCase()&&!r.task_id);
-          if(isDup){ document.getElementById('form-card').style.display='none'; showSuccessCard(_selectedStars,comment,true); return; }
-          fresh.reviews.push(review);
-          fresh._savedAt=new Date().toISOString();
-          const patchRes = await fetch('https://mpfmcjgigpvdxbhgzufo.supabase.co/rest/v1/studio_data?user_id=eq.'+encodeURIComponent(_resolvedUid), {
-            method:'PATCH', headers,
-            body: JSON.stringify({data: JSON.stringify(fresh), updated_at: new Date().toISOString()})
-          });
-          if(patchRes.ok || patchRes.status===204) saved=true;
-        }
-      }
-    }
-
-    if(saved){
-      document.getElementById('header-card').style.display='none';
-      document.getElementById('form-card').style.display='none';
-      showSuccessCard(_selectedStars, comment, false);
-    } else {
-      throw new Error('all strategies failed');
-    }
-
-  }catch(e){ console.warn('legacy catch',e); }
-}
 
 function showSuccessCard(stars, comment, isDup){
   const sc=document.getElementById('success-card');
