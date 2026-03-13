@@ -305,19 +305,37 @@ function applyPlatformConfig() {
   }
   // Apply accent color
   if(cfg.accent) document.documentElement.style.setProperty('--accent', cfg.accent);
-  // Apply mode — only if platform explicitly sets it, don't override user preference
-  if(cfg.mode === 'light'){
-    document.documentElement.classList.add('light-mode');
-    document.body && document.body.classList.add('light-mode');
-  } else if(cfg.mode === 'dark'){
-    document.documentElement.classList.remove('light-mode');
-    document.body && document.body.classList.remove('light-mode');
+  // Apply mode — USER preference ALWAYS wins, platform is just a fallback default
+  var _userMode = localStorage.getItem('studioDisplayMode');
+  var _effectiveMode = _userMode || cfg.mode || 'dark';
+  var _isLight = _effectiveMode === 'light';
+  
+  document.documentElement.classList.toggle('light-mode', _isLight);
+  if(document.body) document.body.classList.toggle('light-mode', _isLight);
+  
+  // Set inline CSS variables to match the mode (needed because :root defaults are dark)
+  if(_isLight){
+    document.documentElement.style.setProperty('--bg',      '#f0f2f8');
+    document.documentElement.style.setProperty('--surface', '#ffffff');
+    document.documentElement.style.setProperty('--surface2','#f5f6fb');
+    document.documentElement.style.setProperty('--surface3','#eceef5');
+    document.documentElement.style.setProperty('--border',  '#d8dae8');
+    document.documentElement.style.setProperty('--text',    '#1a1a2e');
+    document.documentElement.style.setProperty('--text2',   '#5a5a7a');
+    document.documentElement.style.setProperty('--text3',   '#9090b0');
+    document.documentElement.style.background = '#f0f2f8';
+    if(document.body){ document.body.style.background = '#f0f2f8'; document.body.style.color = '#1a1a2e'; }
   } else {
-    // No platform mode set — respect user's own preference from localStorage
-    const _userMode = localStorage.getItem('studioDisplayMode') || 'dark';
-    const _isLight = _userMode === 'light';
-    document.documentElement.classList.toggle('light-mode', _isLight);
-    document.body && document.body.classList.toggle('light-mode', _isLight);
+    document.documentElement.style.setProperty('--bg',      '#0a0a0f');
+    document.documentElement.style.setProperty('--surface', '#111118');
+    document.documentElement.style.setProperty('--surface2','#16161f');
+    document.documentElement.style.setProperty('--surface3','#1c1c28');
+    document.documentElement.style.setProperty('--border',  '#2a2a3a');
+    document.documentElement.style.setProperty('--text',    '#e8e8f0');
+    document.documentElement.style.setProperty('--text2',   '#9090a8');
+    document.documentElement.style.setProperty('--text3',   '#5a5a70');
+    document.documentElement.style.background = '#0a0a0f';
+    if(document.body){ document.body.style.background = '#0a0a0f'; document.body.style.color = '#e8e8f0'; }
   }
   return cfg;
 }
@@ -650,7 +668,7 @@ function _showAutoSaveDot(){
   if(!dot){
     dot = document.createElement('div');
     dot.id = '_autosave-dot';
-    dot.style.cssText = 'position:fixed;bottom:18px;left:18px;z-index:99999;display:flex;align-items:center;gap:7px;background:rgba(15,15,20,.85);backdrop-filter:blur(8px);border:1px solid rgba(79,209,165,.3);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;color:#4fd1a5;pointer-events:none;transition:opacity .4s;direction:rtl;font-family:Cairo,sans-serif';
+    dot.style.cssText = 'position:fixed;bottom:18px;left:18px;z-index:99999;display:flex;align-items:center;gap:7px;background:var(--surface);backdrop-filter:blur(8px);border:1px solid rgba(79,209,165,.3);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;color:#4fd1a5;pointer-events:none;transition:opacity .4s;direction:rtl;font-family:Cairo,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.15)';
     dot.innerHTML = '<span style="width:7px;height:7px;background:#4fd1a5;border-radius:50%;display:inline-block;animation:_asPulse .8s ease infinite"></span> تم الحفظ التلقائي';
     // أضف الـ animation
     if(!document.getElementById('_as-style')){
@@ -7893,6 +7911,34 @@ function setDisplayMode(mode) {
   document.body.classList.toggle('light-mode', mode === 'light');
   document.documentElement.classList.toggle('light-mode', mode === 'light');
   localStorage.setItem('studioDisplayMode', mode);
+
+  // ── Fix: Update inline CSS variables + background that anti-flash script sets ──
+  if(mode === 'light') {
+    document.documentElement.style.setProperty('--bg',      '#f0f2f8');
+    document.documentElement.style.setProperty('--surface', '#ffffff');
+    document.documentElement.style.setProperty('--surface2','#f5f6fb');
+    document.documentElement.style.setProperty('--surface3','#eceef5');
+    document.documentElement.style.setProperty('--border',  '#d8dae8');
+    document.documentElement.style.setProperty('--text',    '#1a1a2e');
+    document.documentElement.style.setProperty('--text2',   '#5a5a7a');
+    document.documentElement.style.setProperty('--text3',   '#9090b0');
+    document.documentElement.style.background = '#f0f2f8';
+    document.body.style.background = '#f0f2f8';
+    document.body.style.color = '#1a1a2e';
+  } else {
+    document.documentElement.style.setProperty('--bg',      '#0a0a0f');
+    document.documentElement.style.setProperty('--surface', '#111118');
+    document.documentElement.style.setProperty('--surface2','#16161f');
+    document.documentElement.style.setProperty('--surface3','#1c1c28');
+    document.documentElement.style.setProperty('--border',  '#2a2a3a');
+    document.documentElement.style.setProperty('--text',    '#e8e8f0');
+    document.documentElement.style.setProperty('--text2',   '#9090a8');
+    document.documentElement.style.setProperty('--text3',   '#5a5a70');
+    document.documentElement.style.background = '#0a0a0f';
+    document.body.style.background = '#0a0a0f';
+    document.body.style.color = '#e8e8f0';
+  }
+
   const btnDark  = document.getElementById('btn-dark-mode');
   const btnLight = document.getElementById('btn-light-mode');
   if(btnDark && btnLight) {
@@ -7909,6 +7955,9 @@ function setDisplayMode(mode) {
     clearTimeout(window._modeCloudTimer);
     if(typeof cloudSaveNow==='function') cloudSaveNow(S);
   }
+  // Force recreate styled elements so they pick up new variables
+  var _staleEls = ['_toast','_autosave-dot','sync-indicator','mini-notif'];
+  _staleEls.forEach(function(id){ var e=document.getElementById(id); if(e) e.remove(); });
 }
 
 function setThemeColor(color) {
@@ -12170,7 +12219,7 @@ function sendFollowupWA(clientId){
 function toast(msg,dur=3000){ showToast(msg,dur); }
 function showToast(msg,dur=3000){
   let t=document.getElementById('_toast');
-  if(!t){t=document.createElement('div');t.id='_toast';t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:12px;font-size:13px;font-weight:600;z-index:9999;transition:.3s;border:1px solid rgba(124,111,247,.4);opacity:0';document.body.appendChild(t);}
+  if(!t){t=document.createElement('div');t.id='_toast';t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--surface,#1a1a2e);color:var(--text,#fff);padding:10px 20px;border-radius:12px;font-size:13px;font-weight:600;z-index:9999;transition:.3s;border:1px solid rgba(124,111,247,.4);opacity:0;box-shadow:0 8px 32px rgba(0,0,0,.2)';document.body.appendChild(t);}
   t.innerHTML=msg;
   t.style.transform='translateX(-50%) translateY(0)';t.style.opacity='1';
   clearTimeout(t._to);t._to=setTimeout(()=>{t.style.transform='translateX(-50%) translateY(60px)';t.style.opacity='0';},dur);
