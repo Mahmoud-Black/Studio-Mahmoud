@@ -159,9 +159,17 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 .rev-comment{font-size:12px;color:var(--t2);line-height:1.7}
 .rev-meta{font-size:10px;color:var(--t3);margin-top:6px}
 /* LIGHT MODE */
-body.lm{--bg:#f4f5fb;--s1:#fff;--s2:#f0f1f8;--s3:#e8e9f2;--bd:rgba(0,0,0,.08);--t1:#1a1a2e;--t2:#444466;--t3:#888899}
+body.lm{--bg:#f4f5fb;--s1:#fff;--s2:#f0f1f8;--s3:#e8e9f2;--bd:rgba(0,0,0,.08);--t1:#1a1a2e;--t2:#444466;--t3:#888899;background:#f4f5fb;color:#1a1a2e}
+body.lm::before{background:radial-gradient(ellipse 70% 50% at 15% 0%,rgba(124,111,247,.06) 0%,transparent 60%)}
 body.lm .nav{background:rgba(244,245,251,.92)}
 body.lm .sheet{background:var(--s1)}
+body.lm .card{box-shadow:0 2px 12px rgba(0,0,0,.06)}
+body.lm .welcome{background:#fff;border-color:rgba(0,0,0,.08)}
+body.lm .stat{background:#fff;border-color:rgba(0,0,0,.08)}
+body.lm .svc-card{background:#fff;border-color:rgba(0,0,0,.08)}
+body.lm .inv-card{background:#f0f1f8;border-color:rgba(0,0,0,.06)}
+body.lm .rev-card{background:#f0f1f8;border-color:rgba(0,0,0,.06)}
+body.lm .ftr{border-color:rgba(0,0,0,.08)}
 </style>
 </head>
 <body>
@@ -251,7 +259,12 @@ async function _bootWithData(userId, clientId, ud){
     _ud=ud;_settings=ud.settings||{};
     const accent=_settings.accent||_settings.accentColor||'#7c6ff7';
     const accent2=_settings.accent2||_settings.accentColor2||accent;
-    if((_settings.displayMode||_settings.display_mode||'dark')==='light')document.body.classList.add('lm');
+    const _userMode = _settings.displayMode||_settings.display_mode||'dark';
+    if(_userMode==='light'){
+      document.body.classList.add('lm');
+    } else {
+      document.body.classList.remove('lm');
+    }
     document.documentElement.style.setProperty('--ac',accent);
     document.documentElement.style.setProperty('--ac2',accent2);
     // ── تحديث شاشة اللود بلون ولوجو المستخدم فوراً ──
@@ -385,6 +398,19 @@ function renderPage(){
   const _storeUn=_settings.username;
   const _storeLink=_storeUn ? (STORE_URL+'?u='+encodeURIComponent(_storeUn)) : (STORE_URL+'?uid='+(window._resolvedUid||pUid||''));
 
+  // ── Fix #9: Apply user identity (title, favicon, theme-color) ──
+  document.title = (nm || 'Ordo') + ' — بوابة العميل';
+  try{
+    var _metaTheme = document.querySelector('meta[name="theme-color"]');
+    if(!_metaTheme){ _metaTheme=document.createElement('meta'); _metaTheme.name='theme-color'; document.head.appendChild(_metaTheme); }
+    _metaTheme.content = accent;
+    if(logo){
+      var _favLink = document.querySelector("link[rel*='icon']");
+      if(!_favLink){ _favLink=document.createElement('link'); _favLink.rel='icon'; document.head.appendChild(_favLink); }
+      _favLink.href = logo;
+    }
+  }catch(e){}
+
   const lo=logo?`<div class="nav-ico"><img src="${xe(logo)}" alt=""></div>`:`<div class="nav-ico">${(nm||'S').charAt(0)}</div>`;
 
   document.getElementById('root').innerHTML=`
@@ -483,9 +509,9 @@ function renderPage(){
     <div class="tab-panel" id="tp-accounts">${renderAccounts()}</div>
     <!-- REVIEWS PANEL -->
     <div class="tab-panel" id="tp-reviews">${renderMyReviews()}</div>
-  </div>
 
   ${renderStoreSection()}
+  </div>
 
   <footer class="ftr"><div class="ftr-in">
     <span>© ${new Date().getFullYear()} ${xe(nm)}</span>
