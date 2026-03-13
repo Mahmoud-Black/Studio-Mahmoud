@@ -12141,14 +12141,15 @@ function _renderStepsFormUI(){
   const el=document.getElementById('t-steps-list');if(!el)return;
   if(!_editingSteps.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px 0">لا خطوات — اضغط + خطوة لإضافة</div>';return;}
   el.innerHTML=_editingSteps.map((s,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
       <div class="step-num ${s.done?'done':''}" onclick="toggleEditStep(${i})">${s.done?'<i class="fa-solid fa-check"></i>':i+1}</div>
-      <input class="form-input" style="flex:1;height:32px;font-size:12px" value="${s.text||''}" placeholder="وصف الخطوة..." oninput="_editingSteps[${i}].text=this.value">
+      <input class="form-input" style="flex:1;min-width:140px;height:32px;font-size:12px" value="${s.text||''}" placeholder="وصف الخطوة..." oninput="_editingSteps[${i}].text=this.value">
+      <input type="date" class="form-input" style="width:130px;height:32px;font-size:11px" value="${s.deadline||''}" oninput="_editingSteps[${i}].deadline=this.value" title="موعد تسليم الخطوة">
       <button onclick="removeEditStep(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px"><i class="fa-solid fa-xmark"></i></button>
     </div>`).join('');
 }
 function addTaskStep(){
-  _editingSteps.push({text:'',done:false});
+  _editingSteps.push({text:'',done:false,deadline:''});
   _renderStepsFormUI();
   // focus last input
   const inputs=document.querySelectorAll('#t-steps-list input');
@@ -15363,31 +15364,31 @@ function delSubscription(i){
 // TASK VIEW SWITCH
 // ============================================================
 function switchTaskView(mode){
-  // My Tasks views
-  const kanban = document.getElementById('kanban-view');
-  const list   = document.getElementById('list-view');
-  const table  = document.getElementById('table-view');
+  // My Tasks views (inside tasks-active-view)
+  var kanban = document.getElementById('kanban-view');
+  var list   = document.getElementById('list-view');
+  var table  = document.getElementById('table-view');
   // Project Tasks views
-  const pKanban = document.getElementById('project-tasks-kanban');
-  const pList   = document.getElementById('project-tasks-list');
-  const pTable  = document.getElementById('project-tasks-table-wrap');
+  var pKanban = document.getElementById('project-tasks-kanban');
+  var pList   = document.getElementById('project-tasks-list');
+  var pTable  = document.getElementById('project-tasks-table-wrap');
   // All Tasks views
-  const aKanban = document.getElementById('all-tasks-kanban');
-  const aList   = document.getElementById('all-tasks-list');
-  const aTable  = document.getElementById('all-tasks-table-wrap');
+  var aKanban = document.getElementById('all-tasks-kanban');
+  var aList   = document.getElementById('all-tasks-list');
+  var aTable  = document.getElementById('all-tasks-table-wrap');
   // Buttons
-  const kb = document.getElementById('view-kanban-btn');
-  const lb = document.getElementById('view-list-btn');
-  const tb = document.getElementById('view-table-btn');
-  const acc = 'var(--accent)';
-  // Reset all buttons
-  [kb,lb,tb].forEach(btn=>{ if(btn){ btn.style.background='transparent'; btn.style.color='var(--text3)'; } });
-  // Reset My Tasks
-  [kanban,list,table].forEach(el=>{ if(el) el.style.display='none'; });
-  // Reset Project Tasks
-  [pKanban,pList,pTable].forEach(el=>{ if(el) el.style.display='none'; });
-  // Reset All Tasks
-  [aKanban,aList,aTable].forEach(el=>{ if(el) el.style.display='none'; });
+  var kb = document.getElementById('view-kanban-btn');
+  var lb = document.getElementById('view-list-btn');
+  var tb = document.getElementById('view-table-btn');
+  var acc = 'var(--accent)';
+  // Reset buttons
+  [kb,lb,tb].forEach(function(btn){ if(btn){ btn.style.background='transparent'; btn.style.color='var(--text3)'; } });
+  // Reset My Tasks inner views
+  [kanban,list,table].forEach(function(el){ if(el) el.style.display='none'; });
+  // Reset Project Tasks inner views
+  [pKanban,pList,pTable].forEach(function(el){ if(el) el.style.display='none'; });
+  // Reset All Tasks inner views
+  [aKanban,aList,aTable].forEach(function(el){ if(el) el.style.display='none'; });
 
   if(mode==='kanban'){
     if(kanban) kanban.style.display='block';
@@ -15407,9 +15408,10 @@ function switchTaskView(mode){
     _renderTasksTable();
   }
   localStorage.setItem('studioTaskView', mode);
-  // Re-render project/all scope views in new mode
+  // Re-render the active scope
   if(_taskScope === 'project') _renderProjectTasksList();
   else if(_taskScope === 'all') _renderAllTasksList();
+  else renderTasks();
 }
 
 // ── جدول المهام الكامل مع تغيير الحالة inline ──
@@ -15464,14 +15466,33 @@ function _renderTasksTable(){
     var isDone = t.done||t.status==='done';
     var isLate = t.deadline && new Date(t.deadline)<new Date() && !isDone;
     var projLink = t.projectLink||t.driveLink||'';
-    return '<tr style="background:'+rowBg+';transition:background .12s" '
+    var hasSteps = t.steps && t.steps.length > 0;
+    var stepsHtml = '';
+    if(hasSteps){
+      stepsHtml = '<tr id="steps-row-'+t.id+'" style="display:none"><td colspan="7" style="padding:0 14px 12px 40px;background:var(--surface2);border-bottom:2px solid var(--border)">'
+        +'<div style="padding:10px 0;font-size:11px;font-weight:800;color:var(--text2);margin-bottom:4px"><i class="fa-solid fa-list-check" style="color:var(--accent);margin-left:4px"></i> خطوات المهمة ('+t.steps.filter(function(s){return s.done;}).length+'/'+t.steps.length+')</div>'
+        +t.steps.map(function(s,si){
+          var stepDone = s.done;
+          var stepLate = s.deadline && new Date(s.deadline)<new Date() && !stepDone;
+          return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px" onclick="event.stopPropagation()">'
+            +'<div onclick="toggleTaskStep('+t.id+','+si+');_renderTasksTable()" style="width:20px;height:20px;border-radius:50%;border:2px solid '+(stepDone?'var(--accent3)':'var(--border)')+';display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:10px;background:'+(stepDone?'var(--accent3)':'transparent')+';color:'+(stepDone?'#fff':'transparent')+';transition:.15s"><i class="fa-solid fa-check"></i></div>'
+            +'<div style="flex:1;'+(stepDone?'text-decoration:line-through;color:var(--text3)':'color:var(--text)')+'">'+escapeHtml(s.text||s.title||'خطوة')+'</div>'
+            +(s.deadline?'<div style="font-size:10px;font-family:var(--mono);color:'+(stepLate?'#f76f7c':'var(--text3)')+';white-space:nowrap">'+(stepLate?'<i class="fa-solid fa-triangle-exclamation" style="font-size:9px"></i> ':'')+s.deadline+'</div>':'')
+          +'</div>';
+        }).join('')
+      +'</td></tr>';
+    }
+    return '<tr style="background:'+rowBg+';transition:background .12s;cursor:pointer" '
       +'onmouseover="this.style.background=\'var(--surface3)\'" '
       +'onmouseout="this.style.background=\''+rowBg+'\'" '
-      +'onclick="openTaskDetail('+t.id+')" '
-      +'style="cursor:pointer">'
+      +'onclick="openTaskDetail('+t.id+')">'
       +'<td style="padding:10px 14px;font-weight:700;border-bottom:1px solid var(--border);max-width:220px">'
-        +'<div style="'+(isDone?'text-decoration:line-through;color:var(--text3)':'')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(t.title||'')+'</div>'
-        +(projLink&&isDone?'<div style="font-size:9px;color:var(--accent3);margin-top:2px"><i class="fa-solid fa-link"></i> رابط التسليم متاح</div>':'')
+        +'<div style="display:flex;align-items:center;gap:6px">'
+          +(hasSteps?'<button onclick="event.stopPropagation();_toggleStepsRow('+t.id+')" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:12px;padding:2px 4px;flex-shrink:0;transition:transform .2s" id="steps-arrow-'+t.id+'"><i class="fa-solid fa-chevron-down"></i></button>':'<span style="width:22px"></span>')
+          +'<div style="'+(isDone?'text-decoration:line-through;color:var(--text3)':'')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(t.title||'')+'</div>'
+        +'</div>'
+        +(hasSteps?'<div style="font-size:10px;color:var(--text3);margin-top:2px;margin-right:28px"><i class="fa-solid fa-list-check"></i> '+t.steps.filter(function(s){return s.done;}).length+'/'+t.steps.length+' خطوة</div>':'')
+        +(projLink&&isDone?'<div style="font-size:9px;color:var(--accent3);margin-top:2px;margin-right:28px"><i class="fa-solid fa-link"></i> رابط التسليم</div>':'')
       +'</td>'
       +'<td style="padding:10px 8px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);font-size:11px">'+(escapeHtml(t.client||'—'))+'</td>'
       +'<td style="padding:10px 8px;text-align:center;border-bottom:1px solid var(--border)" onclick="event.stopPropagation()">'+stSelect(t)+'</td>'
@@ -15487,8 +15508,18 @@ function _renderTasksTable(){
           +'<button data-tid="'+t.id+'" onclick="delTask(this.dataset.tid)" class="btn btn-danger btn-sm" style="padding:3px 7px;font-size:11px"><i class="fa-solid fa-trash"></i></button>'
         +'</div>'
       +'</td>'
-    +'</tr>';
+    +'</tr>' + stepsHtml;
   }).join('');
+}
+
+// Toggle steps sub-rows in table view
+function _toggleStepsRow(taskId){
+  var row = document.getElementById('steps-row-'+taskId);
+  var arrow = document.getElementById('steps-arrow-'+taskId);
+  if(!row) return;
+  var isOpen = row.style.display !== 'none';
+  row.style.display = isOpen ? 'none' : 'table-row';
+  if(arrow) arrow.style.transform = isOpen ? '' : 'rotate(180deg)';
 }
 
 function _changeRegTaskStatusFromTable(taskId, newStatus){
