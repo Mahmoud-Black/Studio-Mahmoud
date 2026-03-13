@@ -660,7 +660,7 @@ function _mergeUiSettingsIntoS(){
   try{
     if(!S || !S.settings) return;
     // ── إعدادات الواجهة ──
-    S.settings.displayMode  = localStorage.getItem('studioDisplayMode') || S.settings.displayMode || 'light';
+    S.settings.displayMode  = localStorage.getItem('studioDisplayMode') || S.settings.displayMode || 'dark';
     S.settings.accentColor  = localStorage.getItem('studioAccentColor') || S.settings.accentColor || '#7c6ff7';
     S.settings.lang         = localStorage.getItem('studioLang')        || S.settings.lang        || 'ar';
     // ── تصنيفات الخدمات والبورتفوليو ──
@@ -7434,7 +7434,7 @@ function loadSettings(){
   const unEl=document.getElementById('set-username'); if(unEl) unEl.value=s.username||'';
   _updateUsernamePreview(s.username||'');
   // Reflect current theme state in buttons
-  const mode = localStorage.getItem('studioDisplayMode') || 'light';
+  const mode = localStorage.getItem('studioDisplayMode') || 'dark';
   const color = localStorage.getItem('studioAccentColor') || '#7c6ff7';
   const lang  = localStorage.getItem('studioLang') || 'ar';
   const btnDark  = document.getElementById('btn-dark-mode');
@@ -7827,7 +7827,7 @@ function toggleDeposit(){document.getElementById('deposit-row').style.display=do
 // THEME / LANGUAGE / DARK MODE
 // ============================================================
 function toggleDarkLight() {
-  const current = localStorage.getItem('studioDisplayMode') || 'light';
+  const current = localStorage.getItem('studioDisplayMode') || 'dark';
   const next = current === 'dark' ? 'light' : 'dark';
   setDisplayMode(next);
   const btn = document.getElementById('dark-toggle-btn');
@@ -8036,7 +8036,7 @@ function applyTranslations(lang) {
 }
 
 function loadThemePreferences() {
-  const mode  = localStorage.getItem('studioDisplayMode') || 'light';
+  const mode  = localStorage.getItem('studioDisplayMode') || 'dark';
   const color = localStorage.getItem('studioAccentColor') || '#7c6ff7';
   const lang  = localStorage.getItem('studioLang') || 'ar';
   setDisplayMode(mode);
@@ -13231,7 +13231,9 @@ function migrateSFields(){
     }
     if(S.settings.displayMode){
       localStorage.setItem('studioDisplayMode', S.settings.displayMode);
-      document.body.classList.toggle('light-mode', S.settings.displayMode === 'light');
+      const isLight = S.settings.displayMode === 'light';
+      document.body.classList.toggle('light-mode', isLight);
+      document.documentElement.classList.toggle('light-mode', isLight);
     }
     S.tasks.forEach(t=>{
       if(t.workerType===undefined) t.workerType='me';
@@ -25287,6 +25289,38 @@ window.addEventListener('load', function(){
 async function _pollReviews(){
   if(!_supaUserId||!supa)return;
   try{
+    // ── Check review_queue for pending reviews submitted by clients ──
+    const {data:qRows, error:qErr} = await supa.from('review_queue')
+      .select('id, review_json, created_at')
+      .eq('target_user_id', _supaUserId)
+      .eq('processed', false)
+      .limit(50);
+
+    if(!qErr && qRows && qRows.length){
+      let changed = false;
+      if(!S.reviews) S.reviews = [];
+      for(const qRow of qRows){
+        try{
+          const rev = typeof qRow.review_json==='string' ? JSON.parse(qRow.review_json) : qRow.review_json;
+          const exists = S.reviews.find(r=>r.id===rev.id || ((r.client_name||'').toLowerCase()===(rev.client_name||'').toLowerCase() && !r.task_id));
+          if(!exists){
+            S.reviews.push(rev);
+            changed = true;
+          }
+          // Mark as processed
+          await supa.from('review_queue').update({processed:true}).eq('id', qRow.id);
+        }catch(e2){}
+      }
+      if(changed){
+        lsSave();
+        const _rb=document.getElementById('reviews-badge');
+        if(_rb){_rb.textContent=S.reviews.length;_rb.style.display=S.reviews.length?'inline-flex':'none';}
+        if(document.getElementById('page-reviews')?.classList.contains('active')) renderReviewsPage();
+        toast('⭐ وصل تقييم جديد!');
+      }
+    }
+
+    // ── Also poll studio_data directly (original logic) ──
     const {data:row}=await supa.from('studio_data').select('data').eq('user_id',_supaUserId).maybeSingle();
     if(!row?.data)return;
     let fresh=row.data; if(typeof fresh==='string')fresh=JSON.parse(fresh);
@@ -26438,7 +26472,7 @@ function _syncThemeToCloud(){
     if(typeof S === 'undefined' || !S) return;
     if(!S.settings) S.settings = {};
     S.settings.accentColor = localStorage.getItem('studioAccentColor') || '#7c6ff7';
-    S.settings.displayMode = localStorage.getItem('studioDisplayMode') || 'light';
+    S.settings.displayMode = localStorage.getItem('studioDisplayMode') || 'dark';
     if(typeof lsSave === 'function') lsSave();
     if(typeof cloudSave === 'function') cloudSave(S);
   }, 800);
