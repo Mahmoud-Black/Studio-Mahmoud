@@ -3139,30 +3139,78 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       <i class="fa-solid fa-layer-group"></i> كل المهام <span id="scope-all-count" style="background:var(--surface3);color:var(--text3);border-radius:20px;padding:1px 7px;font-size:10px;font-weight:800"></span>
     </button>
   </div>
-  
-  <!-- All Tasks View (project_tasks + tasks combined) -->
-  <div id="all-tasks-view" style="display:none">
-    <div id="all-tasks-container"></div>
-  </div>
-  
-  <!-- Project Tasks View (only project_tasks) -->
-  <div id="project-tasks-view" style="display:none">
-    <div id="project-tasks-container"></div>
-  </div>
 
-  <!-- Kanban View Toggle -->
-  <div id="tasks-active-view">
-  <!-- View toggle + progress bar: stacked layout -->
-  <div style="margin-bottom:14px">
-    <!-- View toggle: top right -->
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+  <!-- SHARED View Toggle (kanban / list / table) — works across all scope tabs -->
+  <div id="tasks-view-toggle-wrap" style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div style="display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:3px">
         <button id="view-kanban-btn" class="btn btn-ghost btn-sm" style="padding:6px 14px;font-size:12px;background:var(--accent);color:#fff;border-radius:7px" onclick="switchTaskView('kanban')"><i class="fa-solid fa-clipboard-list"></i> كانبان</button>
         <button id="view-list-btn" class="btn btn-ghost btn-sm" style="padding:6px 14px;font-size:12px;border-radius:7px" onclick="switchTaskView('list')"><i class="fa-solid fa-chart-bar"></i> قائمة</button>
         <button id="view-table-btn" class="btn btn-ghost btn-sm" style="padding:6px 14px;font-size:12px;border-radius:7px" onclick="switchTaskView('table')"><i class="fa-solid fa-table"></i> جدول</button>
       </div>
     </div>
-    <!-- Progress bar: full width -->
+  </div>
+  
+  <!-- All Tasks View (project_tasks + tasks combined) -->
+  <div id="all-tasks-view" style="display:none">
+    <div id="all-tasks-progress-wrap" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+        <span style="font-size:11px;font-weight:700;color:var(--text2)"><i class="fa-solid fa-chart-bar"></i> نسبة التقدم الكلي</span>
+        <span id="all-tasks-progress-pct" style="font-size:13px;font-weight:900;color:var(--accent)">0%</span>
+      </div>
+      <div id="all-tasks-progress-bar" style="height:10px;border-radius:6px;overflow:hidden;background:var(--surface3)"><div id="all-tasks-progress-fill" style="height:100%;background:var(--accent3);border-radius:6px;transition:width .4s"></div></div>
+    </div>
+    <div id="all-tasks-kanban" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px"></div>
+    <div id="all-tasks-list" style="display:none"></div>
+    <div id="all-tasks-table-wrap" style="display:none">
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:800;color:var(--text2)"><i class="fa-solid fa-table" style="color:var(--accent)"></i> جدول كل المهام</div>
+          <span id="all-tasks-table-count" style="font-size:11px;color:var(--text3)"></span>
+        </div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--surface2)">
+          <th style="padding:10px 14px;text-align:right;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">المهمة</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">النوع</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">الحالة</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">الديدلاين</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">المبلغ</th>
+        </tr></thead><tbody id="all-tasks-table-body"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Project Tasks View (only project_tasks) -->
+  <div id="project-tasks-view" style="display:none">
+    <div id="proj-tasks-progress-wrap" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+        <span style="font-size:11px;font-weight:700;color:var(--text2)"><i class="fa-solid fa-chart-bar"></i> نسبة تقدم مهام المشاريع</span>
+        <span id="proj-tasks-progress-pct" style="font-size:13px;font-weight:900;color:var(--accent)">0%</span>
+      </div>
+      <div id="proj-tasks-progress-bar" style="height:10px;border-radius:6px;overflow:hidden;background:var(--surface3)"><div id="proj-tasks-progress-fill" style="height:100%;background:var(--accent);border-radius:6px;transition:width .4s"></div></div>
+    </div>
+    <div id="project-tasks-kanban" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px"></div>
+    <div id="project-tasks-list" style="display:none"></div>
+    <div id="project-tasks-table-wrap" style="display:none">
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:800;color:var(--text2)"><i class="fa-solid fa-table" style="color:var(--accent)"></i> جدول مهام المشاريع</div>
+          <span id="proj-tasks-table-count" style="font-size:11px;color:var(--text3)"></span>
+        </div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--surface2)">
+          <th style="padding:10px 14px;text-align:right;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">المهمة</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">المشروع</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">الحالة</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">الديدلاين</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">المبلغ</th>
+        </tr></thead><tbody id="proj-tasks-table-body"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kanban View Toggle -->
+  <div id="tasks-active-view">
+  <!-- Progress bar: full width -->
+  <div style="margin-bottom:14px">
     <div id="tasks-progress-bar-wrap" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
         <span style="font-size:11px;font-weight:700;color:var(--text2)"><i class="fa-solid fa-chart-bar"></i> نسبة التقدم الكلي</span>
@@ -9274,6 +9322,9 @@ function _switchTaskScope(scope){
   // Render the selected scope
   if(scope === 'project') _renderProjectTasksList();
   else if(scope === 'all') _renderAllTasksList();
+  // Apply saved view mode (kanban/list/table) to the new scope
+  var savedView = localStorage.getItem('studioTaskView') || 'kanban';
+  switchTaskView(savedView);
 }
 
 function _updateScopeCounts(){
@@ -9288,103 +9339,111 @@ function _updateScopeCounts(){
 }
 
 function _renderProjectTasksList(){
-  var container = document.getElementById('project-tasks-container');
-  if(!container) return;
   var tasks = (S.project_tasks||[]).slice().sort(function(a,b){ return new Date(b.created_at||0) - new Date(a.created_at||0); });
-  if(!tasks.length){
-    container.innerHTML = '<div style="text-align:center;padding:50px 20px;color:var(--text3)"><i class="fa-solid fa-diagram-project" style="font-size:40px;opacity:.35;display:block;margin-bottom:12px"></i><div style="font-size:14px;font-weight:700;color:var(--text2);margin-bottom:5px">لا توجد مهام مشاريع</div><div>ستظهر هنا كل المهام داخل المشاريع</div></div>';
-    return;
-  }
   var projMap = {};
   (S.projects||[]).forEach(function(p){ projMap[String(p.id)] = p; });
+  var viewMode = localStorage.getItem('studioTaskView') || 'kanban';
   
-  container.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px">' + tasks.map(function(t){
+  // Progress
+  var total = tasks.length, done = tasks.filter(function(t){return t.status==='done'||t.done;}).length;
+  var pct = total ? Math.round(done/total*100) : 0;
+  var pctEl = document.getElementById('proj-tasks-progress-pct');
+  var fillEl = document.getElementById('proj-tasks-progress-fill');
+  if(pctEl) pctEl.textContent = pct+'%';
+  if(fillEl) fillEl.style.width = pct+'%';
+
+  function _card(t){
     var proj = projMap[String(t.project_id)] || {};
-    var isDone = t.status === 'done' || t.done;
-    var stLabel = isDone ? 'مكتمل' : (t.status === 'progress' ? 'جاري' : t.status === 'review' ? 'مراجعة' : t.status === 'paused' ? 'موقوف' : 'جديد');
-    var stColor = isDone ? 'var(--accent3)' : (t.status === 'progress' ? 'var(--accent2)' : t.status === 'review' ? 'var(--accent)' : t.status === 'paused' ? '#64b5f6' : 'var(--text3)');
-    var steps = t.steps||[];
-    var doneSteps = steps.filter(function(s){return s.done;}).length;
-    var prog = steps.length ? Math.round(doneSteps/steps.length*100) : (isDone?100:0);
+    var isDone = t.status==='done'||t.done;
+    var stLabel = isDone?'مكتمل':(t.status==='progress'?'جاري':t.status==='review'?'مراجعة':t.status==='paused'?'موقوف':'جديد');
+    var stColor = isDone?'var(--accent3)':(t.status==='progress'?'var(--accent2)':t.status==='review'?'var(--accent)':t.status==='paused'?'#64b5f6':'var(--text3)');
+    var steps=t.steps||[]; var ds=steps.filter(function(s){return s.done;}).length;
+    var prog=steps.length?Math.round(ds/steps.length*100):(isDone?100:0);
     return '<div class="card" style="cursor:pointer;border-right:3px solid '+stColor+'" onclick="openProjectDetail(\''+String(t.project_id)+'\')">'
-      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap">'
-        +'<div style="flex:1;min-width:0">'
-          +'<div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(124,111,247,.1);padding:2px 8px;border-radius:6px"><i class="fa-solid fa-folder-open"></i> '+(proj.name||'مشروع')+'</div>'
-          +'<div style="font-size:14px;font-weight:800;color:var(--text)">'+escapeHtml(t.title||t.name||'مهمة')+'</div>'
-        +'</div>'
-        +'<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:'+stColor+'22;color:'+stColor+'">'+stLabel+'</span>'
-      +'</div>'
-      +(t.desc?'<div style="font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+escapeHtml(t.desc)+'</div>':'')
-      +(steps.length?'<div style="height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;margin:6px 0"><div style="height:100%;width:'+prog+'%;background:var(--accent);border-radius:3px;transition:.3s"></div></div>':'')
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap"><div style="flex:1;min-width:0">'
+      +'<div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(124,111,247,.1);padding:2px 8px;border-radius:6px"><i class="fa-solid fa-folder-open"></i> '+escapeHtml(proj.name||'مشروع')+'</div>'
+      +'<div style="font-size:14px;font-weight:800;color:var(--text)">'+escapeHtml(t.title||t.name||'مهمة')+'</div></div>'
+      +'<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:'+stColor+'22;color:'+stColor+'">'+stLabel+'</span></div>'
+      +(steps.length?'<div style="height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;margin:6px 0"><div style="height:100%;width:'+prog+'%;background:var(--accent);border-radius:3px"></div></div>':'')
       +'<div style="display:flex;gap:10px;font-size:11px;color:var(--text3);flex-wrap:wrap;margin-top:6px">'
-        +(steps.length?'<span><i class="fa-solid fa-list-check"></i> '+doneSteps+'/'+steps.length+' خطوة</span>':'')
-        +(t.deadline?'<span><i class="fa-solid fa-calendar-days"></i> '+escapeHtml(t.deadline)+'</span>':'')
-        +(t.value?'<span style="color:var(--accent);font-weight:700"><i class="fa-solid fa-coins"></i> '+Number(t.value).toLocaleString()+' ج</span>':'')
-        +(t.assignee?'<span><i class="fa-solid fa-user"></i> '+escapeHtml(t.assignee)+'</span>':'')
-      +'</div>'
-    +'</div>';
-  }).join('') + '</div>';
+      +(steps.length?'<span><i class="fa-solid fa-list-check"></i> '+ds+'/'+steps.length+'</span>':'')
+      +(t.deadline?'<span><i class="fa-solid fa-calendar-days"></i> '+escapeHtml(t.deadline)+'</span>':'')
+      +(t.value?'<span style="color:var(--accent);font-weight:700"><i class="fa-solid fa-coins"></i> '+Number(t.value).toLocaleString()+' ج</span>':'')
+      +'</div></div>';
+  }
+  function _row(t){
+    var proj=projMap[String(t.project_id)]||{}; var isDone=t.status==='done'||t.done;
+    var stLabel=isDone?'مكتمل':(t.status==='progress'?'جاري':t.status==='review'?'مراجعة':t.status==='paused'?'موقوف':'جديد');
+    var stColor=isDone?'var(--accent3)':(t.status==='progress'?'var(--accent2)':t.status==='review'?'var(--accent)':t.status==='paused'?'#64b5f6':'var(--text3)');
+    return '<tr style="cursor:pointer;border-bottom:1px solid var(--border)" onclick="openProjectDetail(\''+String(t.project_id)+'\')">'
+      +'<td style="padding:10px 14px"><div style="font-weight:700">'+escapeHtml(t.title||t.name||'مهمة')+'</div></td>'
+      +'<td style="padding:10px 8px;text-align:center;font-size:11px;color:var(--accent)">'+escapeHtml(proj.name||'—')+'</td>'
+      +'<td style="padding:10px 8px;text-align:center"><span style="padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:'+stColor+'22;color:'+stColor+'">'+stLabel+'</span></td>'
+      +'<td style="padding:10px 8px;text-align:center;font-size:11px;color:var(--text3)">'+escapeHtml(t.deadline||'—')+'</td>'
+      +'<td style="padding:10px 8px;text-align:center;font-size:12px;font-weight:700;color:var(--accent)">'+(t.value?Number(t.value).toLocaleString()+' ج':'—')+'</td></tr>';
+  }
+  var empty='<div style="text-align:center;padding:50px 20px;color:var(--text3)"><i class="fa-solid fa-diagram-project" style="font-size:40px;opacity:.35;display:block;margin-bottom:12px"></i><div style="font-size:14px;font-weight:700;color:var(--text2);margin-bottom:5px">لا توجد مهام مشاريع</div></div>';
+  var k=document.getElementById('project-tasks-kanban'); if(k) k.innerHTML=tasks.length?tasks.map(_card).join(''):empty;
+  var l=document.getElementById('project-tasks-list'); if(l) l.innerHTML=tasks.length?'<div style="display:flex;flex-direction:column;gap:10px">'+tasks.map(_card).join('')+'</div>':empty;
+  var tb=document.getElementById('proj-tasks-table-body'); if(tb) tb.innerHTML=tasks.length?tasks.map(_row).join(''):'<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text3)">لا توجد مهام</td></tr>';
+  var cnt=document.getElementById('proj-tasks-table-count'); if(cnt) cnt.textContent=tasks.length+' مهمة';
 }
 
 function _renderAllTasksList(){
-  var container = document.getElementById('all-tasks-container');
-  if(!container) return;
+  var allItems=[];
+  (S.tasks||[]).forEach(function(t){ allItems.push({task:t,type:'task',projName:null}); });
+  var projMap={}; (S.projects||[]).forEach(function(p){ projMap[String(p.id)]=p; });
+  (S.project_tasks||[]).forEach(function(t){ var proj=projMap[String(t.project_id)]||{}; allItems.push({task:t,type:'project_task',projName:proj.name||'مشروع'}); });
+  allItems.sort(function(a,b){ var da=a.task.createdAt||a.task.created_at||a.task.orderDate||0; var db=b.task.createdAt||b.task.created_at||b.task.orderDate||0; return new Date(db)-new Date(da); });
   
-  // Merge regular tasks + project tasks
-  var allItems = [];
-  (S.tasks||[]).forEach(function(t){
-    allItems.push({task:t, type:'task', projName:null});
-  });
-  var projMap = {};
-  (S.projects||[]).forEach(function(p){ projMap[String(p.id)] = p; });
-  (S.project_tasks||[]).forEach(function(t){
-    var proj = projMap[String(t.project_id)] || {};
-    allItems.push({task:t, type:'project_task', projName:proj.name||'مشروع'});
-  });
-  
-  // Sort by date desc
-  allItems.sort(function(a,b){
-    var da = a.task.createdAt || a.task.created_at || a.task.orderDate || 0;
-    var db = b.task.createdAt || b.task.created_at || b.task.orderDate || 0;
-    return new Date(db) - new Date(da);
-  });
-  
-  if(!allItems.length){
-    container.innerHTML = '<div style="text-align:center;padding:50px 20px;color:var(--text3)"><i class="fa-solid fa-layer-group" style="font-size:40px;opacity:.35;display:block;margin-bottom:12px"></i><div style="font-size:14px;font-weight:700;color:var(--text2);margin-bottom:5px">لا توجد مهام</div></div>';
-    return;
-  }
-  
-  container.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px">' + allItems.map(function(item){
-    var t = item.task;
-    var isDone = t.done || t.status === 'done';
-    var stLabel = isDone ? 'مكتمل' : (t.status === 'progress' ? 'جاري' : t.status === 'review' ? 'مراجعة' : t.status === 'paused' ? 'موقوف' : 'جديد');
-    var stColor = isDone ? 'var(--accent3)' : (t.status === 'progress' ? 'var(--accent2)' : t.status === 'review' ? 'var(--accent)' : t.status === 'paused' ? '#64b5f6' : 'var(--text3)');
-    var steps = t.steps||[];
-    var doneSteps = steps.filter(function(s){return s.done;}).length;
-    var prog = steps.length ? Math.round(doneSteps/steps.length*100) : (isDone?100:0);
-    var typeTag = item.type === 'project_task'
-      ? '<div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(124,111,247,.1);padding:2px 8px;border-radius:6px"><i class="fa-solid fa-folder-open"></i> '+escapeHtml(item.projName)+'</div>'
-      : '<div style="font-size:10px;color:var(--accent2);font-weight:700;margin-bottom:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(247,201,72,.1);padding:2px 8px;border-radius:6px"><i class="fa-solid fa-clipboard-list"></i> مهمة عادية</div>';
-    var clickAction = item.type === 'project_task' 
-      ? 'openProjectDetail(\''+String(t.project_id)+'\')'
-      : 'openTaskModal('+String(t.id)+')';
-    return '<div class="card" style="cursor:pointer;border-right:3px solid '+stColor+'" onclick="'+clickAction+'">'
-      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap">'
-        +'<div style="flex:1;min-width:0">'+typeTag
-          +'<div style="font-size:14px;font-weight:800;color:var(--text)">'+escapeHtml(t.title||t.name||'مهمة')+'</div>'
-        +'</div>'
-        +'<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:'+stColor+'22;color:'+stColor+'">'+stLabel+'</span>'
-      +'</div>'
-      +(steps.length?'<div style="height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;margin:6px 0"><div style="height:100%;width:'+prog+'%;background:var(--accent);border-radius:3px;transition:.3s"></div></div>':'')
+  // Progress
+  var total=allItems.length, done=allItems.filter(function(i){return i.task.done||i.task.status==='done';}).length;
+  var pct=total?Math.round(done/total*100):0;
+  var pctEl=document.getElementById('all-tasks-progress-pct'); var fillEl=document.getElementById('all-tasks-progress-fill');
+  if(pctEl) pctEl.textContent=pct+'%'; if(fillEl) fillEl.style.width=pct+'%';
+
+  function _card(item){
+    var t=item.task; var isDone=t.done||t.status==='done';
+    var stLabel=isDone?'مكتمل':(t.status==='progress'?'جاري':t.status==='review'?'مراجعة':t.status==='paused'?'موقوف':'جديد');
+    var stColor=isDone?'var(--accent3)':(t.status==='progress'?'var(--accent2)':t.status==='review'?'var(--accent)':t.status==='paused'?'#64b5f6':'var(--text3)');
+    var steps=t.steps||[]; var ds=steps.filter(function(s){return s.done;}).length;
+    var prog=steps.length?Math.round(ds/steps.length*100):(isDone?100:0);
+    var typeTag=item.type==='project_task'
+      ?'<div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(124,111,247,.1);padding:2px 8px;border-radius:6px"><i class="fa-solid fa-folder-open"></i> '+escapeHtml(item.projName)+'</div>'
+      :'<div style="font-size:10px;color:var(--accent2);font-weight:700;margin-bottom:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(247,201,72,.1);padding:2px 8px;border-radius:6px"><i class="fa-solid fa-clipboard-list"></i> مهمة عادية</div>';
+    var click=item.type==='project_task'?'openProjectDetail(\''+String(t.project_id)+'\')':'openTaskModal('+String(t.id)+')';
+    return '<div class="card" style="cursor:pointer;border-right:3px solid '+stColor+'" onclick="'+click+'">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap"><div style="flex:1;min-width:0">'+typeTag
+      +'<div style="font-size:14px;font-weight:800;color:var(--text)">'+escapeHtml(t.title||t.name||'مهمة')+'</div></div>'
+      +'<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:'+stColor+'22;color:'+stColor+'">'+stLabel+'</span></div>'
+      +(steps.length?'<div style="height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;margin:6px 0"><div style="height:100%;width:'+prog+'%;background:var(--accent);border-radius:3px"></div></div>':'')
       +'<div style="display:flex;gap:10px;font-size:11px;color:var(--text3);flex-wrap:wrap;margin-top:6px">'
-        +(steps.length?'<span><i class="fa-solid fa-list-check"></i> '+doneSteps+'/'+steps.length+'</span>':'')
-        +(t.deadline?'<span><i class="fa-solid fa-calendar-days"></i> '+escapeHtml(t.deadline)+'</span>':'')
-        +(t.client?'<span><i class="fa-solid fa-user"></i> '+escapeHtml(t.client)+'</span>':'')
-        +(t.value?'<span style="color:var(--accent);font-weight:700"><i class="fa-solid fa-coins"></i> '+Number(t.value).toLocaleString()+' ج</span>':'')
-      +'</div>'
-    +'</div>';
-  }).join('') + '</div>';
+      +(steps.length?'<span><i class="fa-solid fa-list-check"></i> '+ds+'/'+steps.length+'</span>':'')
+      +(t.deadline?'<span><i class="fa-solid fa-calendar-days"></i> '+escapeHtml(t.deadline)+'</span>':'')
+      +(t.client?'<span><i class="fa-solid fa-user"></i> '+escapeHtml(t.client)+'</span>':'')
+      +(t.value?'<span style="color:var(--accent);font-weight:700"><i class="fa-solid fa-coins"></i> '+Number(t.value).toLocaleString()+' ج</span>':'')
+      +'</div></div>';
+  }
+  function _row(item){
+    var t=item.task; var isDone=t.done||t.status==='done';
+    var stLabel=isDone?'مكتمل':(t.status==='progress'?'جاري':t.status==='review'?'مراجعة':t.status==='paused'?'موقوف':'جديد');
+    var stColor=isDone?'var(--accent3)':(t.status==='progress'?'var(--accent2)':t.status==='review'?'var(--accent)':t.status==='paused'?'#64b5f6':'var(--text3)');
+    var typeLbl=item.type==='project_task'?'<span style="color:var(--accent)"><i class="fa-solid fa-folder-open"></i> '+escapeHtml(item.projName)+'</span>':'<span style="color:var(--accent2)"><i class="fa-solid fa-clipboard-list"></i> عادية</span>';
+    var click=item.type==='project_task'?'openProjectDetail(\''+String(t.project_id)+'\')':'openTaskModal('+String(t.id)+')';
+    return '<tr style="cursor:pointer;border-bottom:1px solid var(--border)" onclick="'+click+'">'
+      +'<td style="padding:10px 14px"><div style="font-weight:700">'+escapeHtml(t.title||t.name||'مهمة')+'</div></td>'
+      +'<td style="padding:10px 8px;text-align:center;font-size:11px">'+typeLbl+'</td>'
+      +'<td style="padding:10px 8px;text-align:center"><span style="padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:'+stColor+'22;color:'+stColor+'">'+stLabel+'</span></td>'
+      +'<td style="padding:10px 8px;text-align:center;font-size:11px;color:var(--text3)">'+escapeHtml(t.deadline||'—')+'</td>'
+      +'<td style="padding:10px 8px;text-align:center;font-size:12px;font-weight:700;color:var(--accent)">'+(t.value?Number(t.value).toLocaleString()+' ج':'—')+'</td></tr>';
+  }
+  var empty='<div style="text-align:center;padding:50px 20px;color:var(--text3)"><i class="fa-solid fa-layer-group" style="font-size:40px;opacity:.35;display:block;margin-bottom:12px"></i><div style="font-size:14px;font-weight:700;color:var(--text2);margin-bottom:5px">لا توجد مهام</div></div>';
+  var k=document.getElementById('all-tasks-kanban'); if(k) k.innerHTML=allItems.length?allItems.map(_card).join(''):empty;
+  var l=document.getElementById('all-tasks-list'); if(l) l.innerHTML=allItems.length?'<div style="display:flex;flex-direction:column;gap:10px">'+allItems.map(_card).join('')+'</div>':empty;
+  var tb=document.getElementById('all-tasks-table-body'); if(tb) tb.innerHTML=allItems.length?allItems.map(_row).join(''):'<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text3)">لا توجد مهام</td></tr>';
+  var cnt=document.getElementById('all-tasks-table-count'); if(cnt) cnt.textContent=allItems.length+' مهمة';
 }
+
 
 function renderTasks(){
   _updateScopeCounts();
@@ -15304,28 +15363,53 @@ function delSubscription(i){
 // TASK VIEW SWITCH
 // ============================================================
 function switchTaskView(mode){
+  // My Tasks views
   const kanban = document.getElementById('kanban-view');
   const list   = document.getElementById('list-view');
   const table  = document.getElementById('table-view');
+  // Project Tasks views
+  const pKanban = document.getElementById('project-tasks-kanban');
+  const pList   = document.getElementById('project-tasks-list');
+  const pTable  = document.getElementById('project-tasks-table-wrap');
+  // All Tasks views
+  const aKanban = document.getElementById('all-tasks-kanban');
+  const aList   = document.getElementById('all-tasks-list');
+  const aTable  = document.getElementById('all-tasks-table-wrap');
+  // Buttons
   const kb = document.getElementById('view-kanban-btn');
   const lb = document.getElementById('view-list-btn');
   const tb = document.getElementById('view-table-btn');
   const acc = 'var(--accent)';
-  // Reset all
-  [kanban,list,table].forEach(el=>{ if(el) el.style.display='none'; });
+  // Reset all buttons
   [kb,lb,tb].forEach(btn=>{ if(btn){ btn.style.background='transparent'; btn.style.color='var(--text3)'; } });
+  // Reset My Tasks
+  [kanban,list,table].forEach(el=>{ if(el) el.style.display='none'; });
+  // Reset Project Tasks
+  [pKanban,pList,pTable].forEach(el=>{ if(el) el.style.display='none'; });
+  // Reset All Tasks
+  [aKanban,aList,aTable].forEach(el=>{ if(el) el.style.display='none'; });
+
   if(mode==='kanban'){
     if(kanban) kanban.style.display='block';
+    if(pKanban) pKanban.style.display='grid';
+    if(aKanban) aKanban.style.display='grid';
     if(kb){ kb.style.background=acc; kb.style.color='#fff'; }
   } else if(mode==='list'){
     if(list) list.style.display='block';
+    if(pList) pList.style.display='block';
+    if(aList) aList.style.display='block';
     if(lb){ lb.style.background=acc; lb.style.color='#fff'; }
   } else if(mode==='table'){
     if(table) table.style.display='block';
+    if(pTable) pTable.style.display='block';
+    if(aTable) aTable.style.display='block';
     if(tb){ tb.style.background=acc; tb.style.color='#fff'; }
     _renderTasksTable();
   }
   localStorage.setItem('studioTaskView', mode);
+  // Re-render project/all scope views in new mode
+  if(_taskScope === 'project') _renderProjectTasksList();
+  else if(_taskScope === 'all') _renderAllTasksList();
 }
 
 // ── جدول المهام الكامل مع تغيير الحالة inline ──
