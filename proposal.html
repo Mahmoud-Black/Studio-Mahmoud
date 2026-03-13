@@ -451,7 +451,23 @@ const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
 const db = supabase.createClient(SUPA_URL, SUPA_ANON);
 
 const P     = new URLSearchParams(location.search);
-const token = P.get('token');
+// Support token from both ?token=xxx and hash-based routing
+var token = P.get('token');
+if(!token){
+  // Try extracting token from hash fragment (e.g., #/proposal?token=xxx)
+  try{
+    var hashSearch = location.hash.includes('?') ? location.hash.split('?')[1] : '';
+    if(hashSearch) token = new URLSearchParams(hashSearch).get('token');
+  }catch(e){}
+}
+// Also try from pathname for clean URL routing (e.g., /username/p/TOKEN)
+if(!token){
+  try{
+    var parts = location.pathname.split('/').filter(Boolean);
+    var pIdx = parts.indexOf('p');
+    if(pIdx >= 0 && parts[pIdx+1]) token = decodeURIComponent(parts[pIdx+1]);
+  }catch(e){}
+}
 
 var _proposal   = null;
 var _resolvedUid= null;
@@ -574,6 +590,40 @@ var _fullData = null;
 function renderPage(settings) {
   var p = _proposal;
   var cur = p.currency || 'ج.م';
+
+  // Apply user's accent color
+  var userAccent = settings.accentColor || settings.accent || '#7c6ff7';
+  document.documentElement.style.setProperty('--accent', userAccent);
+  
+  // Apply user identity (title, favicon)
+  var _userName = settings.name || settings.username || 'فريلانسر';
+  document.title = _userName + ' — عرض سعر';
+  try{
+    if(settings.logo){
+      var _favLink = document.querySelector("link[rel*='icon']");
+      if(!_favLink){ _favLink=document.createElement('link'); _favLink.rel='icon'; document.head.appendChild(_favLink); }
+      _favLink.href = settings.logo;
+    }
+    var _metaTheme = document.querySelector('meta[name="theme-color"]');
+    if(!_metaTheme){ _metaTheme=document.createElement('meta'); _metaTheme.name='theme-color'; document.head.appendChild(_metaTheme); }
+    _metaTheme.content = userAccent;
+  }catch(e){}
+
+  // Apply user's display mode
+  var userMode = settings.displayMode || settings.display_mode || 'light';
+  if(userMode === 'dark'){
+    document.documentElement.style.setProperty('--bg','#0a0d14');
+    document.documentElement.style.setProperty('--surface','#13161f');
+    document.documentElement.style.setProperty('--surface2','#1a1e2b');
+    document.documentElement.style.setProperty('--border','rgba(255,255,255,.08)');
+    document.documentElement.style.setProperty('--t1','#f0f2f8');
+    document.documentElement.style.setProperty('--t2','#9aa3bc');
+    document.documentElement.style.setProperty('--t3','#5a6380');
+    document.body.style.background = '#0a0d14';
+    document.body.style.color = '#f0f2f8';
+    var topBand = document.querySelector('.top-band');
+    if(topBand) topBand.style.background = 'linear-gradient(135deg,#0d1017 0%,#1a1e2b 100%)';
+  }
 
   // Freelancer info
   if (settings.logo) {
