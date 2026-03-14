@@ -13270,7 +13270,7 @@ function showContractDetail(id){
           ${c.status!=='signed'?`<button class="btn btn-ghost btn-sm" onclick="openContractModal('${c.id}')"><i class="fa-solid fa-pen"></i> تعديل</button>`:''}
           ${c.status!=='signed'?`<button class="btn btn-primary btn-sm" onclick="ctShare('${c.id}')"><i class="fa-solid fa-link"></i> مشاركة</button>`:''}
           ${c.status!=='signed'?`<button class="btn btn-ghost btn-sm" onclick="ctSignSelf('${c.id}')"><i class="fa-solid fa-pen-nib"></i> توقيعي</button>`:''}
-          ${c.status==='signed'?`<button class="btn btn-ghost btn-sm" onclick="ctResetClientSign('${c.id}')" title="إعادة فتح التوقيع للعميل" style="color:var(--accent2);border-color:var(--accent2)"><i class="fa-solid fa-rotate-right"></i> إعادة توقيع</button>`:''}
+          <button class="btn btn-ghost btn-sm" onclick="ctResetClientSign('${c.id}')" title="إعادة فتح التوقيع للعميل" style="color:var(--accent2);border-color:var(--accent2)"><i class="fa-solid fa-rotate-right"></i> إعادة توقيع</button>
           <button class="btn btn-ghost btn-sm" onclick="ctPrint('${c.id}')"><i class="fa-solid fa-print"></i></button>
           <button class="btn btn-danger btn-sm" onclick="ctDelete('${c.id}')"><i class="fa-solid fa-trash"></i></button>
         </div>
@@ -13366,9 +13366,7 @@ function applyContractTemplate(type){const tpl=CT_TEMPLATES[type];if(tpl){docume
 
 function ctShare(id){
   const c=ctContracts().find(x=>x.id===id);if(!c)return;
-  const _loc=window.location.href.split('?')[0].split('#')[0];
-  const _base=_loc.substring(0,_loc.lastIndexOf('/')+1);
-  const base=_base+'contract.html';
+  const base=window.location.href.split('?')[0].split('#')[0];
   // Generate token if not exists
   if(!c.token){ c.token = 'ct_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); }
   const url=base+'?ctsign='+encodeURIComponent(c.token);
