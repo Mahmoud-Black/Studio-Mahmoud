@@ -1659,12 +1659,14 @@ body.pub-page #app-body {
   }
 }
 .main {
-  padding: var(--space-xl);
+  padding: var(--space-lg) var(--space-xl);
   width: 100%;
   min-width: 0;
   overflow-x: hidden;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Prevent layout jumps on mobile ── */
@@ -1676,38 +1678,83 @@ body.pub-page #app-body {
 .page { display: none; width: 100%; }
 .page.active {
   display: block;
-  animation: pageIn .25s ease both;
+  animation: pageIn .35s cubic-bezier(.22,1,.36,1) both;
 }
 @keyframes pageIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .page-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-md);
-  margin-bottom: var(--space-lg);
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
   flex-wrap: wrap;
 }
 .page-title      { font-size: 22px; font-weight: 900; line-height: 1.2; }
 .page-title span { color: var(--accent); }
 .page-subtitle   { font-size: 13px; color: var(--text2); margin-top: 4px; }
 
-/* ── Back Arrow ── */
+/* ── Back Arrow — HIDDEN ── */
 #_page-nav-bar {
-  display:none; align-items:center;
-  margin-bottom:10px;
+  display:none !important;
 }
 .nav-back-btn {
-  display:none; align-items:center; gap:5px;
-  background:none; border:none; cursor:pointer;
-  color:var(--text3); font-size:13px; font-family:var(--font);
-  padding:4px 0; transition:color .15s;
+  display:none !important;
 }
-.nav-back-btn:hover { color:var(--accent); }
-.nav-back-btn i { font-size:14px; }
 .nav-home-btn { display:none !important; }
+
+/* ═══ BACKGROUND ANIMATION ═══ */
+.app-body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 50% 40% at 85% 15%, var(--accent, #7c6ff7)08 0%, transparent 70%),
+    radial-gradient(ellipse 40% 50% at 10% 85%, var(--accent, #7c6ff7)05 0%, transparent 70%);
+  animation: _bgShift 20s ease-in-out infinite alternate;
+}
+body.light-mode .app-body::before {
+  background:
+    radial-gradient(ellipse 50% 40% at 85% 15%, var(--accent, #7c6ff7)06 0%, transparent 70%),
+    radial-gradient(ellipse 40% 50% at 10% 85%, var(--accent, #7c6ff7)04 0%, transparent 70%);
+}
+@keyframes _bgShift {
+  0%   { opacity: .6; transform: scale(1); }
+  50%  { opacity: 1; transform: scale(1.05) translateX(-2%); }
+  100% { opacity: .7; transform: scale(1) translateX(1%); }
+}
+
+/* ═══ CARD & ELEMENT ANIMATIONS ═══ */
+.card {
+  animation: _cardIn .4s cubic-bezier(.22,1,.36,1) both;
+}
+.page.active .card:nth-child(1) { animation-delay: .05s; }
+.page.active .card:nth-child(2) { animation-delay: .1s; }
+.page.active .card:nth-child(3) { animation-delay: .15s; }
+.page.active .card:nth-child(4) { animation-delay: .2s; }
+.page.active .card:nth-child(5) { animation-delay: .25s; }
+@keyframes _cardIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Stat cards stagger */
+.stat-card, .client-card, .kb-col {
+  animation: _cardIn .4s cubic-bezier(.22,1,.36,1) both;
+}
+
+/* Smooth hover on all cards */
+.card {
+  transition: box-shadow .25s ease, transform .25s cubic-bezier(.22,1,.36,1), border-color .25s ease;
+}
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 36px rgba(0,0,0,.15);
+}
 
 
 /* ═══════════════════════════════════════════════════
@@ -3035,6 +3082,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
   <div class="page-header">
     <div><div class="page-title">أهلاً، <span id="studio-name-disp">username</span> <i class="fa-solid fa-hand-wave"></i></div><div class="page-subtitle" data-i18n="sub_dashboard">نظرة عامة على لوحة التحكم الخاصه بك</div></div>
     <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="_openMyStore()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;background:linear-gradient(135deg,var(--accent),var(--accent3));color:#fff;border:none;border-radius:10px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;transition:.2s;box-shadow:0 4px 16px rgba(124,111,247,.25)" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''"><i class="fa-solid fa-store"></i> متجري</button>
       <button onclick="_toggleDashEdit()" id="_dash-edit-btn" style="width:36px;height:36px;border-radius:10px;background:var(--surface2);border:1.5px solid var(--border);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.18s" title="تخصيص اللوحة">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </button>
@@ -4101,8 +4149,18 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
   <!-- ملخص القروض والأرصدة - يتحدث تلقائياً -->
   <div id="fin-loans-summary" style="display:none;margin-bottom:16px"></div>
 
-  <!-- فلتر الفترة الزمنية -->
-  <div class="filter-bar" style="margin-bottom:16px">
+  <!-- زرار فلترة -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+    <button id="_fin-filter-toggle" onclick="_toggleFinFilterPanel()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:12px;font-weight:700;transition:.18s;position:relative">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+      فلترة
+      <span id="_fin-filter-dot" style="display:none;position:absolute;top:5px;left:5px;width:6px;height:6px;border-radius:50%;background:var(--accent)"></span>
+    </button>
+  </div>
+
+  <!-- فلتر الفترة الزمنية (مخفي بالافتراضي) -->
+  <div id="_fin-filter-panel" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:16px;animation:pageIn .25s ease both">
+    <div class="filter-bar" style="margin:0">
     <select id="fin-filter-month" onchange="applyFinanceFilter()">
       <option value="">كل الأشهر</option>
       <option value="1">يناير</option><option value="2">فبراير</option>
@@ -4140,6 +4198,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
     </select>
     <button class="filter-reset" onclick="resetFinanceFilter()"><i class="fa-solid fa-xmark"></i> إعادة تعيين</button>
     <span id="fin-filter-label" style="font-size:12px;color:var(--accent);font-weight:700"></span>
+    </div>
   </div>
 
   <div class="grid grid-4" style="margin-bottom:16px">
@@ -7210,22 +7269,38 @@ function _shareReviewCard(clientName, stars, comment, dateStr, taskTitle){
   wrap.style.cssText='max-width:460px;width:100%;display:flex;flex-direction:column;gap:16px;align-items:center;animation:_rcSlideUp .4s cubic-bezier(.22,1,.36,1)';
   var card=document.createElement('div'); card.id='_review-share-card';
   card.style.cssText='width:100%;max-width:420px;border-radius:28px;overflow:hidden;font-family:Cairo,sans-serif;direction:rtl;position:relative';
+  // Detect system mode
+  var isLight = document.documentElement.classList.contains('light-mode');
+  var bgGrad = isLight 
+    ? 'linear-gradient(160deg,#f8f9fe 0%,#eef0f8 40%,#f4f5fb 100%)' 
+    : 'linear-gradient(160deg,#0c0e1a 0%,#12152a 40%,#0f1220 100%)';
+  var textMain = isLight ? '#1a1a2e' : '#f0f0f5';
+  var textSub = isLight ? '#666' : '#555';
+  var textMuted = isLight ? '#999' : '#3a3a4a';
+  var commentBg = isLight ? 'rgba(0,0,0,.03)' : 'rgba(255,255,255,.03)';
+  var commentBorder = isLight ? 'rgba(0,0,0,.06)' : 'rgba(255,255,255,.05)';
+  var commentText = isLight ? '#444' : '#d0d0e0';
+  var dividerColor = isLight ? 'rgba(0,0,0,.06)' : 'rgba(255,255,255,.05)';
+  var footerText = isLight ? '#aaa' : '#333';
+  var footerText2 = isLight ? '#bbb' : '#222';
+  var glowOpacity = isLight ? '06' : '12';
+
   card.innerHTML=''
-    +'<div style="background:linear-gradient(160deg,#0c0e1a 0%,#12152a 40%,#0f1220 100%);padding:40px 32px 28px;position:relative">'
-      +'<div style="position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,'+ac+'12,transparent 70%);pointer-events:none"></div>'
+    +'<div style="background:'+bgGrad+';padding:40px 32px 28px;position:relative">'
+      +'<div style="position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,'+ac+glowOpacity+',transparent 70%);pointer-events:none"></div>'
       +'<div style="position:absolute;bottom:-40px;left:-40px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(247,201,72,.04),transparent 70%);pointer-events:none"></div>'
       // 1) AVATAR
       +'<div style="text-align:center;margin-bottom:14px">'
         +'<div style="width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,'+ac+'35,'+ac+'12);border:2.5px solid '+ac+'40;display:inline-flex;align-items:center;justify-content:center;position:relative">'
           +'<i class="fa-solid fa-user" style="font-size:26px;color:'+ac+';opacity:.3;position:absolute"></i>'
-          +'<span style="font-size:28px;font-weight:900;color:#fff;position:relative;text-shadow:0 2px 8px rgba(0,0,0,.3)">'+escapeHtml(clientName.charAt(0))+'</span>'
+          +'<span style="font-size:28px;font-weight:900;color:'+(isLight?ac:'#fff')+';position:relative;text-shadow:0 2px 8px rgba(0,0,0,'+(isLight?'.1':'.3')+')">'+escapeHtml(clientName.charAt(0))+'</span>'
         +'</div>'
       +'</div>'
       // 2) NAME
       +'<div style="text-align:center;margin-bottom:4px">'
-        +'<div style="font-size:20px;font-weight:900;color:#f0f0f5">'+escapeHtml(clientName)+'</div>'
-        +(taskTitle?'<div style="font-size:11px;color:#555;margin-top:4px"><i class="fa-solid fa-briefcase" style="margin-left:4px;font-size:9px"></i>'+escapeHtml(taskTitle)+'</div>':'')
-        +(dateStr?'<div style="font-size:10px;color:#3a3a4a;margin-top:2px"><i class="fa-regular fa-calendar" style="margin-left:4px;font-size:9px"></i>'+escapeHtml(dateStr)+'</div>':'')
+        +'<div style="font-size:20px;font-weight:900;color:'+textMain+'">'+escapeHtml(clientName)+'</div>'
+        +(taskTitle?'<div style="font-size:11px;color:'+textSub+';margin-top:4px"><i class="fa-solid fa-briefcase" style="margin-left:4px;font-size:9px"></i>'+escapeHtml(taskTitle)+'</div>':'')
+        +(dateStr?'<div style="font-size:10px;color:'+textMuted+';margin-top:2px"><i class="fa-regular fa-calendar" style="margin-left:4px;font-size:9px"></i>'+escapeHtml(dateStr)+'</div>':'')
       +'</div>'
       // 3) LABEL
       +'<div style="text-align:center;margin:18px 0 12px">'
@@ -7237,17 +7312,17 @@ function _shareReviewCard(clientName, stars, comment, dateStr, taskTitle){
       +'</div>'
       // 5) COMMENT
       +(comment
-        ?'<div style="padding:18px 22px;background:rgba(255,255,255,.03);border-radius:16px;border:1px solid rgba(255,255,255,.05);margin-bottom:14px;position:relative">'
+        ?'<div style="padding:18px 22px;background:'+commentBg+';border-radius:16px;border:1px solid '+commentBorder+';margin-bottom:14px;position:relative">'
           +'<i class="fa-solid fa-quote-right" style="position:absolute;top:-6px;right:18px;font-size:18px;color:rgba(247,201,72,.2)"></i>'
-          +'<div style="font-size:15px;line-height:2;color:#d0d0e0;text-align:center;font-weight:500">'+escapeHtml(comment)+'</div>'
+          +'<div style="font-size:15px;line-height:2;color:'+commentText+';text-align:center;font-weight:500">'+escapeHtml(comment)+'</div>'
         +'</div>'
         :'')
       // DIVIDER + FOOTER
-      +'<div style="height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent);margin:12px 0"></div>'
+      +'<div style="height:1px;background:linear-gradient(90deg,transparent,'+dividerColor+',transparent);margin:12px 0"></div>'
       +'<div style="padding-top:10px;display:flex;align-items:center;justify-content:center;gap:8px">'
-        +(logo?'<img src="'+escapeHtml(logo)+'" style="height:18px;border-radius:4px;opacity:.4" onerror="this.style.display=\'none\'">':'')
-        +'<span style="font-size:10px;color:#333;font-weight:600">'+escapeHtml(nm)+'</span>'
-        +'<span style="font-size:8px;color:#222;letter-spacing:.3px">Powered by Ordo</span>'
+        +(logo?'<img src="'+escapeHtml(logo)+'" style="height:18px;border-radius:4px;opacity:.5" onerror="this.style.display=\'none\'">':'')
+        +'<span style="font-size:10px;color:'+footerText+';font-weight:600">'+escapeHtml(nm)+'</span>'
+        +'<span style="font-size:8px;color:'+footerText2+';letter-spacing:.3px">Powered by Ordo</span>'
       +'</div>'
     +'</div>';
 
@@ -11480,6 +11555,26 @@ function populateFinYears(){
   sel.value = cur;
 }
 
+function _toggleFinFilterPanel(){
+  var panel=document.getElementById('_fin-filter-panel');
+  var btn=document.getElementById('_fin-filter-toggle');
+  if(!panel) return;
+  var isOpen=panel.style.display!=='none';
+  panel.style.display=isOpen?'none':'';
+  if(btn){
+    btn.style.borderColor=isOpen?'var(--border)':'var(--accent)';
+    btn.style.color=isOpen?'var(--text2)':'var(--accent)';
+    btn.style.background=isOpen?'var(--surface2)':'rgba(124,111,247,.08)';
+  }
+}
+function _updateFinFilterDot(){
+  var dot=document.getElementById('_fin-filter-dot');
+  if(!dot) return;
+  var f=finFilterState;
+  var hasFilter=f.month||f.year||f.type||f.method||f.cat||f.project;
+  dot.style.display=hasFilter?'block':'none';
+}
+
 function applyFinanceFilter(){
   finFilterState.month   = document.getElementById('fin-filter-month')?.value||'';
   finFilterState.year    = document.getElementById('fin-filter-year')?.value||'';
@@ -11487,6 +11582,7 @@ function applyFinanceFilter(){
   finFilterState.method  = document.getElementById('fin-filter-method')?.value||'';
   finFilterState.cat     = document.getElementById('fin-filter-cat')?.value||'';
   finFilterState.project = document.getElementById('fin-filter-project')?.value||'';
+  _updateFinFilterDot();
   renderFinance();
 }
 
@@ -11495,6 +11591,7 @@ function resetFinanceFilter(){
   ['fin-filter-month','fin-filter-year','fin-filter-type','fin-filter-method','fin-filter-cat','fin-filter-project'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
   });
+  _updateFinFilterDot();
   renderFinance();
 }
 
@@ -21168,6 +21265,12 @@ function renderCorpEmployees(){
 // ═══════════════════════════════════════════════════════════════
 
 // ── Helpers ──
+// ═══ Open My Store ═══
+function _openMyStore(){
+  var link = (typeof getSvcLink === 'function') ? getSvcLink(null) : '#';
+  window.open(link, '_blank');
+}
+
 function getSvcLink(storeId){
   // ✅ دائماً ابنِ رابط store.html مباشر — الروابط القصيرة بتديك 404 على GitHub Pages
   var uid = (typeof _supaUserId!=='undefined' && _supaUserId) ? _supaUserId : '';
