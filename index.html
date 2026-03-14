@@ -6862,7 +6862,7 @@ function _propClientChange() {
 }
 
 // ── Save proposal ──
-function saveProposal(saveStatus) {
+async function saveProposal(saveStatus) {
   var title = (document.getElementById('prop-title').value||'').trim();
   if (!title) { toast('<i class="fa-solid fa-triangle-exclamation"></i> أدخل عنوان العرض'); return; }
   var items = _getPropItems();
@@ -6917,14 +6917,29 @@ function saveProposal(saveStatus) {
 
   if (saveStatus !== 'draft') {
     toast('<i class="fa-solid fa-cloud-arrow-up"></i> جارٍ الحفظ وتجهيز الرابط...');
-    // استخدم _doCloudSave مع force=true لتجاوز أي guards
-    _doCloudSave(S, true).then(function(){
-      setTimeout(function(){ _showPropLinkModal(d.token); }, 300);
-    }).catch(function(){
-      setTimeout(function(){ _showPropLinkModal(d.token); }, 300);
-    });
+    // استخدم _doCloudSave مع force=true — وانتظر التأكيد قبل عرض الرابط
+    var _saveOk = false;
+    try {
+      _saveOk = await _doCloudSave(S, true);
+    } catch(e) { console.warn('First save attempt failed:', e); }
+    
+    // لو فشل الحفظ — retry مرة تانية
+    if(!_saveOk) {
+      toast('<i class="fa-solid fa-rotate"></i> إعادة محاولة الحفظ...');
+      await new Promise(function(r){ setTimeout(r, 1500); });
+      try { _saveOk = await _doCloudSave(S, true); } catch(e) {}
+    }
+
+    // لو فشل مرتين — retry ثالثة
+    if(!_saveOk) {
+      await new Promise(function(r){ setTimeout(r, 2000); });
+      try { _saveOk = await _doCloudSave(S, true); } catch(e) {}
+    }
+    
+    setTimeout(function(){ _showPropLinkModal(d.token); }, 500);
+    if(!_saveOk) toast('<i class="fa-solid fa-triangle-exclamation" style="color:#f7c948"></i> تنبيه: قد يكون الحفظ لم يكتمل — جرب مشاركة الرابط بعد لحظة');
   } else {
-    toast('📝 تم حفظ المسودة');
+    toast('<i class="fa-solid fa-pen-to-square"></i> تم حفظ المسودة');
   }
 }
 
