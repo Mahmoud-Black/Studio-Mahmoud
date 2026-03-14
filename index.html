@@ -7189,51 +7189,65 @@ function _shareReviewCard(clientName, stars, comment, dateStr, taskTitle){
   var nm = (S.settings&&S.settings.name)||'Studio';
   var ac = (S.settings&&(S.settings.accent||S.settings.accentColor))||'#7c6ff7';
   var logo = (S.settings&&S.settings.logo)||'';
-  var starsStr = ''; for(var i=0;i<stars;i++) starsStr+='\u2B50';
   var lbl = ['','سيء جداً','مقبول','جيد','رائع','ممتاز!'][stars]||'';
   if(!document.getElementById('_rc-anim-style')){
     var sty=document.createElement('style');sty.id='_rc-anim-style';
     sty.textContent='@keyframes _rcFadeIn{from{opacity:0}to{opacity:1}}@keyframes _rcSlideUp{from{opacity:0;transform:translateY(30px) scale(.96)}to{opacity:1;transform:none}}';
     document.head.appendChild(sty);
   }
-  // Profile avatar SVG
-  var avatarSvg = '<svg viewBox="0 0 80 80" width="56" height="56" style="flex-shrink:0"><defs><linearGradient id="_avg" x1="0" y1="0" x2="80" y2="80" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="'+ac+'"/><stop offset="100%" stop-color="'+ac+'66"/></linearGradient></defs>'
-    +'<circle cx="40" cy="40" r="39" fill="url(#_avg)" opacity=".18"/><circle cx="40" cy="40" r="37" fill="none" stroke="'+ac+'" stroke-width="2.5" opacity=".35"/>'
-    +'<circle cx="40" cy="28" r="11" fill="'+ac+'" opacity=".55"/><ellipse cx="40" cy="56" rx="18" ry="13" fill="'+ac+'" opacity=".35"/>'
-    +'<text x="40" y="40" text-anchor="middle" dominant-baseline="central" fill="'+ac+'" font-size="24" font-weight="900" font-family="Cairo,sans-serif" opacity=".9">'+escapeHtml(clientName.charAt(0))+'</text></svg>';
+  // FA stars
+  var starsHtml='';
+  for(var si=0;si<5;si++){
+    starsHtml+=si<stars
+      ?'<i class="fa-solid fa-star" style="color:#f7c948;font-size:26px;filter:drop-shadow(0 2px 8px rgba(247,201,72,.35))"></i>'
+      :'<i class="fa-solid fa-star" style="color:#2a2a3a;font-size:26px"></i>';
+  }
 
-  var ov = document.createElement('div'); ov.id='_review-share-overlay';
+  var ov=document.createElement('div'); ov.id='_review-share-overlay';
   ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.82);backdrop-filter:blur(14px);display:flex;align-items:center;justify-content:center;padding:20px;animation:_rcFadeIn .25s ease';
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
-
   var wrap=document.createElement('div');
   wrap.style.cssText='max-width:460px;width:100%;display:flex;flex-direction:column;gap:16px;align-items:center;animation:_rcSlideUp .4s cubic-bezier(.22,1,.36,1)';
-
   var card=document.createElement('div'); card.id='_review-share-card';
   card.style.cssText='width:100%;max-width:420px;border-radius:28px;overflow:hidden;font-family:Cairo,sans-serif;direction:rtl;position:relative';
   card.innerHTML=''
-    +'<div style="background:linear-gradient(160deg,#0c0e1a 0%,#12152a 40%,#0f1220 100%);padding:38px 32px 30px;position:relative">'
+    +'<div style="background:linear-gradient(160deg,#0c0e1a 0%,#12152a 40%,#0f1220 100%);padding:40px 32px 28px;position:relative">'
       +'<div style="position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,'+ac+'12,transparent 70%);pointer-events:none"></div>'
       +'<div style="position:absolute;bottom:-40px;left:-40px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(247,201,72,.04),transparent 70%);pointer-events:none"></div>'
-      +'<div style="text-align:center;margin-bottom:18px;opacity:.1;font-size:52px;line-height:1;color:#f7c948">\u275D</div>'
-      +(comment
-        ?'<div style="font-size:18px;line-height:2;color:#e8e8f0;text-align:center;margin-bottom:28px;font-weight:600">'+escapeHtml(comment)+'</div>'
-        :'<div style="font-size:15px;color:#555;text-align:center;margin-bottom:28px;font-style:italic">\u2014</div>')
-      +'<div style="text-align:center;margin-bottom:24px">'
-        +'<div style="font-size:38px;letter-spacing:6px;margin-bottom:10px">'+starsStr+'</div>'
-        +'<span style="display:inline-block;background:linear-gradient(135deg,rgba(247,201,72,.18),rgba(247,201,72,.06));border:1.5px solid rgba(247,201,72,.28);border-radius:24px;padding:6px 20px;font-size:14px;font-weight:800;color:#f7c948">'+escapeHtml(lbl)+'</span>'
-      +'</div>'
-      +'<div style="height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);margin:20px 0"></div>'
-      +'<div style="display:flex;align-items:center;gap:14px;justify-content:center">'
-        +avatarSvg
-        +'<div>'
-          +'<div style="font-size:17px;font-weight:900;color:#f0f0f5;margin-bottom:3px">'+escapeHtml(clientName)+'</div>'
-          +(taskTitle?'<div style="font-size:11px;color:#666;margin-bottom:1px">'+escapeHtml(taskTitle)+'</div>':'')
-          +(dateStr?'<div style="font-size:10px;color:#444">'+escapeHtml(dateStr)+'</div>':'')
+      // 1) AVATAR
+      +'<div style="text-align:center;margin-bottom:14px">'
+        +'<div style="width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,'+ac+'35,'+ac+'12);border:2.5px solid '+ac+'40;display:inline-flex;align-items:center;justify-content:center;position:relative">'
+          +'<i class="fa-solid fa-user" style="font-size:26px;color:'+ac+';opacity:.3;position:absolute"></i>'
+          +'<span style="font-size:28px;font-weight:900;color:#fff;position:relative;text-shadow:0 2px 8px rgba(0,0,0,.3)">'+escapeHtml(clientName.charAt(0))+'</span>'
         +'</div>'
       +'</div>'
-      +'<div style="margin-top:26px;padding-top:14px;border-top:1px solid rgba(255,255,255,.04);text-align:center">'
-        +'<span style="font-size:9px;color:#2a2a3a;font-weight:600;letter-spacing:.3px">Powered by <span style="color:#3a3a4a;font-weight:800">Ordo</span></span>'
+      // 2) NAME
+      +'<div style="text-align:center;margin-bottom:4px">'
+        +'<div style="font-size:20px;font-weight:900;color:#f0f0f5">'+escapeHtml(clientName)+'</div>'
+        +(taskTitle?'<div style="font-size:11px;color:#555;margin-top:4px"><i class="fa-solid fa-briefcase" style="margin-left:4px;font-size:9px"></i>'+escapeHtml(taskTitle)+'</div>':'')
+        +(dateStr?'<div style="font-size:10px;color:#3a3a4a;margin-top:2px"><i class="fa-regular fa-calendar" style="margin-left:4px;font-size:9px"></i>'+escapeHtml(dateStr)+'</div>':'')
+      +'</div>'
+      // 3) LABEL
+      +'<div style="text-align:center;margin:18px 0 12px">'
+        +'<span style="display:inline-block;background:linear-gradient(135deg,rgba(247,201,72,.15),rgba(247,201,72,.05));border:1.5px solid rgba(247,201,72,.25);border-radius:24px;padding:6px 24px;font-size:15px;font-weight:800;color:#f7c948">'+escapeHtml(lbl)+'</span>'
+      +'</div>'
+      // 4) STARS (FA)
+      +'<div style="text-align:center;margin-bottom:20px;display:flex;gap:8px;justify-content:center;direction:ltr">'
+        +starsHtml
+      +'</div>'
+      // 5) COMMENT
+      +(comment
+        ?'<div style="padding:18px 22px;background:rgba(255,255,255,.03);border-radius:16px;border:1px solid rgba(255,255,255,.05);margin-bottom:14px;position:relative">'
+          +'<i class="fa-solid fa-quote-right" style="position:absolute;top:-6px;right:18px;font-size:18px;color:rgba(247,201,72,.2)"></i>'
+          +'<div style="font-size:15px;line-height:2;color:#d0d0e0;text-align:center;font-weight:500">'+escapeHtml(comment)+'</div>'
+        +'</div>'
+        :'')
+      // DIVIDER + FOOTER
+      +'<div style="height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent);margin:12px 0"></div>'
+      +'<div style="padding-top:10px;display:flex;align-items:center;justify-content:center;gap:8px">'
+        +(logo?'<img src="'+escapeHtml(logo)+'" style="height:18px;border-radius:4px;opacity:.4" onerror="this.style.display=\'none\'">':'')
+        +'<span style="font-size:10px;color:#333;font-weight:600">'+escapeHtml(nm)+'</span>'
+        +'<span style="font-size:8px;color:#222;letter-spacing:.3px">Powered by Ordo</span>'
       +'</div>'
     +'</div>';
 
@@ -7256,98 +7270,86 @@ function _shareReviewCard(clientName, stars, comment, dateStr, taskTitle){
 function _canvasDownloadReview(clientName,stars,comment,dateStr,taskTitle,studioName,ac,starLabel){
   var btn=document.getElementById('_rc-dl-btn');
   if(btn){btn.innerHTML='<i class="fa-solid fa-spinner fa-spin" style="margin-left:6px"></i> جاري...';btn.disabled=true;}
-
   var W=840, pad=60;
-  // Word-wrap comment
   var cLines=[];
   if(comment){
-    var cWords=comment.split(' '), cLine='', maxChars=Math.floor((W-pad*2-20)/18);
+    var cWords=comment.split(' '), cLine='', maxChars=Math.floor((W-pad*2-40)/18);
     for(var cw=0;cw<cWords.length;cw++){
       var cTest=cLine+(cLine?' ':'')+cWords[cw];
-      if(cTest.length>maxChars && cLine){cLines.push(cLine);cLine=cWords[cw];}
+      if(cTest.length>maxChars&&cLine){cLines.push(cLine);cLine=cWords[cw];}
       else cLine=cTest;
     }
     if(cLine) cLines.push(cLine);
   }
-  var cH=cLines.length?cLines.length*48+30:50;
-  var H=pad+80+cH+130+30+90+30+50+pad;
+  var cH=cLines.length?cLines.length*48+60:20;
+  // Height: pad + avatar(100) + name(50) + task(25?) + date(20?) + gap(20) + label(50) + stars(70) + comment(cH) + divider(30) + footer(30) + pad
+  var nameH=50+(taskTitle?25:0)+(dateStr?20:0);
+  var H=pad+100+nameH+20+50+70+cH+30+30+pad;
 
   var cvs=document.createElement('canvas'); cvs.width=W*2; cvs.height=H*2;
   var c=cvs.getContext('2d'); c.scale(2,2);
 
-  // BG gradient
+  // BG
   var bg=c.createLinearGradient(0,0,W*0.3,H);
   bg.addColorStop(0,'#0c0e1a'); bg.addColorStop(0.4,'#12152a'); bg.addColorStop(1,'#0f1220');
   c.fillStyle=bg; _rrect(c,0,0,W,H,28); c.fill();
-
   // Glow
   c.save(); c.globalAlpha=0.05;
   var g1=c.createRadialGradient(W*0.8,60,0,W*0.8,60,250); g1.addColorStop(0,ac); g1.addColorStop(1,'transparent');
   c.fillStyle=g1; c.fillRect(0,0,W,H);
   var g2=c.createRadialGradient(W*0.2,H-60,0,W*0.2,H-60,200); g2.addColorStop(0,'#f7c948'); g2.addColorStop(1,'transparent');
-  c.fillStyle=g2; c.fillRect(0,0,W,H);
-  c.restore();
+  c.fillStyle=g2; c.fillRect(0,0,W,H); c.restore();
 
-  var y=pad;
+  var y=pad; c.textAlign='center';
 
-  // Quote mark
-  c.save(); c.globalAlpha=0.08; c.font='bold 90px serif'; c.fillStyle='#f7c948'; c.textAlign='center';
-  c.fillText('\u201C',W/2,y+70); c.restore(); y+=90;
+  // 1) AVATAR
+  var ax=W/2, ay=y+48, ar=44;
+  var ag=c.createLinearGradient(ax-ar,ay-ar,ax+ar,ay+ar); ag.addColorStop(0,ac+'45'); ag.addColorStop(1,ac+'15');
+  c.beginPath(); c.arc(ax,ay,ar,0,Math.PI*2); c.fillStyle=ag; c.fill();
+  c.beginPath(); c.arc(ax,ay,ar-2,0,Math.PI*2); c.strokeStyle=ac+'50'; c.lineWidth=3; c.stroke();
+  c.font='bold 32px Cairo,sans-serif'; c.fillStyle='#fff'; c.textBaseline='middle';
+  c.fillText(clientName.charAt(0),ax,ay); c.textBaseline='alphabetic'; y+=105;
 
-  // Comment
-  c.textAlign='center';
+  // 2) NAME
+  c.font='bold 34px Cairo,sans-serif'; c.fillStyle='#f0f0f5';
+  c.fillText(clientName,W/2,y); y+=8;
+  if(taskTitle){y+=22; c.font='600 18px Cairo,sans-serif'; c.fillStyle='#555'; c.fillText(taskTitle,W/2,y);}
+  if(dateStr){y+=20; c.font='500 16px Cairo,sans-serif'; c.fillStyle='#3a3a4a'; c.fillText(dateStr,W/2,y);}
+  y+=28;
+
+  // 3) LABEL
+  c.font='bold 26px Cairo,sans-serif';
+  var lw=c.measureText(starLabel).width+52;
+  c.save(); c.globalAlpha=0.12; c.fillStyle='#f7c948'; _rrect(c,W/2-lw/2,y-6,lw,42,21); c.fill(); c.restore();
+  c.save(); c.globalAlpha=0.2; c.strokeStyle='#f7c948'; c.lineWidth=1.5; _rrect(c,W/2-lw/2,y-6,lw,42,21); c.stroke(); c.restore();
+  c.fillStyle='#f7c948'; c.fillText(starLabel,W/2,y+26); y+=56;
+
+  // 4) STARS (★ filled / ☆ empty)
+  c.font='52px sans-serif';
+  var mixed='';
+  for(var sm=0;sm<5;sm++){mixed+=(sm<stars?'\u2605':'\u2606');if(sm<4)mixed+=' ';}
+  c.save(); c.shadowColor='rgba(247,201,72,0.3)'; c.shadowBlur=14; c.fillStyle='#f7c948';
+  c.fillText(mixed,W/2,y+44); c.restore(); y+=70;
+
+  // 5) COMMENT
   if(cLines.length){
-    c.font='600 32px Cairo,sans-serif'; c.fillStyle='#e8e8f0';
-    for(var ci=0;ci<cLines.length;ci++) c.fillText(cLines[ci],W/2,y+ci*48);
-    y+=cLines.length*48+20;
-  } else {
-    c.font='italic 26px Cairo,sans-serif'; c.fillStyle='#555';
-    c.fillText('\u2014',W/2,y+20); y+=50;
+    var boxPad=30, boxH=cLines.length*48+30;
+    c.save(); c.globalAlpha=0.03; c.fillStyle='#fff'; _rrect(c,pad+boxPad,y-10,W-pad*2-boxPad*2,boxH,14); c.fill(); c.restore();
+    c.save(); c.globalAlpha=0.15; c.font='bold 24px sans-serif'; c.fillStyle='#f7c948'; c.textAlign='right';
+    c.fillText('\u275E',W-pad-boxPad-10,y+6); c.restore(); c.textAlign='center';
+    c.font='500 28px Cairo,sans-serif'; c.fillStyle='#d0d0e0';
+    for(var ci=0;ci<cLines.length;ci++) c.fillText(cLines[ci],W/2,y+ci*48+30);
+    y+=boxH+16;
   }
 
-  // Stars
-  c.font='68px serif';
-  var stxt=''; for(var ss=0;ss<stars;ss++) stxt+='\u2B50';
-  c.fillText(stxt,W/2,y+58); y+=80;
+  // DIVIDER
+  var dv=c.createLinearGradient(pad*3,0,W-pad*3,0);
+  dv.addColorStop(0,'rgba(255,255,255,0)'); dv.addColorStop(0.5,'rgba(255,255,255,0.05)'); dv.addColorStop(1,'rgba(255,255,255,0)');
+  c.strokeStyle=dv; c.lineWidth=1; c.beginPath(); c.moveTo(pad*3,y); c.lineTo(W-pad*3,y); c.stroke(); y+=22;
+  // FOOTER
+  c.font='600 14px Cairo,sans-serif'; c.fillStyle='#222';
+  c.fillText('Powered by Ordo',W/2,y+10);
 
-  // Label badge
-  c.font='bold 24px Cairo,sans-serif';
-  var lw=c.measureText(starLabel).width+48;
-  c.save(); c.globalAlpha=0.12; c.fillStyle='#f7c948'; _rrect(c,W/2-lw/2,y-4,lw,38,19); c.fill(); c.restore();
-  c.fillStyle='#f7c948'; c.fillText(starLabel,W/2,y+24); y+=50;
-
-  // Divider
-  var dv=c.createLinearGradient(pad*2,0,W-pad*2,0);
-  dv.addColorStop(0,'rgba(255,255,255,0)'); dv.addColorStop(0.5,'rgba(255,255,255,0.06)'); dv.addColorStop(1,'rgba(255,255,255,0)');
-  c.strokeStyle=dv; c.lineWidth=1; c.beginPath(); c.moveTo(pad*2,y); c.lineTo(W-pad*2,y); c.stroke(); y+=30;
-
-  // Avatar - profile silhouette
-  var ax=W/2+70, ay=y+28, ar=28;
-  var ag=c.createLinearGradient(ax-ar,ay-ar,ax+ar,ay+ar); ag.addColorStop(0,ac+'55'); ag.addColorStop(1,ac+'18');
-  c.beginPath(); c.arc(ax,ay,ar,0,Math.PI*2); c.fillStyle=ag; c.fill();
-  c.beginPath(); c.arc(ax,ay,ar-1.5,0,Math.PI*2); c.strokeStyle=ac+'44'; c.lineWidth=2.5; c.stroke();
-  // Head
-  c.beginPath(); c.arc(ax,ay-7,10,0,Math.PI*2); c.fillStyle=ac+'88'; c.fill();
-  // Body
-  c.beginPath(); c.ellipse(ax,ay+15,16,11,0,Math.PI,0); c.fillStyle=ac+'55'; c.fill();
-  // Initial
-  c.font='bold 20px Cairo,sans-serif'; c.fillStyle='#fff'; c.textAlign='center'; c.textBaseline='middle';
-  c.fillText(clientName.charAt(0),ax,ay); c.textBaseline='alphabetic';
-
-  // Name
-  c.textAlign='center'; c.font='bold 30px Cairo,sans-serif'; c.fillStyle='#f0f0f5';
-  c.fillText(clientName,W/2,y+24); y+=36;
-  if(taskTitle){ c.font='600 18px Cairo,sans-serif'; c.fillStyle='#666'; c.fillText(taskTitle,W/2,y+16); y+=24; }
-  if(dateStr){ c.font='500 16px Cairo,sans-serif'; c.fillStyle='#444'; c.fillText(dateStr,W/2,y+16); y+=24; }
-
-  // Footer
-  y+=20;
-  c.strokeStyle='rgba(255,255,255,0.03)'; c.lineWidth=1;
-  c.beginPath(); c.moveTo(pad*3,y); c.lineTo(W-pad*3,y); c.stroke(); y+=22;
-  c.font='600 15px Cairo,sans-serif'; c.fillStyle='#2a2a3a'; c.textAlign='center';
-  c.fillText('Powered by Ordo',W/2,y+12);
-
-  // Download
   setTimeout(function(){
     try{
       var a=document.createElement('a'); a.download='review-'+Date.now()+'.png';
