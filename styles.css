@@ -437,7 +437,7 @@ body.light-mode::before {
 }
 .app-shell, .app-body, .sidebar, .main, .page, .app-header, .bottom-nav, .modal-overlay, #auth-screen {
   position: relative;
-  z-index: 1;
+ 
 }
 body.app-loaded {
   overflow: hidden;
