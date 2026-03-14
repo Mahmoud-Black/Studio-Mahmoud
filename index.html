@@ -1582,10 +1582,13 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
         </div>
         <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--surface2)">
           <th style="padding:10px 14px;text-align:right;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">المهمة</th>
-          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">النوع</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">العميل</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">الأولوية</th>
           <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">الحالة</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">تاريخ الطلب</th>
           <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">الديدلاين</th>
           <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">المبلغ</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">إجراءات</th>
         </tr></thead><tbody id="all-tasks-table-body"></tbody></table></div>
       </div>
     </div>
@@ -1610,10 +1613,13 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
         </div>
         <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--surface2)">
           <th style="padding:10px 14px;text-align:right;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">المهمة</th>
-          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">المشروع</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">العميل</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">الأولوية</th>
           <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">الحالة</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">تاريخ الطلب</th>
           <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">الديدلاين</th>
           <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">المبلغ</th>
+          <th style="padding:10px 8px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">إجراءات</th>
         </tr></thead><tbody id="proj-tasks-table-body"></tbody></table></div>
       </div>
     </div>
@@ -3233,7 +3239,7 @@ if(new URLSearchParams(window.location.search).get('svcorder')) setTimeout(windo
       <button class="btn btn-ghost btn-sm" onclick="_markReviewsRead()" id="reviews-mark-read-btn" style="display:none"><i class="fa-solid fa-envelope-open"></i> تم القراءة</button>
       <button class="btn btn-ghost btn-sm" id="reviews-sync-btn" onclick="_syncReviewsNow(this)" title="جلب التقييمات الجديدة"><i class="fa-solid fa-rotate"></i> تحديث</button>
       <button class="btn btn-ghost btn-sm" onclick="_copyReviewLink()"><i class="fa-solid fa-link"></i> رابط التقييم</button>
-      <button class="btn btn-ghost btn-sm" onclick="_copyPublicReviewsLink()"><i class="fa-solid fa-globe"></i> صفحة التقييمات العامة</button>
+      <button class="btn btn-ghost btn-sm" onclick="_openPublicReviewsLinkModal()"><i class="fa-solid fa-globe"></i> صفحة التقييمات العامة</button>
       <button class="btn btn-primary btn-sm" onclick="_exportReviews()"><i class="fa-solid fa-download"></i> تصدير</button>
     </div>
   </div>
@@ -6970,5 +6976,163 @@ async function _pollProposalResponses() {
 }
 setInterval(_pollProposalResponses, 45000);
 setTimeout(_pollProposalResponses, 8000);
+
+// ══════════════════════════════════════════════════
+//  REVIEWS — Public link: Preview or Copy modal
+// ══════════════════════════════════════════════════
+function _openPublicReviewsLinkModal(){
+  var link = (typeof _shortPublicReviewsUrl === 'function') ? _shortPublicReviewsUrl() : '';
+  if(!link){ toast('حدد اسم المستخدم أولاً من الإعدادات'); return; }
+  var m = document.getElementById('_reviews-link-modal');
+  if(!m){
+    m = document.createElement('div');
+    m.id = '_reviews-link-modal';
+    m.style.cssText='position:fixed;inset:0;z-index:99990;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)';
+    m.innerHTML=`
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 32px;min-width:300px;max-width:90vw;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+        <div style="font-size:22px;margin-bottom:8px">🌐</div>
+        <div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px">رابط صفحة التقييمات العامة</div>
+        <div id="_rlm-url" style="font-size:11px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin:12px 0;word-break:break-all;text-align:right;direction:ltr;user-select:all"></div>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
+          <button onclick="_rlmPreview()" class="btn btn-ghost" style="flex:1;justify-content:center;gap:8px"><i class="fa-solid fa-eye"></i> معاينة</button>
+          <button onclick="_rlmCopy()" class="btn btn-primary" style="flex:1;justify-content:center;gap:8px"><i class="fa-solid fa-copy"></i> نسخ الرابط</button>
+        </div>
+        <button onclick="document.getElementById('_reviews-link-modal').style.display='none'" style="margin-top:12px;background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer">إغلاق</button>
+      </div>`;
+    m.addEventListener('click',function(e){ if(e.target===m) m.style.display='none'; });
+    document.body.appendChild(m);
+  }
+  document.getElementById('_rlm-url').textContent = link;
+  m._reviewLink = link;
+  m.style.display='flex';
+}
+function _rlmPreview(){ var m=document.getElementById('_reviews-link-modal'); if(m&&m._reviewLink) window.open(m._reviewLink,'_blank'); }
+function _rlmCopy(){
+  var m=document.getElementById('_reviews-link-modal'); if(!m||!m._reviewLink) return;
+  navigator.clipboard&&navigator.clipboard.writeText(m._reviewLink).then(function(){ toast('<i class="fa-solid fa-copy" style="color:var(--accent3)"></i> تم نسخ الرابط!'); m.style.display='none'; });
+}
+
+// ══════════════════════════════════════════════════
+//  OFFLINE MODE — Smart save queue + banner
+// ══════════════════════════════════════════════════
+(function _initOfflineMode(){
+  var _offlineQueue = [];
+  var _isOffline = !navigator.onLine;
+
+  function _showOfflineBar(show){
+    var bar = document.getElementById('_offline-bar');
+    if(!bar) return;
+    if(show){
+      bar.style.display='block';
+      bar.innerHTML='<i class="fa-solid fa-wifi-slash" style="margin-left:6px;font-size:14px"></i> أنت في وضع عدم الاتصال — سيتم حفظ التغييرات تلقائياً عند عودة الإنترنت <span id="_offline-pending" style="background:rgba(247,201,72,.2);color:#f7c948;border-radius:8px;padding:1px 8px;font-size:10px;margin-right:6px"></span>';
+    } else {
+      bar.style.display='none';
+    }
+  }
+
+  function _updatePendingCount(){
+    var el=document.getElementById('_offline-pending');
+    if(el) el.textContent=_offlineQueue.length?(_offlineQueue.length+' تغيير معلق'):'';
+  }
+
+  function _flushQueue(){
+    if(!_offlineQueue.length) return;
+    toast('<i class="fa-solid fa-cloud-arrow-up" style="color:var(--accent3)"></i> جارٍ رفع '+_offlineQueue.length+' تغيير...');
+    _offlineQueue = [];
+    if(typeof cloudSave==='function') cloudSave(window.S);
+    if(typeof lsSave==='function') lsSave();
+  }
+
+  window.addEventListener('offline',function(){
+    _isOffline=true;
+    _showOfflineBar(true);
+  });
+
+  window.addEventListener('online',function(){
+    _isOffline=false;
+    _showOfflineBar(false);
+    if(_offlineQueue.length) setTimeout(_flushQueue,1000);
+    else toast('<i class="fa-solid fa-wifi" style="color:var(--accent3)"></i> عاد الاتصال بالإنترنت');
+  });
+
+  // Intercept lsSave to queue when offline
+  if(typeof lsSave==='function'){
+    var _origLsSave = lsSave;
+    window.lsSave = function(){
+      _origLsSave.apply(this,arguments);
+      if(_isOffline){
+        _offlineQueue.push(Date.now());
+        _updatePendingCount();
+      }
+    };
+  }
+
+  // Init state
+  if(!navigator.onLine) _showOfflineBar(true);
+})();
+
+// ══════════════════════════════════════════════════
+//  REALTIME — Live notifications without refresh
+// ══════════════════════════════════════════════════
+(function _initRealtime(){
+  // Wait for supabase user session
+  var _rtRetries=0;
+  function _startRealtime(){
+    if(!window._supaUserId||!window.supa){ if(++_rtRetries<20) setTimeout(_startRealtime,2000); return; }
+    try{
+      // Notification sound using Web Audio API
+      window._playNotifSound=function(){
+        try{
+          var ctx=new(window.AudioContext||window.webkitAudioContext)();
+          var osc=ctx.createOscillator(); var gain=ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.frequency.setValueAtTime(880,ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(440,ctx.currentTime+0.15);
+          gain.gain.setValueAtTime(0.3,ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.35);
+          osc.start(ctx.currentTime); osc.stop(ctx.currentTime+0.35);
+        }catch(e){}
+      };
+
+      // Subscribe to studio_data changes for this user
+      var channel=supa.channel('rt-studio-'+_supaUserId)
+        .on('postgres_changes',{event:'UPDATE',schema:'public',table:'studio_data',filter:'user_id=eq.'+_supaUserId},function(payload){
+          try{
+            var fresh=payload.new&&payload.new.data;
+            if(typeof fresh==='string') fresh=JSON.parse(fresh);
+            if(!fresh||!fresh.tasks) return;
+            // Check for new reviews
+            var oldRevs=(window.S&&window.S.reviews)||[];
+            var newRevs=fresh.reviews||[];
+            if(newRevs.length>oldRevs.length){
+              var added=newRevs.length-oldRevs.length;
+              window._playNotifSound&&window._playNotifSound();
+              toast('<i class="fa-solid fa-star" style="color:#f7c948"></i> لديك '+added+' تقييم جديد! <button onclick="showPage(\'reviews\')" class="btn btn-ghost btn-sm" style="margin-right:8px;padding:2px 8px;font-size:10px">عرض</button>');
+            }
+            // Check for new orders
+            var oldOrds=(window.S&&window.S.svc_orders)||[];
+            var newOrds=fresh.svc_orders||[];
+            if(newOrds.length>oldOrds.length){
+              var addedOrd=newOrds.length-oldOrds.length;
+              window._playNotifSound&&window._playNotifSound();
+              toast('<i class="fa-solid fa-bell" style="color:var(--accent2)"></i> طلب خدمة جديد وصل! ('+addedOrd+') <button onclick="showPage(\'services\')" class="btn btn-ghost btn-sm" style="margin-right:8px;padding:2px 8px;font-size:10px">عرض</button>');
+            }
+            // Sync state silently
+            if(window.S){
+              window.S.reviews=fresh.reviews||window.S.reviews;
+              window.S.svc_orders=fresh.svc_orders||window.S.svc_orders;
+              window.S.proposals=fresh.proposals||window.S.proposals;
+              if(typeof renderReviews==='function') renderReviews();
+            }
+          }catch(e){}
+        })
+        .subscribe(function(status){
+          if(status==='SUBSCRIBED') console.log('[Ordo] Realtime connected ✓');
+        });
+      window._supaRtChannel=channel;
+    }catch(e){ console.warn('[Ordo] Realtime init failed:',e); }
+  }
+  setTimeout(_startRealtime,3000);
+})();
 </script>
 </body></html>

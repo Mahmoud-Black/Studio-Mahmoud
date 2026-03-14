@@ -437,7 +437,7 @@ body.light-mode::before {
 }
 .app-shell, .app-body, .sidebar, .main, .page, .app-header, .bottom-nav, .modal-overlay, #auth-screen {
   position: relative;
- 
+  
 }
 body.app-loaded {
   overflow: hidden;
@@ -618,12 +618,16 @@ body.pub-page #app-body {
   inset: 0;
   background: rgba(0,0,0,.6);
   z-index: 299;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   opacity: 0;
+  pointer-events: none;
   transition: opacity var(--transition);
 }
-.sidebar-overlay.visible { opacity: 1; }
+.sidebar-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
 
 /* ═══════════════════════════════════════════════════
    TOP HEADER
@@ -985,11 +989,13 @@ option         { background: var(--surface2); }
   z-index: 1000;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   padding: var(--space-md);
 }
-.modal-overlay.open { display: flex; }
+.modal-overlay.open {
+  display: flex;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
 .modal {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1251,7 +1257,6 @@ body.sidebar-collapsed .sidebar-overlay {
     transform: translateX(0);
     box-shadow: -8px 0 40px rgba(0,0,0,.4);
   }
-  .sidebar-overlay { display: block; }
 }
 
 /* ── Tablet portrait ── */
